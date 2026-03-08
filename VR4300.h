@@ -1,21 +1,48 @@
 #include <cstdint>
 #include "CP0.h"
 #include "FPU.h"
+#include "Bus.h"
 
 #pragma once
+
+#define CACHE_OP_STALL_TIME 2
+#define DCACHE_STALL_TIME 2
+#define ICACHE_STALL_TIME 2
+
+enum OpTypes:uint32_t{
+    NOP,
+    ICACHE,
+    DCACHE
+};
+
+enum OpFlags:uint32_t{
+    ACCESSES_DOUBLE_WORD = 1<<0,
+    ACCESSES_HALF_WORD = 1<<1,
+    ACCESSES_WORD = 1<<2,
+    WRITES_CACHE = 1<<3,
+    WRITES_REG = 1<<4,
+    CAUSED_EXCEPTION = 1<<5,
+    READS_CP0 = 1<<6,
+    READS_CACHE = 1<<7,
+    IS_STORE = 1<<8,
+    IS_LOAD = 1<<9,
+    STORES_IN_RT = 1 << 10,
+    STORES_IN_RD = 1 << 11
+};
 
 class VR4300
 {
 public:
-    VR4300();
+    VR4300(Bus& bus);
     ~VR4300();
 
     FPU fpu;
     CP0 cp0;
+    Bus& bus;
 
-    uint64_t PC = 0x00000000;
-    uint64_t HI = 0x00000000;
-    uint64_t LO = 0x00000000;
+    uint64_t PC = 0;
+    uint64_t HI = 0;
+    uint64_t LO = 0;
     uint8_t LLBit = 0;
 
     //general purpose registers
@@ -58,164 +85,243 @@ public:
         uint64_t GPR[32];
     };
 
+    struct Dcache_line{
+        bool valid = false;
+        bool dirty = false;
+        uint32_t tag;
+        uint32_t data[4];
+    };
+
+    struct Icache_line{
+        bool valid = false;
+        uint32_t tag;
+        uint32_t data[8];
+    };
+
+    Dcache_line Dcache[512]; 
+    Icache_line Icache[512];
+    
+    struct OperationTemplate{
+        void (*execute)(VR4300& cpu) = nullptr;
+        uint32_t flags = 0;
+        uint8_t multicycle = 0;
+        uint16_t instruction_type = 0;
+    };
+    
+    struct Operation : OperationTemplate{
+        Operation();
+        uint8_t rs = 0;
+        uint8_t rt = 0;
+        uint8_t rd = 0;
+        uint8_t write_destination = 0;
+        uint16_t immediate = 0;
+        uint32_t write_offset = 0;
+        uint64_t rs_val = 0;
+        uint64_t rt_val = 0;
+        uint64_t result = 0;
+        uint64_t PC = 0;
+        uint64_t dcache_index = 0;
+    };
+
+    const OperationTemplate primary_op_lut[64];
+    const OperationTemplate secondary_op_lut[64];
+    const OperationTemplate regimm_op_lut[64];
+
+    
+    Operation decode_op(uint32_t word);
+
+    struct WB_DC{
+        Operation op;
+        bool CP0I_triggered;
+    };
+
+    struct EX_DC{
+        Operation op;
+        bool DCB_triggered;
+        uint64_t data_addr;
+    };
+    struct RF_EX{
+        Operation op;
+        bool MCI_triggered;
+        bool LDI_triggered;
+    };
+    struct IC_RF{
+        bool ICB_triggered;
+        uint64_t PC;
+        uint32_t icache_index;
+    };
+
+    uint16_t stall;
     void on_clock();
 
-    //Pipeline stages. They return the amount of cycles to be stalled
-    uint8_t WB(); // write back
-    uint8_t DC(); // data cache fetch
-    uint8_t EX(); // execute
-    uint8_t RF(); // register fetch
-    uint8_t IC(); // instruction cache fetch
+    //Pipeline stages.
+    bool WB(); // write back
+    WB_DC WB_in{};
+    WB_DC DC_out{};
+    bool DC(); // data cache fetch
+    EX_DC DC_in{};
+    EX_DC EX_out{};
+    bool EX(); // execute
+    RF_EX EX_in{};
+    RF_EX RF_out{};
+    bool RF(); // register fetch
+    IC_RF RF_in{};
+    IC_RF IC_out{};
+    bool IC(); // instruction cache fetch
+
+    void submit_pipeline();
+
+    private:
+    
+};
+
 
     // Load/store instructions
-    void LB(uint32_t word);
-    void LBU(uint32_t word);
-    void LH(uint32_t word);
-    void LHU(uint32_t word);
-    void LW(uint32_t word);
-    void LWL(uint32_t word);
-    void LWR(uint32_t word);
-    void SB(uint32_t word);
-    void SH(uint32_t word);
-    void SW(uint32_t word);
-    void SWL(uint32_t word);
-    void SWR(uint32_t word);
-    void LD(uint32_t word);
-    void LDL(uint32_t word);
-    void LDR(uint32_t word);
-    void LL(uint32_t word);
-    void LLD(uint32_t word);
-    void LWU(uint32_t word);
-    void SC(uint32_t word);
-    void SCD(uint32_t word);
-    void SD(uint32_t word);
-    void SDL(uint32_t word);
-    void SDR(uint32_t word);
+    void LB(VR4300& cpu);
+    void LBU(VR4300& cpu);
+    void LH(VR4300& cpu);
+    void LHU(VR4300& cpu);
+    void LW(VR4300& cpu);
+    void LWL(VR4300& cpu); 
+    void LWR(VR4300& cpu);
+    void SB(VR4300& cpu);
+    void SH(VR4300& cpu);
+    void SW(VR4300& cpu);
+    void SWL(VR4300& cpu);
+    void SWR(VR4300& cpu);
+    void LD(VR4300& cpu);
+    void LDL(VR4300& cpu);
+    void LDR(VR4300& cpu);
+    void LL(VR4300& cpu);
+    void LLD(VR4300& cpu);
+    void LWU(VR4300& cpu);
+    void SC(VR4300& cpu);
+    void SCD(VR4300& cpu);
+    void SD(VR4300& cpu);
+    void SDL(VR4300& cpu);
+    void SDR(VR4300& cpu);
 
     //Computational instructions
-    void ADDI(uint32_t word);
-    void ADDIU(uint32_t word);
-    void SLTI(uint32_t word);
-    void SLTIU(uint32_t word);
-    void ANDI(uint32_t word);
-    void ORI(uint32_t word);
-    void XORI(uint32_t word);
-    void LUI(uint32_t word);
-    void DADDI(uint32_t word);
-    void DADDIU(uint32_t word);
-    void ADD(uint32_t word);
-    void ADDU(uint32_t word);
-    void SUB(uint32_t word);
-    void SUBU(uint32_t word);
-    void SLT(uint32_t word);
-    void SLTU(uint32_t word);
-    void AND(uint32_t word);
-    void OR(uint32_t word);
-    void XOR(uint32_t word);
-    void NOR(uint32_t word);
-    void DADD(uint32_t word);
-    void DADDU(uint32_t word);
-    void DSUB(uint32_t word);
-    void DSUBU(uint32_t word);
+    void ADDI(VR4300& cpu);
+    void ADDIU(VR4300& cpu);
+    void SLTI(VR4300& cpu);
+    void SLTIU(VR4300& cpu);
+    void ANDI(VR4300& cpu);
+    void ORI(VR4300& cpu);
+    void XORI(VR4300& cpu);
+    void LUI(VR4300& cpu);
+    void DADDI(VR4300& cpu);
+    void DADDIU(VR4300& cpu);
+    void ADD(VR4300& cpu);
+    void ADDU(VR4300& cpu);
+    void SUB(VR4300& cpu);
+    void SUBU(VR4300& cpu);
+    void SLT(VR4300& cpu);
+    void SLTU(VR4300& cpu);
+    void AND(VR4300& cpu);
+    void OR(VR4300& cpu);
+    void XOR(VR4300& cpu);
+    void NOR(VR4300& cpu);
+    void DADD(VR4300& cpu);
+    void DADDU(VR4300& cpu);
+    void DSUB(VR4300& cpu);
+    void DSUBU(VR4300& cpu);
 
     //Shift instrucitons
-    void SLL(uint32_t word);
-    void SRL(uint32_t word);
-    void SRA(uint32_t word);
-    void SLLV(uint32_t word);
-    void SRLV(uint32_t word);
-    void SRAV(uint32_t word);
-    void DSLL(uint32_t word);
-    void DSRL(uint32_t word);
-    void DSRA(uint32_t word);
-    void DSLLV(uint32_t word);
-    void DSRLV(uint32_t word);
-    void DSRAV(uint32_t word);
-    void DSLL32(uint32_t word);
-    void DSRL32(uint32_t word);
-    void DSRA32(uint32_t word);
+    void SLL(VR4300& cpu);
+    void SRL(VR4300& cpu);
+    void SRA(VR4300& cpu);
+    void SLLV(VR4300& cpu);
+    void SRLV(VR4300& cpu);
+    void SRAV(VR4300& cpu);
+    void DSLL(VR4300& cpu);
+    void DSRL(VR4300& cpu);
+    void DSRA(VR4300& cpu);
+    void DSLLV(VR4300& cpu);
+    void DSRLV(VR4300& cpu);
+    void DSRAV(VR4300& cpu);
+    void DSLL32(VR4300& cpu);
+    void DSRL32(VR4300& cpu);
+    void DSRA32(VR4300& cpu);
 
     //Multiply/Divide instructions
-    void MULT(uint32_t word);
-    void MULTU(uint32_t word);
-    void DIV(uint32_t word);
-    void DIVU(uint32_t word);
-    void MFHI(uint32_t word);
-    void MFLO(uint32_t word);
-    void MTHI(uint32_t word);
-    void MTLO(uint32_t word);
-    void DMULT(uint32_t word);
-    void DMULTU(uint32_t word);
-    void DDIV(uint32_t word);
-    void DDIVU(uint32_t word);
+    void MULT(VR4300& cpu);
+    void MULTU(VR4300& cpu);
+    void DIV(VR4300& cpu);
+    void DIVU(VR4300& cpu);
+    void MFHI(VR4300& cpu);
+    void MFLO(VR4300& cpu);
+    void MTHI(VR4300& cpu);
+    void MTLO(VR4300& cpu);
+    void DMULT(VR4300& cpu);
+    void DMULTU(VR4300& cpu);
+    void DDIV(VR4300& cpu);
+    void DDIVU(VR4300& cpu);
 
     //Jump/branch instructions
-    void J(uint32_t word);
-    void JAL(uint32_t word);
-    void JR(uint32_t word);
-    void JALR(uint32_t word);
-    void BEQ(uint32_t word);
-    void BNE(uint32_t word);
-    void BLEZ(uint32_t word);
-    void BGTZ(uint32_t word);
-    void BLTZ(uint32_t word);
-    void BGEZ(uint32_t word);
-    void BLTZAL(uint32_t word);
-    void BGEZAL(uint32_t word);
-    void BEQL(uint32_t word);
-    void BNEL(uint32_t word);
-    void BLEZL(uint32_t word);
-    void BGTZL(uint32_t word);
-    void BLTZL(uint32_t word);
-    void BGEZL(uint32_t word);
-    void BLTZALL(uint32_t word);
-    void BGEZALL(uint32_t word);
+    void J(VR4300& cpu);
+    void JAL(VR4300& cpu);
+    void JR(VR4300& cpu);
+    void JALR(VR4300& cpu);
+    void BEQ(VR4300& cpu);
+    void BNE(VR4300& cpu);
+    void BLEZ(VR4300& cpu);
+    void BGTZ(VR4300& cpu);
+    void BLTZ(VR4300& cpu);
+    void BGEZ(VR4300& cpu);
+    void BLTZAL(VR4300& cpu);
+    void BGEZAL(VR4300& cpu);
+    void BEQL(VR4300& cpu);
+    void BNEL(VR4300& cpu);
+    void BLEZL(VR4300& cpu);
+    void BGTZL(VR4300& cpu);
+    void BLTZL(VR4300& cpu);
+    void BGEZL(VR4300& cpu);
+    void BLTZALL(VR4300& cpu);
+    void BGEZALL(VR4300& cpu);
 
     //Special instructions
-    void SYNC(uint32_t word);
-    void SYSCALL(uint32_t word);
-    void BREAK(uint32_t word);
-    void TGE(uint32_t word);
-    void TGEU(uint32_t word);
-    void TLT(uint32_t word);
-    void TLTU(uint32_t word);
-    void TEQ(uint32_t word);
-    void TNE(uint32_t word);
-    void TGEI(uint32_t word);
-    void TGEIU(uint32_t word);
-    void TLTI(uint32_t word);
-    void TLTIU(uint32_t word);
-    void TEQI(uint32_t word);
-    void TNEI(uint32_t word);
+    void SYNC(VR4300& cpu);
+    void SYSCALL(VR4300& cpu);
+    void BREAK(VR4300& cpu);
+    void TGE(VR4300& cpu);
+    void TGEU(VR4300& cpu);
+    void TLT(VR4300& cpu);
+    void TLTU(VR4300& cpu);
+    void TEQ(VR4300& cpu);
+    void TNE(VR4300& cpu);
+    void TGEI(VR4300& cpu);
+    void TGEIU(VR4300& cpu);
+    void TLTI(VR4300& cpu);
+    void TLTIU(VR4300& cpu);
+    void TEQI(VR4300& cpu);
+    void TNEI(VR4300& cpu);
 
     //Coprocessor instructions
-    void LWCz(uint32_t word);
-    void SWCz(uint32_t word);
-    void MTCz(uint32_t word);
-    void MFCz(uint32_t word);
-    void CTCz(uint32_t word);
-    void CFCz(uint32_t word);
-    void COPz(uint32_t word);
-    void BCzT(uint32_t word);
-    void BCzF(uint32_t word);
-    void DMTCz(uint32_t word);
-    void DMFCz(uint32_t word);
-    void LDCz(uint32_t word);
-    void SDCz(uint32_t word);
-    void BCzTL(uint32_t word);
-    void BCzFL(uint32_t word);
+    void LWCz(VR4300& cpu);
+    void SWCz(VR4300& cpu);
+    void MTCz(VR4300& cpu);
+    void MFCz(VR4300& cpu);
+    void CTCz(VR4300& cpu);
+    void CFCz(VR4300& cpu);
+    void COPz(VR4300& cpu);
+    void BCzT(VR4300& cpu);
+    void BCzF(VR4300& cpu);
+    void DMTCz(VR4300& cpu);
+    void DMFCz(VR4300& cpu);
+    void LDCz(VR4300& cpu);
+    void SDCz(VR4300& cpu);
+    void BCzTL(VR4300& cpu);
+    void BCzFL(VR4300& cpu);
 
     //CP0 Instructions
-    void MTC0(uint32_t word);
-    void MFC0(uint32_t word);
-    void DMTC0(uint32_t word);
-    void DMFC0(uint32_t word);
-    void TLBR(uint32_t word);
-    void TLBWI(uint32_t word);
-    void TLBWR(uint32_t word);
-    void TLBP(uint32_t word);
-    void ERET(uint32_t word);
-    void CACHE(uint32_t word);
-private:
-
-};
+    void MTC0(VR4300& cpu);
+    void MFC0(VR4300& cpu);
+    void DMTC0(VR4300& cpu);
+    void DMFC0(VR4300& cpu);
+    void TLBR(VR4300& cpu);
+    void TLBWI(VR4300& cpu);
+    void TLBWR(VR4300& cpu);
+    void TLBP(VR4300& cpu);
+    void ERET(VR4300& cpu);
+    void CACHE(VR4300& cpu);
