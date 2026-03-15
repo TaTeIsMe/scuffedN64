@@ -27,7 +27,9 @@ enum OpFlags:uint32_t{
     IS_STORE = 1<<8,
     IS_LOAD = 1<<9,
     STORES_IN_RT = 1 << 10,
-    STORES_IN_RD = 1 << 11
+    STORES_IN_RD = 1 << 11,
+    IS_IN_BRANCH_DELAY = 1<<12,
+    CAUSES_BRANCH_DELAY = 1<<13
 };
 
 class VR4300
@@ -124,11 +126,17 @@ public:
     };
 
     const OperationTemplate primary_op_lut[64];
-    const OperationTemplate secondary_op_lut[64];
+    const OperationTemplate special_op_lut[64];
     const OperationTemplate regimm_op_lut[64];
 
     
-    Operation decode_op(uint32_t word);
+    void decode_op(uint32_t word);
+
+    void abort_pipeline();
+
+    void handle_tlb_miss_exception(uint64_t addr, const Operation &op, ExceptionCode cause);
+
+    void handle_general_exception(const Operation &op, ExceptionCode cause);
 
     struct WB_DC{
         Operation op;
@@ -146,8 +154,9 @@ public:
         bool LDI_triggered;
     };
     struct IC_RF{
+        bool next_op_bd;
+        Operation op;
         bool ICB_triggered;
-        uint64_t PC;
         uint32_t icache_index;
     };
 

@@ -8,7 +8,7 @@ primary_op_lut{
     {},{},{},{},{},{},{},{},
     {ADDI, WRITES_REG | STORES_IN_RT, 0, 0}
 },
-secondary_op_lut{
+special_op_lut{
     {},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},
     {ADD, WRITES_REG | STORES_IN_RD, 0, 0},
 },
@@ -22,9 +22,18 @@ VR4300::~VR4300()
 
 }
 
+//todo
 //add exceptions.
-//figure out jumps and flushes after an exception
-//add branch delay slot handling
+// instruction address error when address sapces are done
+// interrupts and their exceptions
+// all exception caused by operations will be added with them
+// address space exceptions will be added with them
+// fpu exceptions will be added with it
+// reset exceptions
+// wrong operation is lethal anyway so skip for now
+//add virtual address spaces
+//add tlb translation logic
+//add all the operations and populate the lut
 void VR4300::on_clock()
 {
     std::cout << "stall" << stall << "\n";
@@ -42,9 +51,11 @@ void VR4300::on_clock()
     if (IC())return;
     if (WB())return;
     //submit pipeline makes sure that cpu state only changes if there were no interlocks
+    // this causes the order of stages arbitrary
     submit_pipeline();
 }
 
+//Pipeline writeback stage
 bool VR4300::WB()
 {
     auto& in  = WB_in;
@@ -64,6 +75,7 @@ bool VR4300::WB()
     return false;
 }
 
+//Pipeline data cache stage
 bool VR4300::DC()
 {
     std::cout << "entered_DC \n";
@@ -92,25 +104,30 @@ bool VR4300::DC()
         uint64_t data_p_addr;
         if(tlb_result.miss){
             //tlb miss exception
-            if(in.op.flags & IS_STORE) cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,3); //TLBS
-            else cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,2); //TLBL;
-            cp0.badVAddr = in.data_addr;
-            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.data_addr >> 13); 
-            cp0.xcontext = cp0.set_bits(cp0.xcontext,CONTEXT_BADVPN2_MASK,in.data_addr >> 13); // make sure 13 is right here (bits 31:13 of v_addr)
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.data_addr >> 13);
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_ASID_MASK,tlb_result.asid);
-            uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
-            cp0.EPC = in.op.PC; //unless in branch delay, then next instruction's PC and BD is set todo
-            if(EXL){
-                //jump to common exception addr
-            }else{
-                //jump to one of two special addr
-            }
+            if(in.op.flags & IS_STORE) handle_tlb_miss_exception(in.data_addr, in.op, TLBS);
+            else handle_tlb_miss_exception(in.data_addr, in.op, TLBL);
+            
             return true;
 
-        }else{
-            data_p_addr = tlb_result.p_addr;
         }
+        if(!tlb_result.valid){
+            cp0.badVAddr = in.data_addr;
+            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.data_addr >> 13); 
+            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.data_addr >> 13);
+            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.data_addr >> 13);
+            if(in.op.flags & IS_STORE) handle_general_exception(in.op, TLBS);
+            else handle_general_exception(in.op, TLBL);
+            return true;
+        }
+        if(!tlb_result.dirty && in.op.flags & IS_STORE){
+            cp0.badVAddr = in.data_addr;
+            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.data_addr >> 13); 
+            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.data_addr >> 13);
+            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.data_addr >> 13);
+            handle_general_exception(in.op, Mod);
+            return true;
+        }
+        data_p_addr = tlb_result.p_addr;
         in.op.dcache_index = (in.data_addr & 0x1FF0) >> 4;
 
         //DADE
@@ -121,14 +138,20 @@ bool VR4300::DC()
             (in.op.flags & ACCESSES_HALF_WORD && data_p_addr % 2 != 0)
             // or wrong mode (user, kernel, supervisor) todo
         ){
-            if(in.op.flags & IS_STORE)cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,5); //AdES
-            else cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,4); //AdEl;
             cp0.badVAddr = in.data_addr;
-            cp0.EPC = in.op.PC; //unless in branch delay, then next instruction's PC and BD is set todo
-            //jump to vector
-
+            if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
+            else handle_general_exception(in.op,AdEL);
+            return true;
         }
 
+        if((cp0.watchLo & WATCHLO_R_MASK) && ((data_p_addr >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
+            handle_general_exception(in.op,WATCH);
+            return true;
+        }
+        if((cp0.watchLo & WATCHLO_W_MASK) && ((data_p_addr >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_STORE)){
+            handle_general_exception(in.op,WATCH);
+            return true;
+        }
         Dcache_line& line = Dcache[in.op.dcache_index];
         bool cache_hit = ((data_p_addr >> 12) == line.tag);
         
@@ -168,6 +191,7 @@ bool VR4300::DC()
     return false;
 }
 
+//Pipeline execute stage
 bool VR4300::EX()
 {
     std::cout << "entered_EX \n";
@@ -218,6 +242,7 @@ bool VR4300::EX()
     return false;
 }
 
+//Pipeline register fetch stage
 bool VR4300::RF()
 {
     std::cout << "entered_RF \n";
@@ -231,31 +256,30 @@ bool VR4300::RF()
     // get values of registers to be messed with
     // increment PC
     //a lot of code below is bloated by exceptions and interlocks
-
-    //add microtlb miss in the future
-    CP0::TLB_Result tlb_result = cp0.tlb_translate(in.PC);
-    uint64_t PC_p;
     
+    //add microtlb miss in the future
+    if(in.next_op_bd){
+        in.op.flags = in.op.flags | IS_IN_BRANCH_DELAY;
+        in.next_op_bd = false;
+    }else in.op.flags = in.op.flags & ~IS_IN_BRANCH_DELAY;
+
+    CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.PC);
+    uint64_t PC_p;
     if(tlb_result.miss){
         //tlb miss exception
-        cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,2); //TLBL;
-        cp0.badVAddr = in.PC;
-        cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.PC >> 13); 
-        cp0.xcontext = cp0.set_bits(cp0.xcontext,CONTEXT_BADVPN2_MASK,in.PC >> 13); // make sure 13 is right here (bits 31:13 of v_addr)
-        cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.PC >> 13);
-        cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_ASID_MASK,tlb_result.asid);
-        uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
-        cp0.EPC = in.PC; //unless in branch delay, then next instruction's PC and BD is set todo
-        if(EXL){
-            //jump to common exception addr
-        }else{
-            //jump to one of two special addr
-        }
-
-    }else{
-        PC_p = tlb_result.p_addr;
+        handle_tlb_miss_exception(in.op.PC, in.op, TLBL);
+        return true;
     }
-
+    if(!tlb_result.valid){
+        cp0.badVAddr = in.op.PC;
+        cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.PC >> 13); 
+        cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.PC>> 13);
+        cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.PC >> 13);
+        handle_general_exception(in.op, TLBL);
+        return true;
+    }
+    PC_p = tlb_result.p_addr;
+    
     uint8_t offset = (PC_p >> 2) & 0x7;
     Icache_line& line = Icache[in.icache_index];
     if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered){
@@ -274,13 +298,15 @@ bool VR4300::RF()
         line.valid = true;
     }
     uint32_t op_code = line.data[offset];
-    out.op = decode_op(op_code);
-    out.op.rs_val = GPR[out.op.rs];
-    out.op.rt_val = GPR[out.op.rt];
+    decode_op(op_code);
+    if(in.op.flags & CAUSES_BRANCH_DELAY) in.next_op_bd = true;
+
     PC += 4;
+    out.op = in.op;
     return false;
 }
 
+//Pipeline instruction cache stage
 bool VR4300::IC()
 {
     std::cout << "entered_IC \n";
@@ -289,6 +315,7 @@ bool VR4300::IC()
     //it's comical how little it does
 
     IC_out.icache_index = (PC & 0x3FE0) >> 5;
+    IC_out.op.PC = PC;
     return false;
 }
 
@@ -299,35 +326,33 @@ void VR4300::submit_pipeline(){
     WB_in = DC_out;
 }
 
-VR4300::Operation VR4300::decode_op(uint32_t word)
+void VR4300::decode_op(uint32_t word)
 {
     uint8_t opcode = word >> 26;
 
     const OperationTemplate* tmplt;
 
     if(opcode == 0)
-        tmplt = &secondary_op_lut[word & 0x3F];
+        tmplt = &special_op_lut[word & 0x3F];
     else if(opcode == 1)
         tmplt = &regimm_op_lut[(word >> 16) & 0x1F];
     else
         tmplt = &primary_op_lut[opcode];
 
-    Operation op;
+    Operation& op = RF_in.op;
 
     op.execute = tmplt->execute;
     op.multicycle = tmplt->multicycle;
-    op.flags = tmplt->flags;
+    op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
 
     op.rs = (word >> 21) & 31;
     op.rt = (word >> 16) & 31;
     op.rd = (word >> 11) & 31;
     if(op.flags & STORES_IN_RD) op.write_destination = op.rd;
     else if(op.flags & STORES_IN_RT) op.write_destination = op.rt;
-    op.immediate = word & 0xFF;
-
-    op.PC = PC;
-
-    return op;
+    op.immediate = (int16_t)(word & 0xFFFF);
+    op.rs_val = GPR[op.rs];
+    op.rt_val = GPR[op.rt];
 }
 
 void ADD(VR4300 &cpu)
@@ -343,4 +368,70 @@ void ADDI(VR4300 &cpu)
 VR4300::Operation::Operation()
 {
     execute = ADD;
+}
+
+void VR4300::abort_pipeline() {
+    RF_in = {};
+    EX_in = {};
+    DC_in = {};
+    WB_in = {};
+
+    RF_out = {};
+    EX_out = {};
+    DC_out = {};
+    IC_out = {};
+    stall = 0; // maybe
+}
+
+void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause){
+    abort_pipeline();
+    //this is literally just the flow chart from page 203 copied
+    cp0.badVAddr = addr;
+    cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause);
+    cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,addr >> 13); 
+    cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,addr >> 13);
+    cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,addr >> 13);
+    uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
+    uint16_t jump_offset;
+
+    if(!EXL){
+        if(op.flags & IS_IN_BRANCH_DELAY){
+            cp0.EPC = op.PC - 4;
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1);
+        } else{
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0);
+            cp0.EPC = op.PC;
+        }
+        if(xmode) jump_offset=0x0080;
+        else      jump_offset=0x0000;
+    }else{
+        jump_offset=0x180; // says 80 in flow chart but 180 in description. 180 makes more sense prolly
+    }
+    cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1);
+    uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
+    PC = jump_base + jump_offset;
+}
+
+//outside of this:
+//set ce when coprocessor
+//set fp status registers
+//set tlb related registers 
+//set badvaddr
+void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
+    abort_pipeline();
+    cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause);
+
+    uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
+    if(!EXL){
+        if(op.flags & IS_IN_BRANCH_DELAY){
+            cp0.EPC = op.PC - 4;
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1);
+        } else{
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0);
+            cp0.EPC = op.PC;
+        }
+    }
+    cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1);
+    uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
+    PC = jump_base + 0x0180;
 }

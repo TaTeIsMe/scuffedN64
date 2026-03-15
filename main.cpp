@@ -2,6 +2,9 @@
 #include "VR4300.h"
 #include "Bus.h"
 
+//finish cpu
+//make scuffed periferals
+
 int main(){
     std::cout << "hello world!\n";
     uint8_t memory[1024] = {
