@@ -24,10 +24,10 @@ VR4300::~VR4300()
 }
 
 //todo
+//in Operations.cpp some op.results might need changing to op.write_destination
 //make sure next_op_branchdelay is working correctly
 //writing back to memory on cache miss and CACHE
 //entire CACHE operation
-//make sure RF pc incrementation doesn't fuck with jump instructions
 //make sure data access ops access the correct size instead of always writing/loading a word
 //make sure resultHI and resultLo are correctly handled on some ops
 //add writing to coprocessors
@@ -68,10 +68,20 @@ bool VR4300::WB()
     auto& in = WB_in;
     //what WB does is:
     // write back. just as the name suggests really
+    if(in.op.flags & IS_STORE){
+        if(in.cacheable){
+            if(in.op.flags & ACCESSES_BYTE){
 
-    if(in.op.flags & WRITES_DATA && in.cacheable) Dcache[in.op.dcache_index].data[in.op.write_offset] = in.op.result;
-    if(in.op.flags & WRITES_DATA && !in.cacheable) bus.write_word(in.op.write_destination,in.op.result);
-    if(in.op.flags & WRITES_REG  && in.op.write_destination != 0) GPR[in.op.write_destination] = in.op.result;
+            }
+        }
+        if(!in.cacheable){
+
+        }
+    }
+
+    if(in.op.flags & WRITES_DATA && in.cacheable) Dcache[in.op.dcache_index].data[(in.op.data_addr_p>>2)&0x3] = in.op.result;
+    if(in.op.flags & WRITES_DATA && !in.cacheable) bus.write_word(in.op.data_addr_p,in.op.result);
+    if(in.op.flags & WRITES_REG  && in.op.data_addr != 0) GPR[in.op.data_addr] = in.op.result;
 
     if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
     {
@@ -113,72 +123,70 @@ bool VR4300::DC()
         return false;
     }   
 
-    uint32_t data_p_addr;
-
-    const CP0::Segment& segment = cp0.get_segment(in.op.result);
+    const CP0::Segment& segment = cp0.get_segment(in.op.data_addr);
     bool cacheable = segment.cacheable;
     
     if(segment.tlb_mapped){
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.result);
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.data_addr);
         if(tlb_result.miss){
             //tlb miss exception
-            if(in.op.flags & IS_STORE) handle_tlb_miss_exception(in.op.result, in.op, TLBS);
-            else handle_tlb_miss_exception(in.op.result, in.op, TLBL);
+            if(in.op.flags & IS_STORE) handle_tlb_miss_exception(in.op.data_addr, in.op, TLBS);
+            else handle_tlb_miss_exception(in.op.data_addr, in.op, TLBL);
             return true;
 
         }
         if(!tlb_result.valid){
-            cp0.badVAddr = in.op.result;
-            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.result >> 13); 
-            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.result >> 13);
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.result >> 13);
+            cp0.badVAddr = in.op.data_addr;
+            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.data_addr >> 13); 
+            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.data_addr >> 13);
+            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.data_addr >> 13);
             if(in.op.flags & IS_STORE) handle_general_exception(in.op, TLBS);
             else handle_general_exception(in.op, TLBL);
             return true;
         }
         if(!tlb_result.dirty && in.op.flags & IS_STORE){
-            cp0.badVAddr = in.op.result;
-            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.result >> 13); 
-            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.result >> 13);
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.result >> 13);
+            cp0.badVAddr = in.op.data_addr;
+            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.data_addr >> 13); 
+            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.data_addr >> 13);
+            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.data_addr >> 13);
             handle_general_exception(in.op, Mod);
             return true;
         }
 
-        data_p_addr = tlb_result.p_addr;
+        in.op.data_addr_p = tlb_result.p_addr;
         cacheable = tlb_result.cache;
-    }else data_p_addr = in.op.result - segment.translation_offset;
-    in.op.dcache_index = (in.op.result & 0x1FF0) >> 4;
+    }else in.op.data_addr_p = in.op.data_addr - segment.translation_offset;
+    in.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
 
     //DADE
     if(
         //missaligned access
-        (in.op.flags & ACCESSES_DOUBLE_WORD && data_p_addr % 8 != 0) ||
-        (in.op.flags & ACCESSES_WORD && data_p_addr % 4 != 0) ||
-        (in.op.flags & ACCESSES_HALF_WORD && data_p_addr % 2 != 0) ||
+        (in.op.flags & ACCESSES_DOUBLE_WORD && in.op.data_addr_p % 8 != 0) ||
+        (in.op.flags & ACCESSES_WORD && in.op.data_addr_p % 4 != 0) ||
+        (in.op.flags & ACCESSES_HALF_WORD && in.op.data_addr_p % 2 != 0) ||
         // or wrong mode (user, kernel, supervisor)
         (cp0.in_user_mode() && !segment.user_accesible) ||
         (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
         (cp0.in_kernel_mode() && !segment.kernel_accesible)
     ){
-        cp0.badVAddr = in.op.result;
+        cp0.badVAddr = in.op.data_addr;
         if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
         else handle_general_exception(in.op,AdEL);
         return true;
     }
 
-    if((cp0.watchLo & WATCHLO_R_MASK) && ((data_p_addr >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
+    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
         handle_general_exception(in.op,WATCH);
         return true;
     }
-    if((cp0.watchLo & WATCHLO_W_MASK) && ((data_p_addr >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_STORE)){
+    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_STORE)){
         handle_general_exception(in.op,WATCH);
         return true;
     }
 
     if(cacheable){
         Dcache_line& line = Dcache[in.op.dcache_index];
-        bool cache_hit = ((data_p_addr >> 12) == line.tag);
+        bool cache_hit = ((in.op.data_addr_p >> 12) == line.tag);
 
         if(WB_in.op.flags & WRITES_DATA && cache_hit && !in.DCB_triggered){
             //DCB on hit
@@ -194,18 +202,18 @@ bool VR4300::DC()
             return true;
         }else if(in.DCB_triggered){
             //update dcache
-            uint64_t line_start_addr = data_p_addr & ~0xF;
+            uint64_t line_start_addr = in.op.data_addr_p & ~0xF;
             for (int i = 0; i < 4; i++)
             {
                 line.data[i] = bus.read_word(line_start_addr + i * 4);
             }
-            line.tag = data_p_addr >> 12;
+            line.tag = in.op.data_addr_p >> 12;
             line.valid = true;
         }
 
         if(in.op.flags & READS_DATA){
             //fetch data from the cache to put in a reg
-            uint8_t offset = (in.op.result >> 2) & 0x3;
+            uint8_t offset = (in.op.data_addr >> 2) & 0x3;
             in.op.result = line.data[offset];
         }else if(in.op.flags & WRITES_DATA){
             //nothing, WB is the write stage
@@ -217,8 +225,8 @@ bool VR4300::DC()
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
-            if(in.op.flags & READS_DATA) in.op.result = bus.read_word(data_p_addr);
-            if(in.op.flags & WRITES_DATA){in.op.write_destination = data_p_addr; out.cacheable = false;}
+            if(in.op.flags & READS_DATA) in.op.result = bus.read_word(in.op.data_addr_p);
+            if(in.op.flags & WRITES_DATA){in.op.data_addr = in.op.data_addr_p; out.cacheable = false;}
         }
     }
     out.op = in.op;
@@ -238,7 +246,7 @@ bool VR4300::EX()
     // does the operation
 
     //see if override is nessesarry
-    if(dc.op.flags & WRITES_REG && dc.op.write_destination != 0 && in.op.rs == dc.op.write_destination){
+    if(dc.op.flags & WRITES_REG && dc.op.data_addr != 0 && in.op.rs == dc.op.data_addr){
         if(dc.op.flags & IS_LOAD && !in.LDI_triggered){
             //LDI
             //only stall, we know what DC will load into a reg prematurely anyway
@@ -248,7 +256,7 @@ bool VR4300::EX()
         }
         in.op.rs_val = dc.op.result;
     }
-    if(dc.op.flags & WRITES_REG && dc.op.write_destination != 0 && in.op.rt == dc.op.write_destination){
+    if(dc.op.flags & WRITES_REG && dc.op.data_addr != 0 && in.op.rt == dc.op.data_addr){
         if(dc.op.flags & IS_LOAD && !in.LDI_triggered){
             //LDI
             stall = 1;
@@ -257,9 +265,9 @@ bool VR4300::EX()
         }
         in.op.rt_val = dc.op.result;
     }
-    if(wb.op.flags & WRITES_REG && wb.op.write_destination != 0 && in.op.rs == wb.op.write_destination)
+    if(wb.op.flags & WRITES_REG && wb.op.data_addr != 0 && in.op.rs == wb.op.data_addr)
         in.op.rs_val = wb.op.result;
-    if(wb.op.flags & WRITES_REG && wb.op.write_destination != 0 && in.op.rt == wb.op.write_destination)
+    if(wb.op.flags & WRITES_REG && wb.op.data_addr != 0 && in.op.rt == wb.op.data_addr)
         in.op.rt_val = wb.op.result;
 
     if(in.op.multicycle && !in.MCI_triggered){
@@ -434,9 +442,9 @@ void VR4300::decode_op(uint32_t word)
     op.rt = (word >> 16) & 0x1F;
     op.rd = (word >> 11) & 0x1F;
     op.sa = (word >> 6) & 0x1F;
-    if(op.flags & STORES_IN_RD) op.write_destination = op.rd;
-    if(op.flags & STORES_IN_RT) op.write_destination = op.rt;
-    if(op.flags & STORES_IN_31) op.write_destination = 31;
+    if(op.flags & STORES_IN_RD) op.data_addr = op.rd;
+    if(op.flags & STORES_IN_RT) op.data_addr = op.rt;
+    if(op.flags & STORES_IN_31) op.data_addr = 31;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;

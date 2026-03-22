@@ -24,3 +24,9 @@ uint32_t Bus::write_word(uint64_t address, uint32_t word)
     memory[address+3] = word & 0xFF;
     return word;
 }
+
+uint32_t Bus::write_byte(uint64_t address, uint8_t byte)
+{
+    memory[address] = byte;
+    return byte;
+}

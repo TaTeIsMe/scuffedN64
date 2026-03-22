@@ -24,18 +24,18 @@ enum OpFlags:uint32_t{
     ACCESSES_DOUBLE_WORD = 1<<0,
     ACCESSES_HALF_WORD = 1<<1,
     ACCESSES_WORD = 1<<2,
-    WRITES_DATA = 1<<3,
-    WRITES_REG = 1<<4,
+    //WRITES_DATA = 1<<3,
+    //WRITES_REG = 1<<4,
     CAUSED_EXCEPTION = 1<<5,
     READS_CP0 = 1<<6,
-    READS_DATA = 1<<7,
+    //READS_DATA = 1<<7,
     IS_STORE = 1<<8,
     IS_LOAD = 1<<9,
     STORES_IN_RT = 1 << 10,
     STORES_IN_RD = 1 << 11,
     IS_IN_BRANCH_DELAY = 1<<12,
     CAUSES_BRANCH_DELAY = 1<<13,
-    SIGNED_EXTENDED = 1 << 14,
+    SIGN_EXTENDED = 1 << 14,
     ACCESSES_BYTE = 1<<15,
     CAUSES_OVERFLOW_EXCEPTION = 1<<16,
     WRITES_HILO = 1<<17,
@@ -124,26 +124,27 @@ public:
     
     struct Operation : OperationTemplate{
         Operation();
-        uint8_t rs = 0;
-        uint8_t rt = 0;
-        uint8_t rd = 0;
-        uint8_t sa = 0;
-        uint8_t CPz = 0;
-        uint16_t immediate = 0;
-        uint32_t target = 0;
-        uint32_t result_entryHI = 0;
-        uint32_t result_entryLO0 = 0;
-        uint32_t result_entryLO1 = 0;
-        uint32_t result_pagemask = 0;
-        uint64_t write_destination = 0;
-        uint64_t rs_val = 0;
-        uint64_t rt_val = 0;
-        uint64_t cp_val = 0;
-        uint64_t result = 0;
-        uint64_t result_HI = 0;
-        uint64_t result_LO = 0;
-        uint64_t PC = 0;
-        uint64_t dcache_index = 0;
+        uint8_t rs = 0;//reg numebr
+        uint8_t rt = 0;//reg number
+        uint8_t rd = 0;//reg number
+        uint8_t sa = 0;//
+        uint8_t CPz = 0;//for cp instructions
+        uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
+        uint32_t target = 0;//for jumps
+        uint32_t result_entryHI = 0;//for tlb instructions
+        uint32_t result_entryLO0 = 0;//for tlb instructions
+        uint32_t result_entryLO1 = 0;//for tlb instructions
+        uint32_t result_pagemask = 0;//for tlb instructions
+        uint64_t data_addr = 0; //doubles as virtual address and reg written to
+        uint64_t data_addr_p = 0; //write dest but physical
+        uint64_t rs_val = 0;//needed during operation
+        uint64_t rt_val = 0;//needed during operation
+        uint64_t cp_val = 0;//for all the cp operations
+        uint64_t result = 0; //what is stored
+        uint64_t result_HI = 0;//for multiplying and division
+        uint64_t result_LO = 0;//for multiplying and division
+        uint64_t PC = 0;//virtual address of instruction
+        uint64_t dcache_index = 0;//for cache writing
     };
 
     const OperationTemplate primary_op_lut[64];

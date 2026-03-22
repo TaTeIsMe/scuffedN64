@@ -158,95 +158,95 @@ void NOP(VR4300& cpu){};
 //Load/Store
 void LB(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LBU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LH(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LHU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LW(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LWL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LWR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SB(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SH(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SW(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SWL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SWR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LD(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LDL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LDR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LLD(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void LWU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SC(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SCD(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SD(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SDL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SDR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 //Computational
 void ADDI(VR4300 &cpu){
@@ -508,7 +508,7 @@ void JR(VR4300& cpu){
 //this instruction writes to reg31 if no rd is specified. i don't quite understand, like, 0 is undefined?? that is a reg number, just a specific one though...
 void JALR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    if(op.rd)op.write_destination = op.rd;
+    if(op.rd)op.data_addr = op.rd;
     op.result = cpu.PC + 4;
     cpu.PC = op.rs_val;
 }
