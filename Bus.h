@@ -9,6 +9,7 @@ public:
     uint8_t* memory;
 
     uint32_t read_word(uint64_t address);
-private:
+    uint32_t write_word(uint64_t address, uint32_t word);
 
+private:
 };
