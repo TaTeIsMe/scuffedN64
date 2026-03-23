@@ -1,0 +1,329 @@
+
+#pragma once
+#include"VR4300.h"
+
+void NOP(VR4300& cpu);
+
+// Load/store instructions
+void LB(VR4300& cpu);
+void LBU(VR4300& cpu);
+void LH(VR4300& cpu);
+void LHU(VR4300& cpu);
+void LW(VR4300& cpu);
+void LWL(VR4300& cpu); 
+void LWR(VR4300& cpu);
+void SB(VR4300& cpu);
+void SH(VR4300& cpu);
+void SW(VR4300& cpu);
+void SWL(VR4300& cpu);
+void SWR(VR4300& cpu);
+void LD(VR4300& cpu);
+void LDL(VR4300& cpu);
+void LDR(VR4300& cpu);
+void LL(VR4300& cpu);
+void LLD(VR4300& cpu);
+void LWU(VR4300& cpu);
+void SC(VR4300& cpu);
+void SCD(VR4300& cpu);
+void SD(VR4300& cpu);
+void SDL(VR4300& cpu);
+void SDR(VR4300& cpu);
+
+//Computational instructions
+void ADDI(VR4300& cpu);
+void ADDIU(VR4300& cpu);
+void SLTI(VR4300& cpu);
+void SLTIU(VR4300& cpu);
+void ANDI(VR4300& cpu);
+void ORI(VR4300& cpu);
+void XORI(VR4300& cpu);
+void LUI(VR4300& cpu);
+void DADDI(VR4300& cpu);
+void DADDIU(VR4300& cpu);
+void ADD(VR4300& cpu);
+void ADDU(VR4300& cpu);
+void SUB(VR4300& cpu);
+void SUBU(VR4300& cpu);
+void SLT(VR4300& cpu);
+void SLTU(VR4300& cpu);
+void AND(VR4300& cpu);
+void OR(VR4300& cpu);
+void XOR(VR4300& cpu);
+void NOR(VR4300& cpu);
+void DADD(VR4300& cpu);
+void DADDU(VR4300& cpu);
+void DSUB(VR4300& cpu);
+void DSUBU(VR4300& cpu);
+
+//Shift instrucitons
+void SLL(VR4300& cpu);
+void SRL(VR4300& cpu);
+void SRA(VR4300& cpu);
+void SLLV(VR4300& cpu);
+void SRLV(VR4300& cpu);
+void SRAV(VR4300& cpu);
+void DSLL(VR4300& cpu);
+void DSRL(VR4300& cpu);
+void DSRA(VR4300& cpu);
+void DSLLV(VR4300& cpu);
+void DSRLV(VR4300& cpu);
+void DSRAV(VR4300& cpu);
+void DSLL32(VR4300& cpu);
+void DSRL32(VR4300& cpu);
+void DSRA32(VR4300& cpu);
+
+//Multiply/Divide instructions
+void MULT(VR4300& cpu);
+void MULTU(VR4300& cpu);
+void DIV(VR4300& cpu);
+void DIVU(VR4300& cpu);
+void MFHI(VR4300& cpu);
+void MFLO(VR4300& cpu);
+void MTHI(VR4300& cpu);
+void MTLO(VR4300& cpu);
+void DMULT(VR4300& cpu);
+void DMULTU(VR4300& cpu);
+void DDIV(VR4300& cpu);
+void DDIVU(VR4300& cpu);
+
+//Jump/branch instructions
+void J(VR4300& cpu);
+void JAL(VR4300& cpu);
+void JR(VR4300& cpu);
+void JALR(VR4300& cpu);
+void BEQ(VR4300& cpu);
+void BNE(VR4300& cpu);
+void BLEZ(VR4300& cpu);
+void BGTZ(VR4300& cpu);
+void BLTZ(VR4300& cpu);
+void BGEZ(VR4300& cpu);
+void BLTZAL(VR4300& cpu);
+void BGEZAL(VR4300& cpu);
+void BEQL(VR4300& cpu);
+void BNEL(VR4300& cpu);
+void BLEZL(VR4300& cpu);
+void BGTZL(VR4300& cpu);
+void BLTZL(VR4300& cpu);
+void BGEZL(VR4300& cpu);
+void BLTZALL(VR4300& cpu);
+void BGEZALL(VR4300& cpu);
+
+//Special instructions
+void SYNC(VR4300& cpu);
+void SYSCALL(VR4300& cpu);
+void BREAK(VR4300& cpu);
+void TGE(VR4300& cpu);
+void TGEU(VR4300& cpu);
+void TLT(VR4300& cpu);
+void TLTU(VR4300& cpu);
+void TEQ(VR4300& cpu);
+void TNE(VR4300& cpu);
+void TGEI(VR4300& cpu);
+void TGEIU(VR4300& cpu);
+void TLTI(VR4300& cpu);
+void TLTIU(VR4300& cpu);
+void TEQI(VR4300& cpu);
+void TNEI(VR4300& cpu);
+
+//Coprocessor instructions
+void LWCz(VR4300& cpu);
+void SWCz(VR4300& cpu);
+void MTCz(VR4300& cpu);
+void MFCz(VR4300& cpu);
+void CTCz(VR4300& cpu);
+void CFCz(VR4300& cpu);
+void COPz(VR4300& cpu);
+void BCzT(VR4300& cpu);
+void BCzF(VR4300& cpu);
+void DMTCz(VR4300& cpu);
+void DMFCz(VR4300& cpu);
+void LDCz(VR4300& cpu);
+void SDCz(VR4300& cpu);
+void BCzTL(VR4300& cpu);
+void BCzFL(VR4300& cpu);
+
+//CP0 Instructions
+void MTC0(VR4300& cpu);
+void MFC0(VR4300& cpu);
+void DMTC0(VR4300& cpu);
+void DMFC0(VR4300& cpu);
+void TLBR(VR4300& cpu);
+void TLBWI(VR4300& cpu);
+void TLBWR(VR4300& cpu);
+void TLBP(VR4300& cpu);
+void ERET(VR4300& cpu);
+void CACHE(VR4300& cpu);
+
+VR4300::OperationTemplate primary_op_lut[64]{
+/*00*/ {nullptr,0,0,SPECIAL_I},                       // SPECIAL
+/*01*/ {nullptr,0,0,REGIMM_I},                        // REGIMM
+/*02*/ {J, CAUSES_BRANCH_DELAY, 0, J_I},
+/*03*/ {JAL, CAUSES_BRANCH_DELAY | STORES_IN_31,0,JAL_I},
+/*04*/ {BEQ, CAUSES_BRANCH_DELAY,0,BEQ_I},
+/*05*/ {BNE, CAUSES_BRANCH_DELAY,0,BNE_I},
+/*06*/ {BLEZ, CAUSES_BRANCH_DELAY,0,BLEZ_I},
+/*07*/ {BGTZ, CAUSES_BRANCH_DELAY,0,BGTZ_I},
+
+/*08*/ {ADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION,0,ADDI_I},
+/*09*/ {ADDIU, WRITES_REG | STORES_IN_RT,0,ADDIU_I},
+/*0A*/ {SLTI, WRITES_REG | STORES_IN_RT,0,SLTI_I},
+/*0B*/ {SLTIU, WRITES_REG | STORES_IN_RT,0,SLTIU_I},
+/*0C*/ {ANDI, WRITES_REG | STORES_IN_RT,0,ANDI_I},
+/*0D*/ {ORI, WRITES_REG | STORES_IN_RT,0,ORI_I},
+/*0E*/ {XORI, WRITES_REG | STORES_IN_RT,0,XORI_I},
+/*0F*/ {LUI, WRITES_REG | STORES_IN_RT,0,LUI_I},
+
+/*10*/ {COPz, ACCESSES_CP,0,COPz_I},
+/*11*/ {COPz, ACCESSES_CP,0,COPz_I},
+/*12*/ {},
+/*13*/ {},
+
+/*14*/ {BEQL, CAUSES_BRANCH_DELAY,0,BEQL_I},
+/*15*/ {BNEL, CAUSES_BRANCH_DELAY,0,BNEL_I},
+/*16*/ {BLEZL, CAUSES_BRANCH_DELAY,0,BLEZL_I},
+/*17*/ {BGTZL, CAUSES_BRANCH_DELAY,0,BGTZL_I},
+
+/*18*/ {DADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION, 0, DADDI_I},
+/*19*/ {DADDIU, WRITES_REG | STORES_IN_RT, 0, DADDIU_I},
+/*1A*/ {LDL, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT, 0, LDL_I},
+/*1B*/ {LDR, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT, 0, LDR_I},
+
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {},
+
+/*20*/ {LB, IS_LOAD | ACCESSES_BYTE | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED,0,LB_I},
+/*21*/ {LH, IS_LOAD | ACCESSES_HALF_WORD | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED,0,LH_I},
+/*22*/ {LWL, IS_LOAD | WRITES_REG | STORES_IN_RT,0,LWL_I},
+/*23*/ {LW, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,LW_I},
+/*24*/ {LBU, IS_LOAD | ACCESSES_BYTE | WRITES_REG | STORES_IN_RT,0,LBU_I},
+/*25*/ {LHU, IS_LOAD | ACCESSES_HALF_WORD | WRITES_REG | STORES_IN_RT,0,LHU_I},
+/*26*/ {LWR, IS_LOAD | WRITES_REG | STORES_IN_RT,0,LWR_I},
+/*27*/ {LWU, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,LWU_I},
+
+/*28*/ {SB, IS_STORE | ACCESSES_BYTE,0,SB_I},
+/*29*/ {SH, IS_STORE | ACCESSES_HALF_WORD,0,SH_I},
+/*2A*/ {SWL, IS_STORE,0,SWL_I},
+/*2B*/ {SW, IS_STORE | ACCESSES_WORD,0,SW_I},
+/*2C*/ {SDL, IS_STORE | ACCESSES_DOUBLE_WORD, 0, SDL_I },
+/*2D*/ {SDR, IS_STORE | ACCESSES_DOUBLE_WORD, 0, SDR_I },
+/*2E*/ {SWR, IS_STORE,0,SWR_I},
+/*2F*/ {CACHE, 0, 0, CACHE_I},
+
+/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,LL_I},
+/*31*/ {LWCz, IS_LOAD | WRITES_REG | STORES_IN_RT | ACCESSES_CP,0,LWCz_I},
+/*32*/ {LWCz, IS_LOAD | WRITES_REG | STORES_IN_RT | ACCESSES_CP,0,LWCz_I},
+/*33*/ {},
+
+/*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT,0,LLD_I},
+/*35*/ {LDCz, IS_LOAD | ACCESSES_CP,0,LDCz_I},
+/*36*/ {LDCz, IS_LOAD | ACCESSES_CP,0,LDCz_I},
+/*37*/ {LD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT,0,LD_I},
+
+/*38*/ {SC, IS_STORE | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,SC_I},
+/*39*/ {SWCz, IS_STORE | ACCESSES_CP,0,SWCz_I},
+/*3A*/ {SWCz, IS_STORE | ACCESSES_CP,0,SWCz_I},
+/*3B*/ {},
+
+/*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT, 0, SCD_I},
+/*3D*/ {SDCz, IS_STORE | ACCESSES_CP,0,SDCz_I},
+/*3E*/ {SDCz, IS_STORE | ACCESSES_CP,0,SDCz_I},
+/*3F*/ {SD, IS_STORE | ACCESSES_DOUBLE_WORD,0,SD_I}
+};
+VR4300::OperationTemplate special_op_lut[64]{
+/*00*/ {SLL, WRITES_REG | STORES_IN_RD,0,SLL_I},
+/*01*/ {},
+/*02*/ {SRL, WRITES_REG | STORES_IN_RD,0,SRL_I},
+/*03*/ {SRA, WRITES_REG | STORES_IN_RD,0,SRA_I},
+/*04*/ {SLLV, WRITES_REG | STORES_IN_RD,0,SLLV_I},
+/*05*/ {},
+/*06*/ {SRLV, WRITES_REG | STORES_IN_RD,0,SRLV_I},
+/*07*/ {SRAV, WRITES_REG | STORES_IN_RD,0,SRAV_I},
+
+/*08*/ {JR, CAUSES_BRANCH_DELAY,0,JR_I},
+/*09*/ {JALR, CAUSES_BRANCH_DELAY | STORES_IN_RD | WRITES_REG,0,JALR_I},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {SYSCALL, CAUSED_EXCEPTION,0,SYSCALL_I},
+/*0D*/ {BREAK, CAUSED_EXCEPTION,0,BREAK_I},
+/*0E*/ {},
+/*0F*/ {SYNC, 0, 0, SYNC_I},
+
+/*10*/ {MFHI, WRITES_REG | STORES_IN_RD,0,MFHI_I},
+/*11*/ {MTHI, WRITES_HILO,0,MTHI_I},
+/*12*/ {MFLO, WRITES_REG | STORES_IN_RD,0,MFLO_I},
+/*13*/ {MTLO, WRITES_HILO,0,MTLO_I},
+/*14*/ {DSLLV, WRITES_REG | STORES_IN_RD, 0, DSLLV_I},
+/*15*/ {},
+/*16*/ {DSRLV, WRITES_REG | STORES_IN_RD, 0, DSRLV_I},
+/*17*/ {DSRAV, WRITES_REG | STORES_IN_RD, 0, DSRAV_I},
+
+/*18*/ {MULT, WRITES_HILO,5,MULT_I},
+/*19*/ {MULTU, WRITES_HILO,5,MULTU_I},
+/*1A*/ {DIV, WRITES_HILO,37,DIV_I},
+/*1B*/ {DIVU, WRITES_HILO,37,DIVU_I},
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {DDIV, WRITES_HILO, 69, DDIV_I},
+/*1F*/ {DDIVU, WRITES_HILO, 69, DDIVU_I},
+
+/*20*/ {ADD, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION,0,ADD_I},
+/*21*/ {ADDU, WRITES_REG | STORES_IN_RD,0,ADDU_I},
+/*22*/ {SUB, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION,0,SUB_I},
+/*23*/ {SUBU, WRITES_REG | STORES_IN_RD,0,SUBU_I},
+/*24*/ {AND, WRITES_REG | STORES_IN_RD,0,AND_I},
+/*25*/ {OR, WRITES_REG | STORES_IN_RD,0,OR_I},
+/*26*/ {XOR, WRITES_REG | STORES_IN_RD,0,XOR_I},
+/*27*/ {NOR, WRITES_REG | STORES_IN_RD,0,NOR_I},
+
+/*28*/ {},
+/*29*/ {},
+/*2A*/ {SLT, WRITES_REG | STORES_IN_RD,0,SLT_I},
+/*2B*/ {SLTU, WRITES_REG | STORES_IN_RD,0,SLTU_I},
+/*2C*/ {DADD,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION, 0, DADD_I},
+/*2D*/ {DADDU, WRITES_REG | STORES_IN_RD, 0, DADDU_I},
+/*2E*/ {DSUB,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION, 0, DSUB_I},
+/*2F*/ {DSUBU, WRITES_REG | STORES_IN_RD, 0, DSUBU_I},
+
+/*30*/ {TGE,  IS_TRAP, 0, TGE_I},
+/*31*/ {TGEU, IS_TRAP, 0, TGEU_I},
+/*32*/ {TLT,  IS_TRAP, 0, TLT_I},
+/*33*/ {TLTU, IS_TRAP, 0, TLTU_I},
+/*34*/ {TEQ,  IS_TRAP, 0, TEQ_I},
+/*36*/ {TNE,  IS_TRAP, 0, TNE_I},
+/*37*/ {},
+
+/*38*/ {DSLL,   WRITES_REG | STORES_IN_RD, 0, DSLL_I},
+/*3A*/ {DSRL,   WRITES_REG | STORES_IN_RD, 0, DSRL_I},
+/*3B*/ {DSRA,   WRITES_REG | STORES_IN_RD, 0, DSRA_I},
+/*3C*/ {DSLL32, WRITES_REG | STORES_IN_RD, 0, DSLL32_I},
+/*3E*/ {DSRL32, WRITES_REG | STORES_IN_RD, 0, DSRL32_I},
+/*3F*/ {DSRA32, WRITES_REG | STORES_IN_RD, 0, DSRA32_I},
+};
+VR4300::OperationTemplate regimm_op_lut[32]{
+/*00*/ {BLTZ, CAUSES_BRANCH_DELAY,0,BLTZ_I},
+/*01*/ {BGEZ, CAUSES_BRANCH_DELAY,0,BGEZ_I},
+/*02*/ {BLTZL, CAUSES_BRANCH_DELAY,0,BLTZL_I},
+/*03*/ {BGEZL, CAUSES_BRANCH_DELAY,0,BGEZL_I},
+
+/*04*/ {},
+/*05*/ {},
+/*06*/ {},
+/*07*/ {},
+
+/*08*/ {TGEI, IS_TRAP,0,TGEI_I},
+/*09*/ {TGEIU, IS_TRAP,0,TGEIU_I},
+/*0A*/ {TLTI, IS_TRAP,0,TLTI_I},
+/*0B*/ {TLTIU, IS_TRAP,0,TLTIU_I},
+/*0C*/ {TEQI, IS_TRAP,0,TEQI_I},
+/*0D*/ {},
+/*0E*/ {TNEI, IS_TRAP,0,TNEI_I},
+/*0F*/ {},
+
+/*10*/ {BLTZAL, CAUSES_BRANCH_DELAY | STORES_IN_31,0,BLTZAL_I},
+/*11*/ {BGEZAL, CAUSES_BRANCH_DELAY | STORES_IN_31,0,BGEZAL_I},
+/*12*/ {BLTZALL, CAUSES_BRANCH_DELAY | STORES_IN_31, 0, BLTZALL_I},
+/*13*/ {BGEZALL, CAUSES_BRANCH_DELAY | STORES_IN_31, 0, BGEZALL_I},
+
+};

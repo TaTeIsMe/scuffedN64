@@ -9,14 +9,144 @@
 #define DCACHE_STALL_TIME 2
 #define ICACHE_STALL_TIME 2
 
-enum OpTypes:uint32_t{
-    NOP_I,
-    ICACHE_I,
-    DCACHE_I,
+enum OpTypes : uint32_t {
+    SPECIAL_I,
+    REGIMM_I,
+    LB_I,
+    LBU_I,
+    LH_I,
+    LHU_I,
+    LW_I,
+    LWL_I,
+    LWR_I,
+    SB_I,
+    SH_I,
+    SW_I,
+    SWL_I,
+    SWR_I,
+    LD_I,
+    LDL_I,
+    LDR_I,
+    LL_I,
+    LLD_I,
+    LWU_I,
+    SC_I,
+    SCD_I,
+    SD_I,
+    SDL_I,
+    SDR_I,
+    ADDI_I,
+    ADDIU_I,
+    SLTI_I,
+    SLTIU_I,
+    ANDI_I,
+    ORI_I,
+    XORI_I,
+    LUI_I,
+    DADDI_I,
+    DADDIU_I,
+    ADD_I,
+    ADDU_I,
+    SUB_I,
+    SUBU_I,
+    SLT_I,
+    SLTU_I,
+    AND_I,
+    OR_I,
+    XOR_I,
+    NOR_I,
+    DADD_I,
+    DADDU_I,
+    DSUB_I,
+    DSUBU_I,
+    SLL_I,
+    SRL_I,
+    SRA_I,
+    SLLV_I,
+    SRLV_I,
+    SRAV_I,
+    DSLL_I,
+    DSRL_I,
+    DSRA_I,
+    DSLLV_I,
+    DSRLV_I,
+    DSRAV_I,
+    DSLL32_I,
+    DSRL32_I,
+    DSRA32_I,
+    MULT_I,
+    MULTU_I,
+    DIV_I,
+    DIVU_I,
+    MFHI_I,
+    MFLO_I,
+    MTHI_I,
+    MTLO_I,
+    DMULT_I,
+    DMULTU_I,
+    DDIV_I,
+    DDIVU_I,
+    J_I,
+    JAL_I,
+    JR_I,
+    JALR_I,
+    BEQ_I,
+    BNE_I,
+    BLEZ_I,
+    BGTZ_I,
+    BLTZ_I,
+    BGEZ_I,
+    BLTZAL_I,
+    BGEZAL_I,
+    BEQL_I,
+    BNEL_I,
+    BLEZL_I,
+    BGTZL_I,
+    BLTZL_I,
+    BGEZL_I,
+    BLTZALL_I,
+    BGEZALL_I,
+    SYNC_I,
     SYSCALL_I,
     BREAK_I,
-    ADDI_I,
-    ADD_I
+    TGE_I,
+    TGEU_I,
+    TLT_I,
+    TLTU_I,
+    TEQ_I,
+    TNE_I,
+    TGEI_I,
+    TGEIU_I,
+    TLTI_I,
+    TLTIU_I,
+    TEQI_I,
+    TNEI_I,
+    LWCz_I,
+    SWCz_I,
+    MTCz_I,
+    MFCz_I,
+    CTCz_I,
+    CFCz_I,
+    COPz_I,
+    BCzT_I,
+    BCzF_I,
+    DMTCz_I,
+    DMFCz_I,
+    LDCz_I,
+    SDCz_I,
+    BCzTL_I,
+    BCzFL_I,
+    MTC0_I,
+    MFC0_I,
+    DMTC0_I,
+    DMFC0_I,
+    TLBR_I,
+    TLBWI_I,
+    TLBWR_I,
+    TLBP_I,
+    ERET_I,
+    CACHE_I,
+    NOP_I,
 };
 
 //these are a mess but it's fine...
@@ -25,7 +155,7 @@ enum OpFlags:uint32_t{
     ACCESSES_HALF_WORD = 1<<1,
     ACCESSES_WORD = 1<<2,
     //WRITES_DATA = 1<<3,
-    //WRITES_REG = 1<<4,
+    WRITES_REG = 1<<4,
     CAUSED_EXCEPTION = 1<<5,
     READS_CP0 = 1<<6,
     //READS_DATA = 1<<7,
@@ -54,7 +184,7 @@ public:
     CP0 cp0;
     Bus& bus;
 
-    uint64_t PC = 0;
+    uint64_t PC = 0xFFFFFFFFA0000000;
     uint64_t HI = 0;
     uint64_t LO = 0;
     uint8_t LLBit = 0;
@@ -103,7 +233,7 @@ public:
         bool valid = false;
         bool dirty = false;
         uint32_t tag;
-        uint32_t data[4];
+        uint8_t data[16];
     };
 
     struct Icache_line{
@@ -129,6 +259,7 @@ public:
         uint8_t rd = 0;//reg number
         uint8_t sa = 0;//
         uint8_t CPz = 0;//for cp instructions
+        uint8_t dest_reg = 0;
         uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
         uint32_t target = 0;//for jumps
         uint32_t result_entryHI = 0;//for tlb instructions
@@ -146,11 +277,6 @@ public:
         uint64_t PC = 0;//virtual address of instruction
         uint64_t dcache_index = 0;//for cache writing
     };
-
-    const OperationTemplate primary_op_lut[64];
-    const OperationTemplate special_op_lut[64];
-    const OperationTemplate regimm_op_lut[64];
-
     
     void decode_op(uint32_t word);
 
@@ -159,6 +285,8 @@ public:
     void handle_tlb_miss_exception(uint64_t addr, const Operation &op, ExceptionCode cause);
 
     void handle_general_exception(const Operation &op, ExceptionCode cause);
+
+    void set_tlb_context(uint64_t addr);
 
     struct WB_DC{
         Operation op;

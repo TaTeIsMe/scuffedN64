@@ -1,19 +1,10 @@
 #include "VR4300.h"
-#include "Operations.cpp"
+#include "Operations.h"
 #include <iostream>
 
 VR4300::VR4300(Bus& bus):
 cp0(),
-bus(bus),
-primary_op_lut{
-    {},{},{},{},{},{},{},{},
-    {ADDI, WRITES_REG | STORES_IN_RT, 0, ADDI_I}
-},
-special_op_lut{
-    {},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},
-    {ADD, WRITES_REG | STORES_IN_RD, 0, ADD_I},
-},
-regimm_op_lut{}
+bus(bus)
 {
 
 }
@@ -28,7 +19,6 @@ VR4300::~VR4300()
 //make sure next_op_branchdelay is working correctly
 //writing back to memory on cache miss and CACHE
 //entire CACHE operation
-//make sure data access ops access the correct size instead of always writing/loading a word
 //make sure resultHI and resultLo are correctly handled on some ops
 //add writing to coprocessors
 //add exceptions.
@@ -43,20 +33,16 @@ VR4300::~VR4300()
 //add all the operations and populate the lut
 void VR4300::on_clock()
 {
-    std::cout << "stall" << stall << "\n";
     //on interlock the ENTIRE pipeline is stalled
     if(stall){
+        std::cout<<"stalled!"<<stall << "\n";
         stall--;
         return;
     }
 
     //WB is last because it modifies state immidietely, even if the cpu should stall
     //I hope that is how the cpu actually works
-    if (DC())return;
-    if (EX())return;
-    if (RF())return;
-    if (IC())return;
-    if (WB())return;
+    if (DC() || EX() || RF() || IC() || WB()) return;
     //submit pipeline makes sure that cpu state only changes if there were no interlocks
     // this causes the order of stages to be arbitrary
     submit_pipeline();
@@ -66,37 +52,39 @@ void VR4300::on_clock()
 bool VR4300::WB()
 {
     auto& in = WB_in;
+    
+        if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
+        {
+            //CP0I
+            stall = 1;
+            in.CP0I_triggered = true;
+            return true;
+        }
     //what WB does is:
     // write back. just as the name suggests really
     if(in.op.flags & IS_STORE){
         if(in.cacheable){
-            if(in.op.flags & ACCESSES_BYTE){
-
-            }
-        }
-        if(!in.cacheable){
-
+            uint8_t offset = in.op.data_addr_p & 0xF;
+            Dcache_line &line = Dcache[in.op.dcache_index];
+            //a little cursed, might switch to memcpy or smth
+            if(in.op.flags & ACCESSES_BYTE) *(uint8_t*)(line.data + offset) = (uint8_t)in.op.result;
+            else if(in.op.flags & ACCESSES_HALF_WORD) *(uint16_t*)(line.data + offset) = (uint16_t)in.op.result;
+            else if(in.op.flags & ACCESSES_WORD) *(uint32_t*)(line.data + offset) = (uint32_t)in.op.result;
+            else if(in.op.flags & ACCESSES_DOUBLE_WORD) *(uint64_t*)(line.data + offset) = (uint64_t)in.op.result;
+        }else{
+            if(in.op.flags & ACCESSES_BYTE) bus.write_byte(in.op.data_addr_p, in.op.result);
+            else if(in.op.flags & ACCESSES_HALF_WORD) bus.write_halfword(in.op.data_addr_p, in.op.result);
+            else if(in.op.flags & ACCESSES_WORD) bus.write_word(in.op.data_addr_p, in.op.result);
+            else if(in.op.flags & ACCESSES_DOUBLE_WORD) bus.write_doubleword(in.op.data_addr_p, in.op.result);
         }
     }
-
-    if(in.op.flags & WRITES_DATA && in.cacheable) Dcache[in.op.dcache_index].data[(in.op.data_addr_p>>2)&0x3] = in.op.result;
-    if(in.op.flags & WRITES_DATA && !in.cacheable) bus.write_word(in.op.data_addr_p,in.op.result);
-    if(in.op.flags & WRITES_REG  && in.op.data_addr != 0) GPR[in.op.data_addr] = in.op.result;
-
-    if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
-    {
-        //CP0I
-        stall = 1;
-        in.CP0I_triggered = true;
-        return true;
-    }
+    if(in.op.flags & WRITES_REG  && in.op.dest_reg != 0) GPR[in.op.dest_reg] = in.op.result;
     return false;
 }
 
 //Pipeline data cache stage
 bool VR4300::DC()
 {
-    std::cout << "entered_DC \n";
     auto& in  = DC_in;
     auto& out = DC_out;
 
@@ -105,23 +93,23 @@ bool VR4300::DC()
     // if the data is read from the cache it fetches it
     //a lot of the code below is bloated by exception and interlock handling
 
-    if(in.op.instruction_type == ICACHE_I){
-        stall = CACHE_OP_STALL_TIME;
-        return true;
-    }
-    if(in.op.instruction_type == DCACHE_I){
-        stall = 2;
-        return true;
-    }
+    //if(in.op.instruction_type == ICACHE_I){
+    //    stall = CACHE_OP_STALL_TIME;
+    //    return true;
+    //}
+    //if(in.op.instruction_type == DCACHE_I){
+    //    stall = 2;
+    //    return true;
+    //}
     if((in.op.flags & IS_TRAP) && in.op.result){
         handle_general_exception(in.op, Tr);
         return true;
     }
 
-    if(!(in.op.flags & (WRITES_DATA | READS_DATA))){
+    if(!(in.op.flags & (IS_STORE | IS_LOAD))){
         out.op = in.op;
         return false;
-    }   
+    }
 
     const CP0::Segment& segment = cp0.get_segment(in.op.data_addr);
     bool cacheable = segment.cacheable;
@@ -136,19 +124,13 @@ bool VR4300::DC()
 
         }
         if(!tlb_result.valid){
-            cp0.badVAddr = in.op.data_addr;
-            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.data_addr >> 13); 
-            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.data_addr >> 13);
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.data_addr >> 13);
+            set_tlb_context(in.op.data_addr);
             if(in.op.flags & IS_STORE) handle_general_exception(in.op, TLBS);
             else handle_general_exception(in.op, TLBL);
             return true;
         }
         if(!tlb_result.dirty && in.op.flags & IS_STORE){
-            cp0.badVAddr = in.op.data_addr;
-            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.data_addr >> 13); 
-            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.data_addr >> 13);
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.data_addr >> 13);
+            set_tlb_context(in.op.data_addr);
             handle_general_exception(in.op, Mod);
             return true;
         }
@@ -188,7 +170,7 @@ bool VR4300::DC()
         Dcache_line& line = Dcache[in.op.dcache_index];
         bool cache_hit = ((in.op.data_addr_p >> 12) == line.tag);
 
-        if(WB_in.op.flags & WRITES_DATA && cache_hit && !in.DCB_triggered){
+        if(WB_in.op.flags & IS_STORE && cache_hit && !in.DCB_triggered){
             //DCB on hit
             stall = 1;
             in.DCB_triggered = true;
@@ -203,30 +185,35 @@ bool VR4300::DC()
         }else if(in.DCB_triggered){
             //update dcache
             uint64_t line_start_addr = in.op.data_addr_p & ~0xF;
-            for (int i = 0; i < 4; i++)
-            {
-                line.data[i] = bus.read_word(line_start_addr + i * 4);
-            }
+            for (int i = 0; i < 16; i++) line.data[i] = bus.read_byte(line_start_addr + i);
             line.tag = in.op.data_addr_p >> 12;
             line.valid = true;
         }
 
-        if(in.op.flags & READS_DATA){
+        if(in.op.flags & IS_LOAD){
             //fetch data from the cache to put in a reg
-            uint8_t offset = (in.op.data_addr >> 2) & 0x3;
-            in.op.result = line.data[offset];
-        }else if(in.op.flags & WRITES_DATA){
+            //todo here support more than just word
+            uint8_t* bytes = line.data;
+            uint32_t offset = in.op.data_addr_p & 0xF;
+            bool sign_extended = in.op.flags & SIGN_EXTENDED;
+
+            if(in.op.flags & ACCESSES_BYTE) in.op.result = (sign_extended) ? *(int8_t*)(bytes + offset) : *(uint8_t*)(bytes + offset);
+            else if(in.op.flags & ACCESSES_HALF_WORD) in.op.result = (sign_extended) ? *(int16_t*)(bytes + offset) : *(uint16_t*)(bytes + offset);
+            else if(in.op.flags & ACCESSES_WORD) in.op.result = (sign_extended) ? *(int32_t*)(bytes + offset) : *(uint32_t*)(bytes + offset);
+            else if(in.op.flags & ACCESSES_DOUBLE_WORD) in.op.result = (sign_extended) ? *(int64_t*)(bytes + offset) : *(uint64_t*)(bytes + offset);
+
+        }else if(in.op.flags & IS_STORE){
             //nothing, WB is the write stage
         }
     }else{//this logic of avoiding cache is a little scuffed, might need some review
-        if(in.op.flags & READS_DATA || in.op.flags & WRITES_DATA){
+        if( in.op.flags & (IS_LOAD | IS_STORE)){
             if(!in.uncacheable_stall_triggered){
                 stall = DCACHE_STALL_TIME;
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
-            if(in.op.flags & READS_DATA) in.op.result = bus.read_word(in.op.data_addr_p);
-            if(in.op.flags & WRITES_DATA){in.op.data_addr = in.op.data_addr_p; out.cacheable = false;}
+            if(in.op.flags & IS_LOAD) in.op.result = bus.read_word(in.op.data_addr_p);
+            if(in.op.flags & IS_STORE){ out.cacheable = false;}
         }
     }
     out.op = in.op;
@@ -236,7 +223,6 @@ bool VR4300::DC()
 //Pipeline execute stage
 bool VR4300::EX()
 {
-    std::cout << "entered_EX \n";
     auto& in  = EX_in;
     auto& out = EX_out;
     auto& dc  = DC_in;
@@ -246,7 +232,11 @@ bool VR4300::EX()
     // does the operation
 
     //see if override is nessesarry
-    if(dc.op.flags & WRITES_REG && dc.op.data_addr != 0 && in.op.rs == dc.op.data_addr){
+    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg)
+        in.op.rs_val = wb.op.result;
+    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rt == wb.op.dest_reg)
+        in.op.rt_val = wb.op.result;
+    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg){
         if(dc.op.flags & IS_LOAD && !in.LDI_triggered){
             //LDI
             //only stall, we know what DC will load into a reg prematurely anyway
@@ -256,7 +246,7 @@ bool VR4300::EX()
         }
         in.op.rs_val = dc.op.result;
     }
-    if(dc.op.flags & WRITES_REG && dc.op.data_addr != 0 && in.op.rt == dc.op.data_addr){
+    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg){
         if(dc.op.flags & IS_LOAD && !in.LDI_triggered){
             //LDI
             stall = 1;
@@ -265,10 +255,6 @@ bool VR4300::EX()
         }
         in.op.rt_val = dc.op.result;
     }
-    if(wb.op.flags & WRITES_REG && wb.op.data_addr != 0 && in.op.rs == wb.op.data_addr)
-        in.op.rs_val = wb.op.result;
-    if(wb.op.flags & WRITES_REG && wb.op.data_addr != 0 && in.op.rt == wb.op.data_addr)
-        in.op.rt_val = wb.op.result;
 
     if(in.op.multicycle && !in.MCI_triggered){
         //MCI
@@ -287,7 +273,7 @@ bool VR4300::EX()
         return true;
     }
 
-    std::cout << "operation rs, rt:" << in.op.rs << in.op.rt << "\n";
+    std::cout << "operation:"<< in.op.instruction_type << "rs" << (int)in.op.rs<< "rt:" << (int)in.op.rt << "\n";
     
     in.op.execute(*this);
     out.op = in.op;
@@ -297,7 +283,6 @@ bool VR4300::EX()
 //Pipeline register fetch stage
 bool VR4300::RF()
 {
-    std::cout << "entered_RF \n";
     auto& in  = RF_in;
     auto& out = RF_out;
 
@@ -317,7 +302,7 @@ bool VR4300::RF()
 
 
     uint32_t PC_p;
-    CP0::Segment segment = cp0.get_segment(in.op.PC);
+    CP0::Segment segment = cp0.get_segment(PC);
     bool cacheable = segment.cacheable;
 
     //IADE
@@ -327,29 +312,26 @@ bool VR4300::RF()
         (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
         (cp0.in_kernel_mode() && !segment.kernel_accesible)
     ){
-        cp0.badVAddr = in.op.PC;
+        cp0.badVAddr = PC;
         handle_general_exception(in.op,AdEL);
         return true;
     }
 
     if(segment.tlb_mapped){
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.PC);
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(PC);
         if(tlb_result.miss){
             //tlb miss exception
-            handle_tlb_miss_exception(in.op.PC, in.op, TLBL);
+            handle_tlb_miss_exception(PC, in.op, TLBL);
             return true;
         }
         if(!tlb_result.valid){
-            cp0.badVAddr = in.op.PC;
-            cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,in.op.PC >> 13); 
-            cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,in.op.PC>> 13);
-            cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,in.op.PC >> 13);
+            set_tlb_context(PC);
             handle_general_exception(in.op, TLBL);
             return true;
         }
         PC_p = tlb_result.p_addr;
         cacheable = tlb_result.cache;
-    }else PC_p = in.op.PC - segment.translation_offset;
+    }else PC_p = PC - segment.translation_offset;
 
     uint32_t op_code;
     if(cacheable){
@@ -398,7 +380,6 @@ bool VR4300::RF()
 //Pipeline instruction cache stage
 bool VR4300::IC()
 {
-    std::cout << "entered_IC \n";
     //what IC does is:
     // address icache and microtlb
     //it's comical how little it does
@@ -442,9 +423,9 @@ void VR4300::decode_op(uint32_t word)
     op.rt = (word >> 16) & 0x1F;
     op.rd = (word >> 11) & 0x1F;
     op.sa = (word >> 6) & 0x1F;
-    if(op.flags & STORES_IN_RD) op.data_addr = op.rd;
-    if(op.flags & STORES_IN_RT) op.data_addr = op.rt;
-    if(op.flags & STORES_IN_31) op.data_addr = 31;
+    if(op.flags & STORES_IN_RD) op.dest_reg = op.rd;
+    if(op.flags & STORES_IN_RT) op.dest_reg = op.rt;
+    if(op.flags & STORES_IN_31) op.dest_reg = 31;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;
@@ -475,11 +456,7 @@ void VR4300::abort_pipeline() {
 void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause){
     abort_pipeline();
     //this is literally just the flow chart from page 203 copied
-    cp0.badVAddr = addr;
-    cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause);
-    cp0.context = cp0.set_bits(cp0.context,CONTEXT_BADVPN2_MASK,addr >> 13); 
-    cp0.xcontext = cp0.set_bits(cp0.xcontext,XCONTEXT_BADVPN2_MASK,addr >> 13);
-    cp0.entryHi = cp0.set_bits(cp0.entryHi,ENTRYHI_VPN2_MASK,addr >> 13);
+    set_tlb_context(addr);
     uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint16_t jump_offset;
 
@@ -527,4 +504,11 @@ void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1);
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + 0x0180;
+}
+
+inline void VR4300::set_tlb_context(uint64_t addr){
+    cp0.badVAddr = addr;
+    cp0.context  = cp0.set_bits(cp0.context, CONTEXT_BADVPN2_MASK, addr >> 13);
+    cp0.xcontext = cp0.set_bits(cp0.xcontext, XCONTEXT_BADVPN2_MASK, addr >> 13);
+    cp0.entryHi  = cp0.set_bits(cp0.entryHi, ENTRYHI_VPN2_MASK, addr >> 13);
 }

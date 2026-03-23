@@ -29,4 +29,4 @@ $(TARGET_DIR)/%.o: %.cpp
 
 # Clean rule to remove generated files
 clean:
-	rm $(TARGET_DEL) $(OBJS)
+	rm $(TARGET_DIR)/$(TARGET_DEL) $(OBJS)
