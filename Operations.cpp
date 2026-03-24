@@ -37,14 +37,17 @@ void LWR(VR4300& cpu){
 void SB(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val;
 }
 void SH(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val;
 }
 void SW(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val;
 }
 void SWL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;

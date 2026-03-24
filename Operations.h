@@ -171,7 +171,7 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*0C*/ {ANDI, WRITES_REG | STORES_IN_RT,0,ANDI_I},
 /*0D*/ {ORI, WRITES_REG | STORES_IN_RT,0,ORI_I},
 /*0E*/ {XORI, WRITES_REG | STORES_IN_RT,0,XORI_I},
-/*0F*/ {LUI, WRITES_REG | STORES_IN_RT,0,LUI_I},
+/*0F*/ {LUI, WRITES_REG | STORES_IN_RT ,0,LUI_I}, //technically not IS_LOAD since it doesn't access memory
 
 /*10*/ {COPz, ACCESSES_CP,0,COPz_I},
 /*11*/ {COPz, ACCESSES_CP,0,COPz_I},

@@ -8,21 +8,24 @@
 int main(){
     std::cout << "hello world!\n";
     uint8_t memory[1024] = {
-        // 1. ADDIU $1, $0, 10 (0x2401000A)
+        //ADDIU $1, $0, 10
         0x24, 0x01, 0x00, 0x0A, 
         
-        // 2. ADDIU $2, $1, 20 (0x24220014)
+        //ADDIU $2, $1, 20
         0x24, 0x22, 0x00, 0x14,
         
-        // 3. SLL $2, $2, 2    (0x00021080)
+        //SLL $2, $2, 2
         0x00, 0x02, 0x10, 0x80,
         
-        // 4. ORI $2, $2, 1    (0x34420001)
+        //ORI $2, $2, 1
         0x34, 0x42, 0x00, 0x01,
 
+        //LUI, $3, A000
+        0x3C, 0x03, 0xA0, 0x00,
+        
+        //SW $3, $2, 64
+        0xAC, 0x62, 0x00, 0x40,
         // Padding with NOPs (0x00000000) to allow pipeline to clear
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
@@ -50,5 +53,6 @@ int main(){
     
 
     std::cout << vr4300.r2 << "\n";
+    std::cout << (memory[64]<<24 | memory[64+1] << 16 | memory[64+2]<<8 | memory[64+3]) << "\n";
 
 }

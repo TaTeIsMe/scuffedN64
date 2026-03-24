@@ -15,6 +15,7 @@ VR4300::~VR4300()
 }
 
 //todo
+//get sided and conditional stores working
 //in Operations.cpp some op.results might need changing to op.write_destination
 //make sure next_op_branchdelay is working correctly
 //writing back to memory on cache miss and CACHE
@@ -40,11 +41,8 @@ void VR4300::on_clock()
         return;
     }
 
-    //WB is last because it modifies state immidietely, even if the cpu should stall
-    //I hope that is how the cpu actually works
-    if (DC() || EX() || RF() || IC() || WB()) return;
-    //submit pipeline makes sure that cpu state only changes if there were no interlocks
-    // this causes the order of stages to be arbitrary
+    //writes back at the end to make sure cp ustate doesn't get modified until submit pipeline
+    if ( DC() || EX() || RF() || IC() || WB() ) return;
     submit_pipeline();
 }
 
