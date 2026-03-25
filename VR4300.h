@@ -151,14 +151,14 @@ enum OpTypes : uint32_t {
 
 //these are a mess but it's fine...
 enum OpFlags:uint32_t{
-    ACCESSES_DOUBLE_WORD = 1<<0,
+    ACCESSES_BYTE = 1<<0,
     ACCESSES_HALF_WORD = 1<<1,
     ACCESSES_WORD = 1<<2,
-    //WRITES_DATA = 1<<3,
+    ACCESSES_DOUBLE_WORD = 1<<3,
     WRITES_REG = 1<<4,
     CAUSED_EXCEPTION = 1<<5,
     READS_CP0 = 1<<6,
-    //READS_DATA = 1<<7,
+    RIGHT_ACCESS = 1<<7,
     IS_STORE = 1<<8,
     IS_LOAD = 1<<9,
     STORES_IN_RT = 1 << 10,
@@ -166,12 +166,13 @@ enum OpFlags:uint32_t{
     IS_IN_BRANCH_DELAY = 1<<12,
     CAUSES_BRANCH_DELAY = 1<<13,
     SIGN_EXTENDED = 1 << 14,
-    ACCESSES_BYTE = 1<<15,
+    LEFT_ACCESS = 1 << 15,
     CAUSES_OVERFLOW_EXCEPTION = 1<<16,
-    WRITES_HILO = 1<<17,
+    WRITES_LO = 1<<17,
     STORES_IN_31 = 1<<18,
     IS_TRAP = 1<<19,
-    ACCESSES_CP = 1 <<20
+    ACCESSES_CP = 1 <<20,
+    WRITES_HI = 1<<21
 };
 
 class VR4300
@@ -320,6 +321,7 @@ public:
     WB_DC WB_in{};
     WB_DC DC_out{};
     bool DC(); // data cache fetch
+    void read_access_size(uint8_t *address, VR4300::Operation &op);
     EX_DC DC_in{};
     EX_DC EX_out{};
     bool EX(); // execute

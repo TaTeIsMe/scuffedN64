@@ -1,7 +1,7 @@
 #include "VR4300.h"
 #include "Operations.h"
 #include <iostream>
-
+#include <cstring>
 VR4300::VR4300(Bus& bus):
 cp0(),
 bus(bus)
@@ -22,9 +22,9 @@ VR4300::~VR4300()
 //entire CACHE operation
 //make sure resultHI and resultLo are correctly handled on some ops
 //add writing to coprocessors
-//add exceptions.
 //handle ll bit on conditional and link correctly
 //fix asid
+//add exceptions.
 // overflow exception in dc
 // interrupts and their exceptions
 // all exception caused by operations will be added with them
@@ -41,7 +41,7 @@ void VR4300::on_clock()
         return;
     }
 
-    //writes back at the end to make sure cp ustate doesn't get modified until submit pipeline
+    //writes back at the end to make sure cpu state doesn't get modified until submit pipeline
     if ( DC() || EX() || RF() || IC() || WB() ) return;
     submit_pipeline();
 }
@@ -77,6 +77,8 @@ bool VR4300::WB()
         }
     }
     if(in.op.flags & WRITES_REG  && in.op.dest_reg != 0) GPR[in.op.dest_reg] = in.op.result;
+    if(in.op.flags & WRITES_LO) LO = in.op.result_LO;
+    if(in.op.flags & WRITES_HI) HI = in.op.result_HI;
     return false;
 }
 
@@ -141,13 +143,16 @@ bool VR4300::DC()
     //DADE
     if(
         //missaligned access
-        (in.op.flags & ACCESSES_DOUBLE_WORD && in.op.data_addr_p % 8 != 0) ||
-        (in.op.flags & ACCESSES_WORD && in.op.data_addr_p % 4 != 0) ||
-        (in.op.flags & ACCESSES_HALF_WORD && in.op.data_addr_p % 2 != 0) ||
-        // or wrong mode (user, kernel, supervisor)
-        (cp0.in_user_mode() && !segment.user_accesible) ||
-        (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
-        (cp0.in_kernel_mode() && !segment.kernel_accesible)
+        !(in.op.flags & RIGHT_ACCESS) &&
+        !(in.op.flags & LEFT_ACCESS) && (
+            (in.op.flags & ACCESSES_DOUBLE_WORD && in.op.data_addr_p % 8 != 0) ||
+            (in.op.flags & ACCESSES_WORD && in.op.data_addr_p % 4 != 0) ||
+            (in.op.flags & ACCESSES_HALF_WORD && in.op.data_addr_p % 2 != 0) ||
+            // or wrong mode (user, kernel, supervisor)
+            (cp0.in_user_mode() && !segment.user_accesible) ||
+            (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
+            (cp0.in_kernel_mode() && !segment.kernel_accesible)
+        )
     ){
         cp0.badVAddr = in.op.data_addr;
         if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
@@ -190,15 +195,30 @@ bool VR4300::DC()
 
         if(in.op.flags & IS_LOAD){
             //fetch data from the cache to put in a reg
-            //todo here support more than just word
             uint8_t* bytes = line.data;
-            uint32_t offset = in.op.data_addr_p & 0xF;
-            bool sign_extended = in.op.flags & SIGN_EXTENDED;
+            uint32_t offset_into_line = in.op.data_addr_p & 0xF;
 
-            if(in.op.flags & ACCESSES_BYTE) in.op.result = (sign_extended) ? *(int8_t*)(bytes + offset) : *(uint8_t*)(bytes + offset);
-            else if(in.op.flags & ACCESSES_HALF_WORD) in.op.result = (sign_extended) ? *(int16_t*)(bytes + offset) : *(uint16_t*)(bytes + offset);
-            else if(in.op.flags & ACCESSES_WORD) in.op.result = (sign_extended) ? *(int32_t*)(bytes + offset) : *(uint32_t*)(bytes + offset);
-            else if(in.op.flags & ACCESSES_DOUBLE_WORD) in.op.result = (sign_extended) ? *(int64_t*)(bytes + offset) : *(uint64_t*)(bytes + offset);
+            uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
+            uint64_t temp_result;
+
+            //this is the most consise i could get it...
+            if(in.op.flags & LEFT_ACCESS){
+                std::memcpy(&in.op.result, (bytes + (offset_into_line & ~(access_size - 1)) ), access_size);
+                uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
+                in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - 8 - offset_into_word))) | (in.op.result << (access_size * 8 - 8 - offset_into_word));
+            }else if(in.op.flags & RIGHT_ACCESS){
+                std::memcpy(&in.op.result, (bytes + (offset_into_line & ~(access_size - 1)) ), access_size);
+                uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
+                in.op.result = (in.op.rt_val & (~0xFF << (access_size * 8 - 8 - offset_into_word))) | (in.op.result >> offset_into_word);
+            }else {
+                bool sign_extended = in.op.flags & SIGN_EXTENDED;
+                
+                std::memcpy(&temp_result, (bytes + offset_into_line), access_size);
+                if(access_size == 1) in.op.result = (sign_extended) ? (int8_t)temp_result:(uint8_t)temp_result;
+                else if(access_size == 2) in.op.result = (sign_extended) ? (int16_t)temp_result:(uint16_t)temp_result;
+                else if(access_size == 4) in.op.result = (sign_extended) ? (int32_t)temp_result:(uint32_t)temp_result;
+                else if(access_size == 8) in.op.result = (sign_extended) ? (int64_t)temp_result:(uint64_t)temp_result;
+            }
 
         }else if(in.op.flags & IS_STORE){
             //nothing, WB is the write stage
@@ -210,7 +230,29 @@ bool VR4300::DC()
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
-            if(in.op.flags & IS_LOAD) in.op.result = bus.read_word(in.op.data_addr_p);
+            if(in.op.flags & IS_LOAD){
+                uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
+                uint64_t temp_result;
+
+                //this is the most consise i could get it...
+                if(in.op.flags & LEFT_ACCESS){
+                    in.op.result = bus.read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
+                    uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
+                    in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - 8 - offset_into_word))) | (in.op.result << (access_size * 8 - 8 - offset_into_word));
+                }else if(in.op.flags & RIGHT_ACCESS){
+                    in.op.result = bus.read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
+                    uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
+                    in.op.result = (in.op.rt_val & (~0xFF << (access_size * 8 - 8 - offset_into_word))) | (in.op.result >> offset_into_word);
+                }else {
+                    bool sign_extended = in.op.flags & SIGN_EXTENDED;
+                    
+                    temp_result = bus.read_size(in.op.data_addr_p, access_size);
+                    if(access_size == 1) in.op.result = (sign_extended) ? (int8_t)temp_result:(uint8_t)temp_result;
+                    else if(access_size == 2) in.op.result = (sign_extended) ? (int16_t)temp_result:(uint16_t)temp_result;
+                    else if(access_size == 4) in.op.result = (sign_extended) ? (int32_t)temp_result:(uint32_t)temp_result;
+                    else if(access_size == 8) in.op.result = (sign_extended) ? (int64_t)temp_result:(uint64_t)temp_result;
+                }
+            }
             if(in.op.flags & IS_STORE){ out.cacheable = false;}
         }
     }

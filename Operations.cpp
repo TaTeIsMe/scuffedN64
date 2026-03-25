@@ -4,7 +4,6 @@
 
 void NOP(VR4300& cpu){};
 
-//these totally could have been merged into a singular function and then just put into the correct operation lut entry
 //Load/Store
 void LB(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;

@@ -1,32 +1,21 @@
-# Compiler
 CXX = g++
-
-# Compiler flags
 CXXFLAGS = -Wall -g
-
-# Target executable
-TARGET = main
-
-# For deleting the target
-TARGET_DEL = main
-
-# Source files
-SRCS = $(wildcard *.cpp)
-
 TARGET_DIR = debug
-
-# Object files
+TARGET = $(TARGET_DIR)/main
+SRCS = $(wildcard *.cpp)
 OBJS = $(SRCS:%.cpp=$(TARGET_DIR)/%.o)
+DEPENDS := $(SRCS:%.cpp=$(TARGET_DIR)/%.d)
 
-# Rule to link object files into the target executable
-$(TARGET_DIR)/$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET_DIR)/$(TARGET) $(OBJS)
+all: $(TARGET)
 
-# Rule to compile .cpp files into .o files
+-include $(DEPENDS)
+
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+
 $(TARGET_DIR)/%.o: %.cpp
 	mkdir -p $(TARGET_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-# Clean rule to remove generated files
 clean:
-	rm $(TARGET_DIR)/$(TARGET_DEL) $(OBJS)
+	rm -f $(TARGET) $(OBJS) $(DEPENDS)

@@ -74,3 +74,12 @@ void Bus::write_byte(uint64_t address, uint8_t byte)
 {
     memory[address] = byte;
 }
+
+uint64_t Bus::read_size(uint64_t address, uint8_t size){
+    uint64_t result = 0;
+    for (int i = 0; i < size; i++)
+    {
+        result |= read_byte(address + i) << ((size - 1 - i) * 8);
+    }
+    return result;
+}

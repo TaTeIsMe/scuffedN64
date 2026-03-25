@@ -16,6 +16,7 @@ public:
     void write_byte(uint64_t address, uint8_t byte);
     uint16_t read_halfword(uint64_t address);
     void write_halfword(uint64_t address, uint16_t halfword);
-
+    uint64_t read_size(uint64_t address, uint8_t size);
+    
 private:
 };
