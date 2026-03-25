@@ -205,11 +205,11 @@ bool VR4300::DC()
             if(in.op.flags & LEFT_ACCESS){
                 std::memcpy(&in.op.result, (bytes + (offset_into_line & ~(access_size - 1)) ), access_size);
                 uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - 8 - offset_into_word))) | (in.op.result << (access_size * 8 - 8 - offset_into_word));
+                in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - offset_into_word))) | (in.op.result << offset_into_word);
             }else if(in.op.flags & RIGHT_ACCESS){
                 std::memcpy(&in.op.result, (bytes + (offset_into_line & ~(access_size - 1)) ), access_size);
                 uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                in.op.result = (in.op.rt_val & (~0xFF << (access_size * 8 - 8 - offset_into_word))) | (in.op.result >> offset_into_word);
+                in.op.result = (in.op.rt_val & (~0xFFULL << (offset_into_word - 8))) | (in.op.result >> (access_size * 8 - offset_into_word));
             }else {
                 bool sign_extended = in.op.flags & SIGN_EXTENDED;
                 
@@ -238,11 +238,11 @@ bool VR4300::DC()
                 if(in.op.flags & LEFT_ACCESS){
                     in.op.result = bus.read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
                     uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                    in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - 8 - offset_into_word))) | (in.op.result << (access_size * 8 - 8 - offset_into_word));
+                    in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - offset_into_word))) | (in.op.result << offset_into_word);
                 }else if(in.op.flags & RIGHT_ACCESS){
                     in.op.result = bus.read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
                     uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                    in.op.result = (in.op.rt_val & (~0xFF << (access_size * 8 - 8 - offset_into_word))) | (in.op.result >> offset_into_word);
+                    in.op.result = (in.op.rt_val & (~0xFFULL << (offset_into_word - 8))) | (in.op.result >> (access_size * 8 - offset_into_word));
                 }else {
                     bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
@@ -265,36 +265,30 @@ bool VR4300::EX()
 {
     auto& in  = EX_in;
     auto& out = EX_out;
-    auto& dc  = DC_in;
-    auto& wb  = WB_in;
+    auto& dc  = DC_out;
     //what EX does is:
-    // gets data from earlier stages if needed registers were operated on
+    // 
     // does the operation
 
-    //see if override is nessesarry
-    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg)
-        in.op.rs_val = wb.op.result;
-    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rt == wb.op.dest_reg)
-        in.op.rt_val = wb.op.result;
-    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg){
-        if(dc.op.flags & IS_LOAD && !in.LDI_triggered){
-            //LDI
-            //only stall, we know what DC will load into a reg prematurely anyway
-            stall = 1;
-            in.LDI_triggered = true;
-            return true;
-        }
-        in.op.rs_val = dc.op.result;
-    }
-    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg){
-        if(dc.op.flags & IS_LOAD && !in.LDI_triggered){
-            //LDI
-            stall = 1;
-            in.LDI_triggered = true;
-            return true;
-        }
+
+    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg){
+        //LDI
+        stall = 1;
+        in.LDI_triggered = true;
+        return true;
+    }else if(in.LDI_triggered && in.op.rt == dc.op.dest_reg){
         in.op.rt_val = dc.op.result;
     }
+
+    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg){
+        //LDI
+        stall = 1;
+        in.LDI_triggered = true;
+        return true;
+    }else if(in.LDI_triggered && in.op.rs == dc.op.dest_reg){
+        in.op.rs_val = dc.op.result;
+    }
+
 
     if(in.op.multicycle && !in.MCI_triggered){
         //MCI
@@ -325,8 +319,12 @@ bool VR4300::RF()
 {
     auto& in  = RF_in;
     auto& out = RF_out;
+    auto& ex  = EX_out;
+    auto& dc  = DC_out;
+    auto& wb  = WB_in;
 
     //what RF does is:
+    // gets data from earlier stages if needed registers were operated on
     // get physical PC from TLB
     // get instruction from instruction cache
     // decode op_code
@@ -407,6 +405,21 @@ bool VR4300::RF()
 
     in.op.rs_val = GPR[in.op.rs];
     in.op.rt_val = GPR[in.op.rt];
+
+    //see if override is nessesarry
+    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg)
+        in.op.rs_val = wb.op.result;
+    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rt == wb.op.dest_reg)
+        in.op.rt_val = wb.op.result;
+    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg)
+        in.op.rs_val = dc.op.result;
+    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg)
+        in.op.rt_val = dc.op.result;
+    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rs == ex.op.dest_reg)
+        in.op.rs_val = ex.op.result;
+    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rt == ex.op.dest_reg)
+        in.op.rt_val = ex.op.result;
+
     if(in.op.CPz == 0)in.op.cp_val = cp0.regs[in.op.rd];
     //if(in.op.CPz == 1)in.op.cp_val = fpu.regs[in.op.rd]; // uncomment this when making fpu
 
