@@ -17,7 +17,6 @@ VR4300::~VR4300()
 //todo
 //for sided access make sure cache is working
 //make sure next_op_branchdelay is working correctly
-//writing back to memory on cache miss and CACHE
 //entire CACHE operation
 //fix asid
 //add exceptions.
@@ -89,17 +88,14 @@ bool VR4300::WB()
     if(in.op.instruction_type == TLBP_I){
         cp0.index = in.op.result;
     }
-    if(in.op.instruction_type == TLBWI_I){
-        cp0.TLB[cp0.index][0] = in.op.result_pagemask;
-        cp0.TLB[cp0.index][1] = in.op.result_entryHI;
-        cp0.TLB[cp0.index][2] = in.op.result_entryLO0;
-        cp0.TLB[cp0.index][3] = in.op.result_entryLO1;
-    }
-    if(in.op.instruction_type == TLBWR_I){
-        cp0.TLB[cp0.random][0] = in.op.result_pagemask;
-        cp0.TLB[cp0.random][1] = in.op.result_entryHI;
-        cp0.TLB[cp0.random][2] = in.op.result_entryLO0;
-        cp0.TLB[cp0.random][3] = in.op.result_entryLO1;
+    if(in.op.instruction_type == TLBWI_I || in.op.instruction_type == TLBWR_I){
+        uint8_t tlb_index;
+        if(in.op.instruction_type == TLBWI_I) tlb_index = cp0.index;
+        else tlb_index = cp0.random;
+        cp0.TLB[tlb_index][0] = in.op.result_pagemask;
+        cp0.TLB[tlb_index][1] = in.op.result_entryHI;
+        cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
+        cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
     return false;
 }
@@ -206,6 +202,15 @@ bool VR4300::DC()
             in.DCB_triggered = true;
             return true;
         }else if(in.DCB_triggered){
+
+           if(line.dirty){
+                //write back previous entry
+                uint64_t half_1 = dcache_read_size(line, 0, 8);
+                uint64_t half_2 = dcache_read_size(line, 8, 8);
+                bus.write_doubleword(line.tag + (in.op.data_addr_p & 0xFF0),half_1);
+                bus.write_doubleword(line.tag + (in.op.data_addr_p & 0xFF8),half_2);
+                line.dirty = 0;
+            }
             //update dcache
             uint64_t line_start_addr = out.op.data_addr_p & ~0xF;
             for (int i = 0; i < 16; i++) line.data[i] = bus.read_byte(line_start_addr + i);
@@ -242,7 +247,7 @@ bool VR4300::DC()
             }
 
         }else if(in.op.flags & IS_STORE){
-            //nothing, WB is the write stage
+            line.dirty = 1;
         }
     }else{//if not cacheable
         if( in.op.flags & (IS_LOAD | IS_STORE)){
