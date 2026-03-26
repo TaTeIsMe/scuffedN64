@@ -173,8 +173,8 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*0E*/ {XORI, WRITES_REG | STORES_IN_RT,0,XORI_I},
 /*0F*/ {LUI, WRITES_REG | STORES_IN_RT ,0,LUI_I}, //technically not IS_LOAD since it doesn't access memory
 
-/*10*/ {COPz, ACCESSES_CP,0,COPz_I},
-/*11*/ {COPz, ACCESSES_CP,0,COPz_I},
+/*10*/ {COPz, 0,0,COPz_I},
+/*11*/ {COPz, 0,0,COPz_I},
 /*12*/ {},
 /*13*/ {},
 
@@ -211,24 +211,24 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*2E*/ {SWR, IS_STORE | ACCESSES_WORD | RIGHT_ACCESS,0,SWR_I},
 /*2F*/ {CACHE, 0, 0, CACHE_I},
 
-/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,LL_I},
-/*31*/ {LWCz, IS_LOAD | WRITES_REG | STORES_IN_RT | ACCESSES_CP,0,LWCz_I},
-/*32*/ {LWCz, IS_LOAD | WRITES_REG | STORES_IN_RT | ACCESSES_CP,0,LWCz_I},
+/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC,0,LL_I},
+/*31*/ {LWCz, IS_LOAD | WRITES_REG | STORES_IN_RT | WRITES_CP,0,LWCz_I},
+/*32*/ {LWCz, IS_LOAD | WRITES_REG | STORES_IN_RT | WRITES_CP,0,LWCz_I},
 /*33*/ {},
 
-/*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT,0,LLD_I},
-/*35*/ {LDCz, IS_LOAD | ACCESSES_CP,0,LDCz_I},
-/*36*/ {LDCz, IS_LOAD | ACCESSES_CP,0,LDCz_I},
+/*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | ATOMIC,0,LLD_I},
+/*35*/ {LDCz, IS_LOAD | WRITES_CP,0,LDCz_I},
+/*36*/ {LDCz, IS_LOAD | WRITES_CP,0,LDCz_I},
 /*37*/ {LD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT,0,LD_I},
 
-/*38*/ {SC, IS_STORE | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,SC_I},
-/*39*/ {SWCz, IS_STORE | ACCESSES_CP,0,SWCz_I},
-/*3A*/ {SWCz, IS_STORE | ACCESSES_CP,0,SWCz_I},
+/*38*/ {SC, IS_STORE | ACCESSES_WORD | STORES_IN_RT | ATOMIC,0,SC_I}, //this technically writes reg but it's a special case since result has data to be stored
+/*39*/ {SWCz, IS_STORE | READS_CP,0,SWCz_I},
+/*3A*/ {SWCz, IS_STORE | READS_CP,0,SWCz_I},
 /*3B*/ {},
 
-/*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT, 0, SCD_I},
-/*3D*/ {SDCz, IS_STORE | ACCESSES_CP,0,SDCz_I},
-/*3E*/ {SDCz, IS_STORE | ACCESSES_CP,0,SDCz_I},
+/*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | STORES_IN_RT | ATOMIC, 0, SCD_I}, //this technically writes reg but it's a s[ecial case since result has data to be stored
+/*3D*/ {SDCz, IS_STORE | READS_CP,0,SDCz_I},
+/*3E*/ {SDCz, IS_STORE | READS_CP,0,SDCz_I},
 /*3F*/ {SD, IS_STORE | ACCESSES_DOUBLE_WORD,0,SD_I}
 };
 VR4300::OperationTemplate special_op_lut[64]{
@@ -326,4 +326,99 @@ VR4300::OperationTemplate regimm_op_lut[32]{
 /*12*/ {BLTZALL, CAUSES_BRANCH_DELAY | STORES_IN_31, 0, BLTZALL_I},
 /*13*/ {BGEZALL, CAUSES_BRANCH_DELAY | STORES_IN_31, 0, BGEZALL_I},
 
+};
+
+VR4300::OperationTemplate COPzrs_op_lut[32]{
+/*00*/ {MFCz, WRITES_REG | STORES_IN_RT | READS_CP,0,MFCz_I},
+/*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP,0,DMFCz_I},
+/*02*/ {CFCz, WRITES_REG | STORES_IN_RT | READS_CP,0,CFCz_I},
+/*03*/ {},
+/*04*/ {MTCz, WRITES_CP,0,MTCz_I},
+/*05*/ {DMTCz, WRITES_CP,0,DMTCz_I},
+/*06*/ {CTCz, WRITES_CP,0,CTCz_I},
+/*07*/ {},
+
+/*08*/ {},
+/*09*/ {},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {},
+/*0D*/ {},
+/*0E*/ {},
+/*0F*/ {},
+};
+VR4300::OperationTemplate COPzrt_op_lut[32]{
+/*00*/ {BCzF, CAUSES_BRANCH_DELAY,0,BCzF_I},
+/*01*/ {BCzT, CAUSES_BRANCH_DELAY,0,BCzT_I},
+/*02*/ {BCzFL, CAUSES_BRANCH_DELAY,0,BCzFL_I},
+/*03*/ {BCzTL, CAUSES_BRANCH_DELAY,0,BCzTL_I},
+
+/*04*/ {},
+/*05*/ {},
+/*06*/ {},
+/*07*/ {},
+
+/*08*/ {},
+/*09*/ {},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {},
+/*0D*/ {},
+/*0E*/ {},
+/*0F*/ {},
+
+/*10*/ {},
+/*11*/ {},
+/*12*/ {},
+/*13*/ {},
+/*14*/ {},
+/*15*/ {},
+/*16*/ {},
+/*17*/ {},
+
+/*18*/ {},
+/*19*/ {},
+/*1A*/ {},
+/*1B*/ {},
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {}
+};
+VR4300::OperationTemplate CP0_op_lut[32]{
+/*00*/ {},
+/*01*/ {TLBR, 0,0,TLBR_I},
+/*02*/ {TLBWI, 0,0,TLBWI_I},
+/*03*/ {},
+/*04*/ {},
+/*05*/ {},
+/*06*/ {TLBWR, 0,0,TLBWR_I},
+/*07*/ {},
+
+/*08*/ {TLBP, 0,0,TLBP_I},
+/*09*/ {},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {},
+/*0D*/ {},
+/*0E*/ {},
+/*0F*/ {},
+
+/*10*/ {},
+/*11*/ {},
+/*12*/ {},
+/*13*/ {},
+/*14*/ {},
+/*15*/ {},
+/*16*/ {},
+/*17*/ {},
+
+/*18*/ {ERET, CAUSES_BRANCH_DELAY,0,ERET_I},
+/*19*/ {},
+/*1A*/ {},
+/*1B*/ {},
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {}
 };

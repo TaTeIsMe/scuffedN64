@@ -83,3 +83,10 @@ uint64_t Bus::read_size(uint64_t address, uint8_t size){
     }
     return result;
 }
+
+void Bus::write_size(uint64_t address, uint64_t value, uint8_t size){
+    for (int i = 0; i < size; i++)
+    {
+        write_byte((address + i), (uint8_t)(value >> ((size - 1 - i) * 8)));
+    }
+}

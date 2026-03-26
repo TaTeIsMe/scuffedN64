@@ -15,14 +15,10 @@ VR4300::~VR4300()
 }
 
 //todo
-//get sided and conditional stores working
-//in Operations.cpp some op.results might need changing to op.write_destination
+//for sided access make sure cache is working
 //make sure next_op_branchdelay is working correctly
 //writing back to memory on cache miss and CACHE
 //entire CACHE operation
-//make sure resultHI and resultLo are correctly handled on some ops
-//add writing to coprocessors
-//handle ll bit on conditional and link correctly
 //fix asid
 //add exceptions.
 // overflow exception in dc
@@ -51,42 +47,71 @@ bool VR4300::WB()
 {
     auto& in = WB_in;
     
-        if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
-        {
-            //CP0I
-            stall = 1;
-            in.CP0I_triggered = true;
-            return true;
-        }
+    if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
+    {
+        //CP0I
+        stall = 1;
+        in.CP0I_triggered = true;
+        return true;
+    }
     //what WB does is:
     // write back. just as the name suggests really
     if(in.op.flags & IS_STORE){
+        uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
+        if(in.op.flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op.data_addr_p = in.op.data_addr_p & ~(access_size - 1);
         if(in.cacheable){
+            if((in.op.flags & ATOMIC) && !LLBit){
+                GPR[in.op.dest_reg] = 0;
+                return false;
+            }else if((in.op.flags & ATOMIC) && LLBit) GPR[in.op.dest_reg] = 1;
             uint8_t offset = in.op.data_addr_p & 0xF;
             Dcache_line &line = Dcache[in.op.dcache_index];
-            //a little cursed, might switch to memcpy or smth
-            if(in.op.flags & ACCESSES_BYTE) *(uint8_t*)(line.data + offset) = (uint8_t)in.op.result;
-            else if(in.op.flags & ACCESSES_HALF_WORD) *(uint16_t*)(line.data + offset) = (uint16_t)in.op.result;
-            else if(in.op.flags & ACCESSES_WORD) *(uint32_t*)(line.data + offset) = (uint32_t)in.op.result;
-            else if(in.op.flags & ACCESSES_DOUBLE_WORD) *(uint64_t*)(line.data + offset) = (uint64_t)in.op.result;
+            dcache_write_size(line, offset, in.op.result, access_size);
         }else{
-            if(in.op.flags & ACCESSES_BYTE) bus.write_byte(in.op.data_addr_p, in.op.result);
-            else if(in.op.flags & ACCESSES_HALF_WORD) bus.write_halfword(in.op.data_addr_p, in.op.result);
-            else if(in.op.flags & ACCESSES_WORD) bus.write_word(in.op.data_addr_p, in.op.result);
-            else if(in.op.flags & ACCESSES_DOUBLE_WORD) bus.write_doubleword(in.op.data_addr_p, in.op.result);
+            bus.write_size(in.op.data_addr_p, in.op.result, access_size);
         }
     }
-    if(in.op.flags & WRITES_REG  && in.op.dest_reg != 0) GPR[in.op.dest_reg] = in.op.result;
+    if(in.op.flags & WRITES_REG){
+        if(in.op.flags & WRITES_CP){
+            if(in.op.CPz == 0) cp0.regs[in.op.dest_reg] = in.op.result;
+            //if(in.op.CPz == 1) fpu.regs[in.op.dest_reg] = in.op.result;
+        }else
+        if(in.op.dest_reg != 0)
+            GPR[in.op.dest_reg] = in.op.result;
+    }
     if(in.op.flags & WRITES_LO) LO = in.op.result_LO;
     if(in.op.flags & WRITES_HI) HI = in.op.result_HI;
+    if(in.op.instruction_type == TLBR_I){
+        cp0.entryHi = in.op.result_entryHI;
+        cp0.entryLo0 = in.op.result_entryLO0;
+        cp0.entryLo1 = in.op.result_entryLO1;
+    }
+    if(in.op.instruction_type == TLBP_I){
+        cp0.index = in.op.result;
+    }
+    if(in.op.instruction_type == TLBWI_I){
+        cp0.TLB[cp0.index][0] = in.op.result_pagemask;
+        cp0.TLB[cp0.index][1] = in.op.result_entryHI;
+        cp0.TLB[cp0.index][2] = in.op.result_entryLO0;
+        cp0.TLB[cp0.index][3] = in.op.result_entryLO1;
+    }
+    if(in.op.instruction_type == TLBWR_I){
+        cp0.TLB[cp0.random][0] = in.op.result_pagemask;
+        cp0.TLB[cp0.random][1] = in.op.result_entryHI;
+        cp0.TLB[cp0.random][2] = in.op.result_entryLO0;
+        cp0.TLB[cp0.random][3] = in.op.result_entryLO1;
+    }
     return false;
 }
+
+
 
 //Pipeline data cache stage
 bool VR4300::DC()
 {
     auto& in  = DC_in;
     auto& out = DC_out;
+    out.op = in.op;
 
     //what DC does is:
     // tlb ranslates the addr of the data to be written to/from
@@ -135,43 +160,38 @@ bool VR4300::DC()
             return true;
         }
 
-        in.op.data_addr_p = tlb_result.p_addr;
+        out.op.data_addr_p = tlb_result.p_addr;
         cacheable = tlb_result.cache;
-    }else in.op.data_addr_p = in.op.data_addr - segment.translation_offset;
-    in.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
+    }else out.op.data_addr_p = in.op.data_addr - segment.translation_offset;
+    out.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
 
     //DADE
-    if(
-        //missaligned access
-        !(in.op.flags & RIGHT_ACCESS) &&
-        !(in.op.flags & LEFT_ACCESS) && (
-            (in.op.flags & ACCESSES_DOUBLE_WORD && in.op.data_addr_p % 8 != 0) ||
-            (in.op.flags & ACCESSES_WORD && in.op.data_addr_p % 4 != 0) ||
-            (in.op.flags & ACCESSES_HALF_WORD && in.op.data_addr_p % 2 != 0) ||
-            // or wrong mode (user, kernel, supervisor)
-            (cp0.in_user_mode() && !segment.user_accesible) ||
+    bool misalligned = (in.op.flags & ACCESSES_DOUBLE_WORD && out.op.data_addr_p % 8 != 0) ||
+            (in.op.flags & ACCESSES_WORD && out.op.data_addr_p % 4 != 0) ||
+            (in.op.flags & ACCESSES_HALF_WORD && out.op.data_addr_p % 2 != 0);
+    bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
             (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
-            (cp0.in_kernel_mode() && !segment.kernel_accesible)
-        )
-    ){
+            (cp0.in_kernel_mode() && !segment.kernel_accesible);
+    bool sided = (in.op.flags & (RIGHT_ACCESS | LEFT_ACCESS));
+    if( !sided && (misalligned || wrong_mode)){
         cp0.badVAddr = in.op.data_addr;
         if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
         else handle_general_exception(in.op,AdEL);
         return true;
     }
 
-    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
+    if((cp0.watchLo & WATCHLO_R_MASK) && ((out.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
         handle_general_exception(in.op,WATCH);
         return true;
     }
-    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_STORE)){
+    if((cp0.watchLo & WATCHLO_W_MASK) && ((out.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_STORE)){
         handle_general_exception(in.op,WATCH);
         return true;
     }
 
     if(cacheable){
-        Dcache_line& line = Dcache[in.op.dcache_index];
-        bool cache_hit = ((in.op.data_addr_p >> 12) == line.tag);
+        Dcache_line& line = Dcache[out.op.dcache_index];
+        bool cache_hit = ((out.op.data_addr_p >> 12) == line.tag);
 
         if(WB_in.op.flags & IS_STORE && cache_hit && !in.DCB_triggered){
             //DCB on hit
@@ -187,76 +207,97 @@ bool VR4300::DC()
             return true;
         }else if(in.DCB_triggered){
             //update dcache
-            uint64_t line_start_addr = in.op.data_addr_p & ~0xF;
+            uint64_t line_start_addr = out.op.data_addr_p & ~0xF;
             for (int i = 0; i < 16; i++) line.data[i] = bus.read_byte(line_start_addr + i);
-            line.tag = in.op.data_addr_p >> 12;
+            line.tag = out.op.data_addr_p >> 12;
             line.valid = true;
         }
 
         if(in.op.flags & IS_LOAD){
+            if(in.op.flags & ATOMIC) LLBit = 1;
             //fetch data from the cache to put in a reg
-            uint8_t* bytes = line.data;
-            uint32_t offset_into_line = in.op.data_addr_p & 0xF;
+            uint32_t offset_into_line = out.op.data_addr_p & 0xF;
+            uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);            
+            uint64_t mem = dcache_read_size(line,(offset_into_line & ~(access_size - 1)),access_size );
 
-            uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
-            uint64_t temp_result;
+            uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
+            uint8_t bit_offset = byte_offset * 8;
+            uint8_t bits = access_size * 8;
 
-            //this is the most consise i could get it...
-            if(in.op.flags & LEFT_ACCESS){
-                std::memcpy(&in.op.result, (bytes + (offset_into_line & ~(access_size - 1)) ), access_size);
-                uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - offset_into_word))) | (in.op.result << offset_into_word);
-            }else if(in.op.flags & RIGHT_ACCESS){
-                std::memcpy(&in.op.result, (bytes + (offset_into_line & ~(access_size - 1)) ), access_size);
-                uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                in.op.result = (in.op.rt_val & (~0xFFULL << (offset_into_word - 8))) | (in.op.result >> (access_size * 8 - offset_into_word));
+            if (in.op.flags & LEFT_ACCESS){
+                uint64_t mask = ~0ULL << (bits - bit_offset);
+                out.op.result = (in.op.rt_val & ~mask) | (mem << bit_offset);
+            }
+            else if (in.op.flags & RIGHT_ACCESS){
+                uint64_t mask = ~(~0ULL << bit_offset);
+                out.op.result = (in.op.rt_val & ~mask) | (mem >> (bits - bit_offset));
             }else {
                 bool sign_extended = in.op.flags & SIGN_EXTENDED;
                 
-                std::memcpy(&temp_result, (bytes + offset_into_line), access_size);
-                if(access_size == 1) in.op.result = (sign_extended) ? (int8_t)temp_result:(uint8_t)temp_result;
-                else if(access_size == 2) in.op.result = (sign_extended) ? (int16_t)temp_result:(uint16_t)temp_result;
-                else if(access_size == 4) in.op.result = (sign_extended) ? (int32_t)temp_result:(uint32_t)temp_result;
-                else if(access_size == 8) in.op.result = (sign_extended) ? (int64_t)temp_result:(uint64_t)temp_result;
+                out.op.result = dcache_read_size(line,offset_into_line,access_size);
+                if(access_size == 1) out.op.result = (sign_extended) ? (int8_t)out.op.result:(uint8_t)out.op.result;
+                else if(access_size == 2) out.op.result = (sign_extended) ? (int16_t)out.op.result:(uint16_t)out.op.result;
+                else if(access_size == 4) out.op.result = (sign_extended) ? (int32_t)out.op.result:(uint32_t)out.op.result;
+                else if(access_size == 8) out.op.result = (sign_extended) ? (int64_t)out.op.result:(uint64_t)out.op.result;
             }
 
         }else if(in.op.flags & IS_STORE){
             //nothing, WB is the write stage
         }
-    }else{//this logic of avoiding cache is a little scuffed, might need some review
+    }else{//if not cacheable
         if( in.op.flags & (IS_LOAD | IS_STORE)){
             if(!in.uncacheable_stall_triggered){
                 stall = DCACHE_STALL_TIME;
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
+            uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
             if(in.op.flags & IS_LOAD){
-                uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
-                uint64_t temp_result;
 
                 //this is the most consise i could get it...
-                if(in.op.flags & LEFT_ACCESS){
-                    in.op.result = bus.read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
-                    uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                    in.op.result = (in.op.rt_val & ~(~0ULL << (access_size * 8 - offset_into_word))) | (in.op.result << offset_into_word);
-                }else if(in.op.flags & RIGHT_ACCESS){
-                    in.op.result = bus.read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
-                    uint8_t offset_into_word = (((in.op.data_addr_p & (access_size - 1))) * 8);
-                    in.op.result = (in.op.rt_val & (~0xFFULL << (offset_into_word - 8))) | (in.op.result >> (access_size * 8 - offset_into_word));
+                uint64_t mem = bus.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
+
+                uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
+                uint8_t bit_offset = byte_offset * 8;
+                uint8_t bits = access_size * 8;
+
+                if (in.op.flags & LEFT_ACCESS){
+                    uint64_t mask = ~0ULL << (bits - bit_offset);
+                    out.op.result = (in.op.rt_val & ~mask) | (mem << bit_offset);
+                }
+                else if (in.op.flags & RIGHT_ACCESS){
+                    uint64_t mask = ~(~0ULL << bit_offset);
+                    out.op.result = (in.op.rt_val & ~mask) | (mem >> (bits - bit_offset));
                 }else {
                     bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
-                    temp_result = bus.read_size(in.op.data_addr_p, access_size);
-                    if(access_size == 1) in.op.result = (sign_extended) ? (int8_t)temp_result:(uint8_t)temp_result;
-                    else if(access_size == 2) in.op.result = (sign_extended) ? (int16_t)temp_result:(uint16_t)temp_result;
-                    else if(access_size == 4) in.op.result = (sign_extended) ? (int32_t)temp_result:(uint32_t)temp_result;
-                    else if(access_size == 8) in.op.result = (sign_extended) ? (int64_t)temp_result:(uint64_t)temp_result;
+                    out.op.result = bus.read_size(out.op.data_addr_p, access_size);
+                    if(access_size == 1) out.op.result = (sign_extended) ? (int8_t)out.op.result:(uint8_t)out.op.result;
+                    else if(access_size == 2) out.op.result = (sign_extended) ? (int16_t)out.op.result:(uint16_t)out.op.result;
+                    else if(access_size == 4) out.op.result = (sign_extended) ? (int32_t)out.op.result:(uint32_t)out.op.result;
+                    else if(access_size == 8) out.op.result = (sign_extended) ? (int64_t)out.op.result:(uint64_t)out.op.result;
                 }
             }
-            if(in.op.flags & IS_STORE){ out.cacheable = false;}
+            if(in.op.flags & IS_STORE){
+                //this og_val can't get info from one instruction back in the future
+                uint64_t og_val;
+                if(WB_in.op.flags & IS_STORE && out.op.data_addr_p == WB_in.op.data_addr_p)
+                    og_val = WB_in.op.result;
+                else og_val = bus.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
+                uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
+                uint8_t bit_offset = byte_offset * 8;
+                uint8_t bits = access_size * 8;
+                if(in.op.flags & LEFT_ACCESS){
+                    uint64_t mask = ~(~0ULL << (bit_offset));
+                    out.op.result = (og_val & mask) | out.op.result;
+                }else if(in.op.flags & RIGHT_ACCESS){
+                    uint64_t mask = ~0ULL << (bits - bit_offset);
+                    out.op.result = (og_val & mask) | out.op.result;
+                }
+                out.cacheable = false;
+            }
         }
     }
-    out.op = in.op;
     return false;
 }
 
@@ -306,8 +347,6 @@ bool VR4300::EX()
         handle_general_exception(in.op, Bp);
         return true;
     }
-
-    std::cout << "operation:"<< in.op.instruction_type << "rs" << (int)in.op.rs<< "rt:" << (int)in.op.rt << "\n";
     
     in.op.execute(*this);
     out.op = in.op;
@@ -459,6 +498,14 @@ void VR4300::decode_op(uint32_t word)
         tmplt = &special_op_lut[word & 0x3F];
     else if(opcode == 1)
         tmplt = &regimm_op_lut[(word >> 16) & 0x1F];
+    else if((opcode >> 2) == 4){
+        if(((word >> 21) & 0x1F) == 8)
+            tmplt = &COPzrt_op_lut[(word >> 16) & 0x1F];
+        else if((word >> 25) == 33)
+            tmplt = &CP0_op_lut[word & 0x3F];
+        else
+        tmplt = &COPzrs_op_lut[(word >> 21) & 0x1F];
+    }
     else
         tmplt = &primary_op_lut[opcode];
 
@@ -564,4 +611,22 @@ inline void VR4300::set_tlb_context(uint64_t addr){
     cp0.context  = cp0.set_bits(cp0.context, CONTEXT_BADVPN2_MASK, addr >> 13);
     cp0.xcontext = cp0.set_bits(cp0.xcontext, XCONTEXT_BADVPN2_MASK, addr >> 13);
     cp0.entryHi  = cp0.set_bits(cp0.entryHi, ENTRYHI_VPN2_MASK, addr >> 13);
+}
+
+void VR4300::dcache_write_size(VR4300::Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        *(line.data + offset + i) = (uint8_t)(value >> ((size - 1 - i) * 8));
+    }
+}
+
+uint64_t VR4300::dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uint8_t size)
+{
+    uint64_t result = 0;
+    for (int i = 0; i < size; i++)
+    {
+        result |= (uint64_t)*(line.data + offset + i) << ((size - 1 - i) * 8);
+    }
+    return result;
 }

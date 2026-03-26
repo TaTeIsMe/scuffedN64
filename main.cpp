@@ -30,7 +30,10 @@ int main(){
         0x98, 0x64, 0x00, 0x05,
         //LWL $3, $4, 1
         0x88, 0x64, 0x00, 0x01,
-
+        //SWL $2 169($3)
+        0xA8, 0x62, 0x00, 0xA7,
+        //SWR $2 172($3)
+        0xB8, 0x62, 0x00, 0xAA,
         // Padding with NOPs (0x00000000) to allow pipeline to clear
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
@@ -60,5 +63,9 @@ int main(){
 
     std::cout << vr4300.r2 << "\n";
     std::cout << (memory[64]<<24 | memory[64+1] << 16 | memory[64+2]<<8 | memory[64+3]) << "\n";
+    std::cout << "memory @ 169:" << std::hex << (int)memory[169] << "\n";
+    std::cout << "memory @ 170:" << std::hex << (int)memory[170] << "\n";
+    std::cout << "memory @ 171:" << std::hex << (int)memory[171] << "\n";
+    std::cout << "memory @ 172:" << std::hex << (int)memory[172] << "\n";
 
 }

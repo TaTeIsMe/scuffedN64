@@ -154,7 +154,7 @@ enum OpFlags:uint32_t{
     ACCESSES_BYTE = 1<<0,
     ACCESSES_HALF_WORD = 1<<1,
     ACCESSES_WORD = 1<<2,
-    ACCESSES_DOUBLE_WORD = 1<<3,
+    ACCESSES_DOUBLE_WORD = 1<<3, // first 4 ned to be there since they encode size written
     WRITES_REG = 1<<4,
     CAUSED_EXCEPTION = 1<<5,
     READS_CP0 = 1<<6,
@@ -171,8 +171,10 @@ enum OpFlags:uint32_t{
     WRITES_LO = 1<<17,
     STORES_IN_31 = 1<<18,
     IS_TRAP = 1<<19,
-    ACCESSES_CP = 1 <<20,
-    WRITES_HI = 1<<21
+    READS_CP = 1 <<20,
+    WRITES_HI = 1<<21,
+    ATOMIC = 1<<22,
+    WRITES_CP = 1 <<23
 };
 
 class VR4300
@@ -331,10 +333,12 @@ public:
     IC_RF RF_in{};
     IC_RF IC_out{};
     bool IC(); // instruction cache fetch
-
-    void submit_pipeline();
-
-    private:
     
+    void submit_pipeline();
+    
+    void dcache_write_size(VR4300::Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);
+    uint64_t dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uint8_t size);
+
+private:
 };
 

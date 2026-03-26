@@ -51,10 +51,12 @@ void SW(VR4300& cpu){
 void SWL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val >> ((op.data_addr & 0x3) * 8);
 }
 void SWR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val << ((3 - (op.data_addr & 0x3)) * 8);
 }
 void LD(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -91,14 +93,17 @@ void SCD(VR4300& cpu){
 void SD(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val;
 }
 void SDL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val >> ((op.data_addr & 0x7) * 8);
 }
 void SDR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
+    op.result = op.rt_val << ((8-(op.data_addr & 0x7)) * 8);
 }
 //Computational
 void ADDI(VR4300 &cpu){
@@ -517,11 +522,14 @@ void TNEI(VR4300& cpu){
 }
 void LWCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
+
 void SWCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
+    if(op.CPz == 0) op.result = cpu.cp0.regs[op.rt];
+    //if(op.CPz == 1) op.result = cpu.fpu.regs[op.rt];
 }
 void MTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -539,7 +547,7 @@ void CTCz(VR4300& cpu){
 void CFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
 }
-//this only does stuff for fpu so make later with fpu
+//this technically doesn't even exist i think.. maybe?
 void COPz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
 }
@@ -570,11 +578,14 @@ void SDCz(VR4300& cpu){
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzTL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    cpu.RF_in = {};
 }
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzFL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    cpu.RF_in = {};
 }
+/* These are sub categories of MTCz and such
 void MTC0(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = (uint32_t)op.rt_val;
@@ -590,7 +601,7 @@ void DMTC0(VR4300& cpu){
 void DMFC0(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.cp_val;
-}
+}*/
 void TLBR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     uint8_t tlb_index = cpu.cp0.index & 0x3F;
