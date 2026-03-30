@@ -350,113 +350,113 @@ void DDIVU(VR4300& cpu){
 //description says it is coupled with high 4 bits, but specifics say it copies everything but bottom 28
 void J(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    cpu.PC = ((op.PC + 4) & (~0xFFFFFFF)) | (op.target << 2); 
+    cpu.PC = ((op.PC + 4) & (~0xFFFFFFF)) | (op.target << 2); // value might be wrong
 }
 void JAL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
-    cpu.PC = ((op.PC + 4) & (~0xFFFFFFF)) | (op.target << 2);
+    cpu.PC = ((op.PC + 4) & (~0xFFFFFFF)) | (op.target << 2);//value might be wrong
 }
 void JR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    cpu.PC = op.rs_val - 4; 
+    cpu.PC = op.rs_val;
 }
 
 void JALR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     if(op.rd)op.dest_reg = op.rd;
     op.result = op.PC + 8;
-    cpu.PC = op.rs_val - 4;
+    cpu.PC = op.rs_val ;
 }
 void BEQ(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if(op.rs_val == op.rt_val)cpu.PC = target;
 }
 void BNE(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if(op.rs_val != op.rt_val)cpu.PC = target;
 }
 void BLEZ(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val <= 0)cpu.PC = target;
 }
 void BGTZ(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val > 0)cpu.PC = target;
 }
 void BLTZ(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val < 0)cpu.PC = target;
 }
 void BGEZ(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val >= 0)cpu.PC = target;
 }
 void BLTZAL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val < 0)cpu.PC = target;
 }
 void BGEZAL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val >= 0)cpu.PC = target;
 }
 void BEQL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if(op.rs_val == op.rt_val)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BNEL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if(op.rs_val != op.rt_val)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BLEZL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val <= 0)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BGTZL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val > 0)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BLTZL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val < 0)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BGEZL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val >= 0)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BLTZALL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val < 0)cpu.PC = target;
     else cpu.discard_bd = true;
 }
 void BGEZALL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
-    uint64_t target = op.PC + (((int16_t)op.immediate) << 2); 
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
     if((int64_t)op.rs_val >= 0)cpu.PC = target;
     else cpu.discard_bd = true;
 }

@@ -30,6 +30,9 @@ VR4300::~VR4300()
 void VR4300::on_clock()
 {
     //on interlock the ENTIRE pipeline is stalled
+
+    cp0.count++;//make sure this advances at the correct rate todo
+
     if(stall){
         stall--;
         return;
@@ -37,6 +40,7 @@ void VR4300::on_clock()
 
     //writes back at the end to make sure cpu state doesn't get modified until submit pipeline
     if ( DC() || EX() || RF() || IC() || WB() ) return;
+    PC += 4; //make sure it's ok for this to be here
     submit_pipeline();
 }
 
@@ -96,8 +100,11 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(((in.op.PC & 0xFFFC)) == 0x700){
+    if(((in.op.PC & 0xFFFC)) == 0x420){
         std::cout<<"stop condition";
+    }
+    if(in.op.result == 0x7FFFF888){
+        std::cout<<"stop condition 2";
     }
 
     std::cout<<"PC: "<< std::left <<std::setw(3)<<((in.op.PC & 0xFFFC));
@@ -265,10 +272,10 @@ bool VR4300::DC()
                 bool sign_extended = in.op.flags & SIGN_EXTENDED;
                 
                 out.op.result = dcache_read_size(line,offset_into_line,access_size);
-                if(access_size == 1) out.op.result = (sign_extended) ? (int8_t)out.op.result:(uint8_t)out.op.result;
-                else if(access_size == 2) out.op.result = (sign_extended) ? (int16_t)out.op.result:(uint16_t)out.op.result;
-                else if(access_size == 4) out.op.result = (sign_extended) ? (int32_t)out.op.result:(uint32_t)out.op.result;
-                else if(access_size == 8) out.op.result = (sign_extended) ? (int64_t)out.op.result:(uint64_t)out.op.result;
+                if(access_size == 1) out.op.result = (sign_extended) ? (int64_t)(int8_t)out.op.result:(uint64_t)(uint8_t)out.op.result;
+                else if(access_size == 2) out.op.result = (sign_extended) ? (int64_t)(int16_t)out.op.result:(uint64_t)(uint16_t)out.op.result;
+                else if(access_size == 4) out.op.result = (sign_extended) ? (int64_t)(int32_t)out.op.result:(uint64_t)(uint32_t)out.op.result;
+                else if(access_size == 8) out.op.result = (sign_extended) ? out.op.result:out.op.result;
             }
 
         }else if(in.op.flags & IS_STORE){
@@ -302,10 +309,10 @@ bool VR4300::DC()
                     bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
                     out.op.result = bus.read_size(out.op.data_addr_p, access_size);
-                    if(access_size == 1) out.op.result = (sign_extended) ? (int8_t)out.op.result:(uint8_t)out.op.result;
-                    else if(access_size == 2) out.op.result = (sign_extended) ? (int16_t)out.op.result:(uint16_t)out.op.result;
-                    else if(access_size == 4) out.op.result = (sign_extended) ? (int32_t)out.op.result:(uint32_t)out.op.result;
-                    else if(access_size == 8) out.op.result = (sign_extended) ? (int64_t)out.op.result:(uint64_t)out.op.result;
+                    if(access_size == 1) out.op.result = (sign_extended) ? (int64_t)(int8_t)out.op.result:(uint64_t)(uint8_t)out.op.result;
+                    else if(access_size == 2) out.op.result = (sign_extended) ? (int64_t)(int16_t)out.op.result:(uint64_t)(uint16_t)out.op.result;
+                    else if(access_size == 4) out.op.result = (sign_extended) ? (int64_t)(int32_t)out.op.result:(uint64_t)(uint32_t)out.op.result;
+                    else if(access_size == 8) out.op.result = (sign_extended) ? out.op.result:out.op.result;
                 }
             }
             if(in.op.flags & IS_STORE){
@@ -409,7 +416,6 @@ bool VR4300::RF()
         in.op = Operation();
         in.op.PC = prev_PC;
         out.op = in.op;
-        PC += 4;
         return false;
     }
 
@@ -505,7 +511,6 @@ bool VR4300::RF()
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
-    PC += 4;
     out.op = in.op;
     return false;
 }

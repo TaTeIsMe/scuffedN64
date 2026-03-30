@@ -196,8 +196,8 @@ public:
     void rom_write_byte(uint32_t address, uint8_t byte);
     uint8_t rom_read_byte(uint32_t address);
 
-    uint8_t unmapped_read(uint32_t addr){ return 0; }
-    void unmapped_write(uint32_t addr,uint8_t val){}
+    uint8_t unmapped_read(uint32_t addr);
+    void unmapped_write(uint32_t addr,uint8_t val);
     
     uint32_t read_word(uint64_t address);
     void write_word(uint64_t address, uint32_t word);
@@ -220,31 +220,31 @@ public:
     };
     
     MemoryMapping map[26]={
-        {0x00000000, 0x03EFFFFF, rdram_write_byte, rdram_read_byte}, //RDRAM
-        {0x03F00000, 0x03F7FFFF, rdram_regs_write_byte, rdram_regs_read_byte}, //RDRAM regs 
-        {0x03F80000, 0x03FFFFFF, rdram_broadcast_write_byte, rdram_broadcast_read_byte}, //RDRAM regs broadcast
-        {0x04000000, 0x04000FFF, rsp_dmem_write_byte, rsp_dmem_read_byte}, //RSP DMEMM
-        {0x04001000, 0x04001FFF, rsp_imem_write_byte, rsp_imem_read_byte}, //RSP IMEM
-        {0x04040000, 0x040BFFFF, rsp_regs_write_byte, rsp_regs_read_byte}, //RSP regs
-        {0x040C0000, 0x040FFFFF, unmapped_write, unmapped_read}, //unmapped
-        {0x04100000, 0x041FFFFF, rdp_command_write_byte, rdp_command_read_byte}, //RDP command regs
-        {0x04200000, 0x042FFFFF, rdp_span_write_byte, rdp_span_read_byte}, //RDP span regs
-        {0x04300000, 0x043FFFFF, mi_write_byte, mi_read_byte}, //MIPS interface
-        {0x04400000, 0x044FFFFF, vi_write_byte, vi_read_byte}, //Video interface
-        {0x04500000, 0x045FFFFF, ai_write_byte, ai_read_byte}, //Audio interface
-        {0x04600000, 0x046FFFFF, pi_write_byte, pi_read_byte}, //Peripheral interface
-        {0x04700000, 0x047FFFFF, ri_write_byte, ri_read_byte}, //RDRAM interface
-        {0x04800000, 0x048FFFFF, si_write_byte, si_read_byte}, //Serial interface
-        {0x04900000, 0x04FFFFFF, unmapped_write, unmapped_read}, //unmapped
-        {0x05000000, 0x05FFFFFF, unmapped_write, unmapped_read}, //N64DD regs
-        {0x06000000, 0x07FFFFFF, unmapped_write, unmapped_read}, //N64DD IPL ROM
-        {0x08000000, 0x0FFFFFFF, unmapped_write, unmapped_read}, //Cartridge SRAM/FlashRAM
-        {0x10000000, 0x1FBFFFFF, rom_write_byte, rom_read_byte}, //Cartridge ROM
-        {0x1FC00000, 0x1FC007BF, unmapped_write, unmapped_read}, //PIF ROM
-        {0x1FC007C0, 0x1FC007FF, unmapped_write, unmapped_read}, //PIF RAM
-        {0x1FC00800, 0x1FCFFFFF, unmapped_write, unmapped_read}, //Mystery 0_0
-        {0x1FD00000, 0x1FFFFFFF, unmapped_write, unmapped_read}, //unused
-        {0x20000000, 0x7FFFFFFF, unmapped_write, unmapped_read}, //unused
-        {0x80000000, 0xFFFFFFFF, unmapped_write, unmapped_read}, //unmapped (mapped in the cpu)
+        {0x00000000, 0x03EFFFFF, &Bus::rdram_write_byte, &Bus::rdram_read_byte}, //RDRAM
+        {0x03F00000, 0x03F7FFFF, &Bus::rdram_regs_write_byte, &Bus::rdram_regs_read_byte}, //RDRAM regs 
+        {0x03F80000, 0x03FFFFFF, &Bus::rdram_broadcast_write_byte, &Bus::rdram_broadcast_read_byte}, //RDRAM regs broadcast
+        {0x04000000, 0x04000FFF, &Bus::rsp_dmem_write_byte, &Bus::rsp_dmem_read_byte}, //RSP DMEMM
+        {0x04001000, 0x04001FFF, &Bus::rsp_imem_write_byte, &Bus::rsp_imem_read_byte}, //RSP IMEM
+        {0x04040000, 0x040BFFFF, &Bus::rsp_regs_write_byte, &Bus::rsp_regs_read_byte}, //RSP regs
+        {0x040C0000, 0x040FFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //unmapped
+        {0x04100000, 0x041FFFFF, &Bus::rdp_command_write_byte, &Bus::rdp_command_read_byte}, //RDP command regs
+        {0x04200000, 0x042FFFFF, &Bus::rdp_span_write_byte, &Bus::rdp_span_read_byte}, //RDP span regs
+        {0x04300000, 0x043FFFFF, &Bus::mi_write_byte, &Bus::mi_read_byte}, //MIPS interface
+        {0x04400000, 0x044FFFFF, &Bus::vi_write_byte, &Bus::vi_read_byte}, //Video interface
+        {0x04500000, 0x045FFFFF, &Bus::ai_write_byte, &Bus::ai_read_byte}, //Audio interface
+        {0x04600000, 0x046FFFFF, &Bus::pi_write_byte, &Bus::pi_read_byte}, //Peripheral interface
+        {0x04700000, 0x047FFFFF, &Bus::ri_write_byte, &Bus::ri_read_byte}, //RDRAM interface
+        {0x04800000, 0x048FFFFF, &Bus::si_write_byte, &Bus::si_read_byte}, //Serial interface
+        {0x04900000, 0x04FFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //unmapped
+        {0x05000000, 0x05FFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //N64DD regs
+        {0x06000000, 0x07FFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //N64DD IPL ROM
+        {0x08000000, 0x0FFFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //Cartridge SRAM/FlashRAM
+        {0x10000000, 0x1FBFFFFF, &Bus::rom_write_byte, &Bus::rom_read_byte}, //Cartridge ROM
+        {0x1FC00000, 0x1FC007BF, &Bus::unmapped_write, &Bus::unmapped_read}, //PIF ROM
+        {0x1FC007C0, 0x1FC007FF, &Bus::unmapped_write, &Bus::unmapped_read}, //PIF RAM
+        {0x1FC00800, 0x1FCFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //Mystery 0_0
+        {0x1FD00000, 0x1FFFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //unused
+        {0x20000000, 0x7FFFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //unused
+        {0x80000000, 0xFFFFFFFF, &Bus::unmapped_write, &Bus::unmapped_read}, //unmapped (mapped in the cpu)
     };
 };

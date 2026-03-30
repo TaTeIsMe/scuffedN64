@@ -16,13 +16,19 @@ int main(){
     uint8_t rdram[4 * 1024 * 1024];
     Bus bus(rdram, rom);
     VR4300 vr4300(bus);
-    vr4300.PC = 0xffffffffA4000040;
+    vr4300.PC = 0xffffffffA0000000;
     bus.RI_SELECT = 0x14;
 
     //IPL2
     for (int i = 0; i < 0xFC0; i++)
     {
         bus.rsp_dmem[i] = rom[i];
+    }
+
+    //ipl3 skip
+    for (int i = 0; i < 2*1024*1024; i++)
+    {
+        rdram[i] = rom[i + 0x1000];
     }
     
     while(true){

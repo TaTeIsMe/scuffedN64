@@ -1,5 +1,5 @@
 #include "Bus.h"
-
+#include<iostream>
 
 
 Bus::Bus(uint8_t* rdram, std::vector<uint8_t>& rom):rom(rom)
@@ -104,3 +104,49 @@ void Bus::write_size(uint64_t address, uint64_t value, uint8_t size){
         write_byte((address + i), (uint8_t)(value >> ((size - 1 - i) * 8)));
     }
 }
+
+void Bus::rdram_write_byte(uint32_t address, uint8_t byte){rdram[address] = byte;}
+uint8_t Bus::rdram_read_byte(uint32_t address){ return rdram[address]; }
+
+void Bus::rdram_regs_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::rdram_regs_read_byte(uint32_t address){ return 0; }
+void Bus::rdram_broadcast_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::rdram_broadcast_read_byte(uint32_t address){ return 0; }
+
+void Bus::rsp_dmem_write_byte(uint32_t address, uint8_t byte){rsp_dmem[address] = byte;}
+uint8_t Bus::rsp_dmem_read_byte(uint32_t address){ return rsp_dmem[address]; }
+void Bus::rsp_imem_write_byte(uint32_t address, uint8_t byte){rsp_imem[address] = byte;}
+uint8_t Bus::rsp_imem_read_byte(uint32_t address){ return rsp_imem[address]; }
+
+void Bus::rsp_regs_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::rsp_regs_read_byte(uint32_t address){ return 0; }
+void Bus::rdp_command_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::rdp_command_read_byte(uint32_t address){ return 0; }
+void Bus::rdp_span_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::rdp_span_read_byte(uint32_t address){ return 0; }
+void Bus::mi_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::mi_read_byte(uint32_t address){ return 0; }
+void Bus::vi_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::vi_read_byte(uint32_t address){ return 0; }
+void Bus::ai_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::ai_read_byte(uint32_t address){ return 0; }
+void Bus::pi_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::pi_read_byte(uint32_t address){ return 0; }
+void Bus::ri_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::ri_read_byte(uint32_t address){ return 0; }
+void Bus::si_write_byte(uint32_t address, uint8_t byte){}
+uint8_t Bus::si_read_byte(uint32_t address){ return 0; }
+
+void Bus::rom_write_byte(uint32_t address, uint8_t byte){
+    rom[address] = byte;
+    if(address== 0xB3FF0014- 0xA - 0x10000000)
+        for (int i = 0xB3FF0020; i < 0xB3FF0220; i++)
+        {
+            std::cout<<rom[i];
+        }
+        
+}
+uint8_t Bus::rom_read_byte(uint32_t address){ return rom[address]; }
+
+void Bus::unmapped_write(uint32_t addr,uint8_t val){}
+uint8_t Bus::unmapped_read(uint32_t addr){ return 0; }
