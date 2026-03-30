@@ -9,144 +9,18 @@
 #define DCACHE_STALL_TIME 2
 #define ICACHE_STALL_TIME 2
 
-enum OpTypes : uint32_t {
-    SPECIAL_I,
-    REGIMM_I,
-    LB_I,
-    LBU_I,
-    LH_I,
-    LHU_I,
-    LW_I,
-    LWL_I,
-    LWR_I,
-    SB_I,
-    SH_I,
-    SW_I,
-    SWL_I,
-    SWR_I,
-    LD_I,
-    LDL_I,
-    LDR_I,
-    LL_I,
-    LLD_I,
-    LWU_I,
-    SC_I,
-    SCD_I,
-    SD_I,
-    SDL_I,
-    SDR_I,
-    ADDI_I,
-    ADDIU_I,
-    SLTI_I,
-    SLTIU_I,
-    ANDI_I,
-    ORI_I,
-    XORI_I,
-    LUI_I,
-    DADDI_I,
-    DADDIU_I,
-    ADD_I,
-    ADDU_I,
-    SUB_I,
-    SUBU_I,
-    SLT_I,
-    SLTU_I,
-    AND_I,
-    OR_I,
-    XOR_I,
-    NOR_I,
-    DADD_I,
-    DADDU_I,
-    DSUB_I,
-    DSUBU_I,
-    SLL_I,
-    SRL_I,
-    SRA_I,
-    SLLV_I,
-    SRLV_I,
-    SRAV_I,
-    DSLL_I,
-    DSRL_I,
-    DSRA_I,
-    DSLLV_I,
-    DSRLV_I,
-    DSRAV_I,
-    DSLL32_I,
-    DSRL32_I,
-    DSRA32_I,
-    MULT_I,
-    MULTU_I,
-    DIV_I,
-    DIVU_I,
-    MFHI_I,
-    MFLO_I,
-    MTHI_I,
-    MTLO_I,
-    DMULT_I,
-    DMULTU_I,
-    DDIV_I,
-    DDIVU_I,
-    J_I,
-    JAL_I,
-    JR_I,
-    JALR_I,
-    BEQ_I,
-    BNE_I,
-    BLEZ_I,
-    BGTZ_I,
-    BLTZ_I,
-    BGEZ_I,
-    BLTZAL_I,
-    BGEZAL_I,
-    BEQL_I,
-    BNEL_I,
-    BLEZL_I,
-    BGTZL_I,
-    BLTZL_I,
-    BGEZL_I,
-    BLTZALL_I,
-    BGEZALL_I,
-    SYNC_I,
-    SYSCALL_I,
-    BREAK_I,
-    TGE_I,
-    TGEU_I,
-    TLT_I,
-    TLTU_I,
-    TEQ_I,
-    TNE_I,
-    TGEI_I,
-    TGEIU_I,
-    TLTI_I,
-    TLTIU_I,
-    TEQI_I,
-    TNEI_I,
-    LWCz_I,
-    SWCz_I,
-    MTCz_I,
-    MFCz_I,
-    CTCz_I,
-    CFCz_I,
-    COPz_I,
-    BCzT_I,
-    BCzF_I,
-    DMTCz_I,
-    DMFCz_I,
-    LDCz_I,
-    SDCz_I,
-    BCzTL_I,
-    BCzFL_I,
-    MTC0_I,
-    MFC0_I,
-    DMTC0_I,
-    DMFC0_I,
-    TLBR_I,
-    TLBWI_I,
-    TLBWR_I,
-    TLBP_I,
-    ERET_I,
-    CACHE_I,
-    NOP_I,
+enum class OpType : uint32_t {
+#   define X(a) a,
+#   include "op_enum.def"
+#   undef X
+    OpTypeCount
+};
+
+char const* const optype_str[] = {
+#   define X(a) #a,
+#   include "op_enum.def"
+#   undef X
+    0
 };
 
 //these are a mess but it's fine...
@@ -187,7 +61,7 @@ public:
     CP0 cp0;
     Bus& bus;
 
-    uint64_t PC = 0xFFFFFFFFA0000000;
+    uint64_t PC = 0;
     uint64_t HI = 0;
     uint64_t LO = 0;
     uint8_t LLBit = 0;
@@ -252,7 +126,7 @@ public:
         void (*execute)(VR4300& cpu) = nullptr;
         uint32_t flags = 0;
         uint8_t multicycle = 0;
-        OpTypes instruction_type = NOP_I;
+        OpType instruction_type = OpType::NOP;
     };
     
     struct Operation : OperationTemplate{
@@ -279,6 +153,7 @@ public:
         uint64_t result_LO = 0;//for multiplying and division
         uint64_t PC = 0;//virtual address of instruction
         uint64_t dcache_index = 0;//for cache writing
+        const char* op_name();
     };
     
     void decode_op(uint32_t word);
@@ -300,6 +175,7 @@ public:
     struct EX_DC{
         Operation op;
         bool DCB_triggered;
+        bool COp_triggered; // all these flags might have to be moved from ins to outs. That will also require them to be reset on submit pipeline
         bool uncacheable_stall_triggered;
     };
     struct RF_EX{
@@ -308,6 +184,7 @@ public:
         bool LDI_triggered;
     };
     bool next_op_bd;
+    bool discard_bd;
     struct IC_RF{
         Operation op;
         bool uncacheable_stall_triggered;
@@ -323,7 +200,6 @@ public:
     WB_DC WB_in{};
     WB_DC DC_out{};
     bool DC(); // data cache fetch
-    void read_access_size(uint8_t *address, VR4300::Operation &op);
     EX_DC DC_in{};
     EX_DC EX_out{};
     bool EX(); // execute
@@ -335,9 +211,11 @@ public:
     bool IC(); // instruction cache fetch
     
     void submit_pipeline();
-    
     void dcache_write_size(VR4300::Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);
     uint64_t dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uint8_t size);
+
+    uint8_t handle_cache_op(VR4300::Operation op);
+    void dcache_write_back(VR4300::Dcache_line& line, uint16_t index);
 
 private:
 };

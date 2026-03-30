@@ -20,6 +20,7 @@ CP0::Segment CP0::get_segment(uint64_t v_addr)
 
     uint8_t region = (v_addr >> 62) & 0x3;
 
+    //wtf even is this...
     switch (region) {
         case 0b00: return segment_lut[xkuseg];
         case 0b01: return segment_lut[xksseg];

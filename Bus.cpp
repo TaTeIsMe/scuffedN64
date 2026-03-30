@@ -1,8 +1,10 @@
 #include "Bus.h"
 
-Bus::Bus(uint8_t* memory)
+
+
+Bus::Bus(uint8_t* rdram, std::vector<uint8_t>& rom):rom(rom)
 {
-    (*this).memory = memory;
+    (*this).rdram = rdram;
 }
 
 Bus::~Bus()
@@ -10,7 +12,6 @@ Bus::~Bus()
 
 }
 
-//these might not work depending on endianness
 uint32_t Bus::read_word(uint64_t address)
 {
     uint32_t word = (read_byte(address)<<24) |
@@ -66,13 +67,26 @@ void Bus::write_doubleword(uint64_t address, uint64_t doubleword)
 
 uint8_t Bus::read_byte(uint64_t address)
 {
-    uint8_t byte = memory[address] ;
+    uint8_t byte = 0;
+    for (int i = 0; i < sizeof(map)/sizeof(MemoryMapping); i++)
+    {
+        if(address >= map[i].start && address <= map[i].end){
+            byte = (this->*map[i].device_read_byte)(address - map[i].start);
+        }
+    }
+    
     return byte;
 }
 
 void Bus::write_byte(uint64_t address, uint8_t byte)
 {
-    memory[address] = byte;
+
+    for (int i = 0; i < sizeof(map)/sizeof(MemoryMapping); i++)
+    {
+        if(address >= map[i].start && address <= map[i].end){
+            (this->*map[i].device_write_byte)(address - map[i].start, byte);
+        }
+    }
 }
 
 uint64_t Bus::read_size(uint64_t address, uint8_t size){

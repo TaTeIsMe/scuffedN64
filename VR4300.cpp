@@ -2,11 +2,12 @@
 #include "Operations.h"
 #include <iostream>
 #include <cstring>
+#include <iomanip>
 VR4300::VR4300(Bus& bus):
 cp0(),
 bus(bus)
 {
-
+    discard_bd = true;
 }
 
 VR4300::~VR4300()
@@ -15,9 +16,8 @@ VR4300::~VR4300()
 }
 
 //todo
-//for sided access make sure cache is working
+//for sided access make sure cache across lines is working
 //make sure next_op_branchdelay is working correctly
-//entire CACHE operation
 //fix asid
 //add exceptions.
 // overflow exception in dc
@@ -26,12 +26,11 @@ VR4300::~VR4300()
 // fpu exceptions will be added with it
 // reset exceptions
 // wrong operation is lethal anyway so skip for now
-//add all the operations and populate the lut
+//fpu
 void VR4300::on_clock()
 {
     //on interlock the ENTIRE pipeline is stalled
     if(stall){
-        std::cout<<"stalled!"<<stall << "\n";
         stall--;
         return;
     }
@@ -80,23 +79,37 @@ bool VR4300::WB()
     }
     if(in.op.flags & WRITES_LO) LO = in.op.result_LO;
     if(in.op.flags & WRITES_HI) HI = in.op.result_HI;
-    if(in.op.instruction_type == TLBR_I){
+    if(in.op.instruction_type == OpType::TLBR){
         cp0.entryHi = in.op.result_entryHI;
         cp0.entryLo0 = in.op.result_entryLO0;
         cp0.entryLo1 = in.op.result_entryLO1;
     }
-    if(in.op.instruction_type == TLBP_I){
+    if(in.op.instruction_type == OpType::TLBP){
         cp0.index = in.op.result;
     }
-    if(in.op.instruction_type == TLBWI_I || in.op.instruction_type == TLBWR_I){
+    if(in.op.instruction_type == OpType::TLBWI || in.op.instruction_type == OpType::TLBWR){
         uint8_t tlb_index;
-        if(in.op.instruction_type == TLBWI_I) tlb_index = cp0.index;
+        if(in.op.instruction_type == OpType::TLBWI) tlb_index = cp0.index;
         else tlb_index = cp0.random;
         cp0.TLB[tlb_index][0] = in.op.result_pagemask;
         cp0.TLB[tlb_index][1] = in.op.result_entryHI;
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
+    if(((in.op.PC & 0xFFFC)) == 0x700){
+        std::cout<<"stop condition";
+    }
+
+    std::cout<<"PC: "<< std::left <<std::setw(3)<<((in.op.PC & 0xFFFC));
+    std::cout<< " Operation: "<< std::left << std::setw(8) << in.op.op_name();
+    std::cout<<" Result: 0x" << std::hex << std::left << std::setw(16) << in.op.result;
+    if(in.op.rs_val) std::cout<< " Rs val: " << (int)in.op.rs_val;
+    if(in.op.rt_val) std::cout<< " Rt val: " << (int)in.op.rt_val;
+    if(in.op.rs) std::cout<< " Rs: " << (int)in.op.rs;
+    if(in.op.rt) std::cout<< " Rt: " << (int)in.op.rt;
+    if(in.op.dest_reg) std::cout<< " Dest reg: " << (int)in.op.dest_reg;
+    std::cout<< "\n";
+    
     return false;
 }
 
@@ -110,30 +123,33 @@ bool VR4300::DC()
     out.op = in.op;
 
     //what DC does is:
+    // gets the segment operated on
     // tlb ranslates the addr of the data to be written to/from
     // if the data is read from the cache it fetches it
     //a lot of the code below is bloated by exception and interlock handling
 
-    //if(in.op.instruction_type == ICACHE_I){
+    //if(in.op.instruction_type == ICACHE){
     //    stall = CACHE_OP_STALL_TIME;
     //    return true;
     //}
-    //if(in.op.instruction_type == DCACHE_I){
+    //if(in.op.instruction_type == DCACHE){
     //    stall = 2;
     //    return true;
     //}
+
+    
     if((in.op.flags & IS_TRAP) && in.op.result){
         handle_general_exception(in.op, Tr);
         return true;
     }
-
-    if(!(in.op.flags & (IS_STORE | IS_LOAD))){
+    
+    if(!(in.op.flags & (IS_STORE | IS_LOAD)) && !(in.op.instruction_type == OpType::CACHE)){
         out.op = in.op;
         return false;
     }
-
+    
     const CP0::Segment& segment = cp0.get_segment(in.op.data_addr);
-    bool cacheable = segment.cacheable;
+    out.cacheable = segment.cacheable;
     
     if(segment.tlb_mapped){
         CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.data_addr);
@@ -142,7 +158,7 @@ bool VR4300::DC()
             if(in.op.flags & IS_STORE) handle_tlb_miss_exception(in.op.data_addr, in.op, TLBS);
             else handle_tlb_miss_exception(in.op.data_addr, in.op, TLBL);
             return true;
-
+            
         }
         if(!tlb_result.valid){
             set_tlb_context(in.op.data_addr);
@@ -155,19 +171,18 @@ bool VR4300::DC()
             handle_general_exception(in.op, Mod);
             return true;
         }
-
+        
         out.op.data_addr_p = tlb_result.p_addr;
-        cacheable = tlb_result.cache;
+        out.cacheable = tlb_result.cache;
     }else out.op.data_addr_p = in.op.data_addr - segment.translation_offset;
     out.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
-
     //DADE
     bool misalligned = (in.op.flags & ACCESSES_DOUBLE_WORD && out.op.data_addr_p % 8 != 0) ||
-            (in.op.flags & ACCESSES_WORD && out.op.data_addr_p % 4 != 0) ||
-            (in.op.flags & ACCESSES_HALF_WORD && out.op.data_addr_p % 2 != 0);
+    (in.op.flags & ACCESSES_WORD && out.op.data_addr_p % 4 != 0) ||
+    (in.op.flags & ACCESSES_HALF_WORD && out.op.data_addr_p % 2 != 0);
     bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
-            (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
-            (cp0.in_kernel_mode() && !segment.kernel_accesible);
+    (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
+    (cp0.in_kernel_mode() && !segment.kernel_accesible);
     bool sided = (in.op.flags & (RIGHT_ACCESS | LEFT_ACCESS));
     if( !sided && (misalligned || wrong_mode)){
         cp0.badVAddr = in.op.data_addr;
@@ -175,7 +190,8 @@ bool VR4300::DC()
         else handle_general_exception(in.op,AdEL);
         return true;
     }
-
+    
+    
     if((cp0.watchLo & WATCHLO_R_MASK) && ((out.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
         handle_general_exception(in.op,WATCH);
         return true;
@@ -184,16 +200,29 @@ bool VR4300::DC()
         handle_general_exception(in.op,WATCH);
         return true;
     }
-
-    if(cacheable){
+    
+    if(out.cacheable){
         Dcache_line& line = Dcache[out.op.dcache_index];
         bool cache_hit = ((out.op.data_addr_p >> 12) == line.tag);
-
-        if(WB_in.op.flags & IS_STORE && cache_hit && !in.DCB_triggered){
+        
+        if(WB_in.op.flags & IS_STORE && cache_hit){
             //DCB on hit
-            stall = 1;
-            in.DCB_triggered = true;
-            return true;
+            if(!in.DCB_triggered){
+                stall = 1;
+                in.DCB_triggered = true;
+                return true;
+            }else{
+                WB();
+                WB_in = {};
+            }
+        }
+
+        if(in.op.instruction_type == OpType::CACHE){
+            if(!in.COp_triggered){
+                stall = handle_cache_op(out.op); // it might be smart to move this to after the stall
+                in.COp_triggered = true;
+                return true;
+            }
         }
 
         if((!cache_hit || !line.valid)  && !in.DCB_triggered){
@@ -201,15 +230,11 @@ bool VR4300::DC()
             stall = 1 + DCACHE_STALL_TIME;
             in.DCB_triggered = true;
             return true;
-        }else if(in.DCB_triggered){
+        }else if((!cache_hit || !line.valid)  && in.DCB_triggered){
 
-           if(line.dirty){
+            if(line.dirty){
                 //write back previous entry
-                uint64_t half_1 = dcache_read_size(line, 0, 8);
-                uint64_t half_2 = dcache_read_size(line, 8, 8);
-                bus.write_doubleword(line.tag + (in.op.data_addr_p & 0xFF0),half_1);
-                bus.write_doubleword(line.tag + (in.op.data_addr_p & 0xFF8),half_2);
-                line.dirty = 0;
+                dcache_write_back(line, out.op.dcache_index);
             }
             //update dcache
             uint64_t line_start_addr = out.op.data_addr_p & ~0xF;
@@ -247,7 +272,7 @@ bool VR4300::DC()
             }
 
         }else if(in.op.flags & IS_STORE){
-            line.dirty = 1;
+            line.dirty = 1;//this might have to happen in wb
         }
     }else{//if not cacheable
         if( in.op.flags & (IS_LOAD | IS_STORE)){
@@ -299,7 +324,6 @@ bool VR4300::DC()
                     uint64_t mask = ~0ULL << (bits - bit_offset);
                     out.op.result = (og_val & mask) | out.op.result;
                 }
-                out.cacheable = false;
             }
         }
     }
@@ -343,16 +367,16 @@ bool VR4300::EX()
         return true;
     }
 
-    if(in.op.instruction_type == SYSCALL_I){
+    if(in.op.instruction_type == OpType::SYSCALL){
         handle_general_exception(in.op, Sys);
         return true;
     }
 
-    if(in.op.instruction_type == BREAK_I){
+    if(in.op.instruction_type == OpType::BREAK){
         handle_general_exception(in.op, Bp);
         return true;
     }
-    
+
     in.op.execute(*this);
     out.op = in.op;
     return false;
@@ -377,6 +401,18 @@ bool VR4300::RF()
     //a lot of code below is bloated by exceptions and interlocks
     
     //add microtlb miss in the future
+
+    //this 100% could be done smarter
+    if(discard_bd){
+        discard_bd = false;
+        uint64_t prev_PC = in.op.PC;
+        in.op = Operation();
+        in.op.PC = prev_PC;
+        out.op = in.op;
+        PC += 4;
+        return false;
+    }
+
     if(next_op_bd){
         in.op.flags = in.op.flags | IS_IN_BRANCH_DELAY;
         next_op_bd = false;
@@ -384,7 +420,7 @@ bool VR4300::RF()
 
 
     uint32_t PC_p;
-    CP0::Segment segment = cp0.get_segment(PC);
+    CP0::Segment segment = cp0.get_segment(RF_in.op.PC);
     bool cacheable = segment.cacheable;
 
     //IADE
@@ -394,26 +430,26 @@ bool VR4300::RF()
         (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
         (cp0.in_kernel_mode() && !segment.kernel_accesible)
     ){
-        cp0.badVAddr = PC;
+        cp0.badVAddr = RF_in.op.PC;
         handle_general_exception(in.op,AdEL);
         return true;
     }
 
     if(segment.tlb_mapped){
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(PC);
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op.PC);
         if(tlb_result.miss){
             //tlb miss exception
-            handle_tlb_miss_exception(PC, in.op, TLBL);
+            handle_tlb_miss_exception(RF_in.op.PC, in.op, TLBL);
             return true;
         }
         if(!tlb_result.valid){
-            set_tlb_context(PC);
+            set_tlb_context(RF_in.op.PC);
             handle_general_exception(in.op, TLBL);
             return true;
         }
         PC_p = tlb_result.p_addr;
         cacheable = tlb_result.cache;
-    }else PC_p = PC - segment.translation_offset;
+    }else PC_p = RF_in.op.PC - segment.translation_offset;
 
     uint32_t op_code;
     if(cacheable){
@@ -424,7 +460,7 @@ bool VR4300::RF()
             stall = ICACHE_STALL_TIME;
             in.ICB_triggered = true;
             return true; 
-        }else if(in.ICB_triggered){
+        }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered){
             //update icache
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)
@@ -514,15 +550,17 @@ void VR4300::decode_op(uint32_t word)
     else
         tmplt = &primary_op_lut[opcode];
 
-    if (!tmplt->execute) {
-    // invalid instruction exception (RI)
-    }
-
+        
     Operation& op = RF_in.op;
+    if (!tmplt->execute) {
+        // invalid instruction exception (RI)
+        handle_general_exception(op,RI);
+    }
 
     op.execute = tmplt->execute;
     op.multicycle = tmplt->multicycle;
     op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
+    op.instruction_type = tmplt->instruction_type;
 
     op.rs = (word >> 21) & 0x1F;
     op.rt = (word >> 16) & 0x1F;
@@ -537,19 +575,12 @@ void VR4300::decode_op(uint32_t word)
 
 }
 
-
-
-VR4300::Operation::Operation()
-{
-    execute = NOP;
-}
-
 void VR4300::abort_pipeline() {
     RF_in = {};
     EX_in = {};
     DC_in = {};
     WB_in = {};
-
+    
     RF_out = {};
     EX_out = {};
     DC_out = {};
@@ -559,18 +590,19 @@ void VR4300::abort_pipeline() {
 }
 
 void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause){
+    std::cout<<"tlb_exception! \n";
     abort_pipeline();
     //this is literally just the flow chart from page 203 copied
     set_tlb_context(addr);
     uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint16_t jump_offset;
-
+    
     if(!EXL){
         if(op.flags & IS_IN_BRANCH_DELAY){
             cp0.EPC = op.PC - 4;
-            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1);
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{
-            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0);
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_SHIFT);
             cp0.EPC = op.PC;
         }
         uint8_t UX = cp0.get_bits(cp0.status,STATUS_UX_MASK, STATUS_UX_SHIFT);
@@ -582,7 +614,7 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, Excep
     }else{
         jump_offset=0x180; // says 80 in flow chart but 180 in description. 180 makes more sense prolly
     }
-    cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1);
+    cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + jump_offset;
 }
@@ -593,16 +625,17 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, Excep
 //set tlb related registers 
 //set badvaddr
 void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
+    std::cout<<"general_exception! \n";
     abort_pipeline();
-    cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause);
-
+    cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
+    
     uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     if(!EXL){
         if(op.flags & IS_IN_BRANCH_DELAY){
             cp0.EPC = op.PC - 4;
-            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1);
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{
-            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0);
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_MASK);
             cp0.EPC = op.PC;
         }
     }
@@ -613,9 +646,9 @@ void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
 
 inline void VR4300::set_tlb_context(uint64_t addr){
     cp0.badVAddr = addr;
-    cp0.context  = cp0.set_bits(cp0.context, CONTEXT_BADVPN2_MASK, addr >> 13);
-    cp0.xcontext = cp0.set_bits(cp0.xcontext, XCONTEXT_BADVPN2_MASK, addr >> 13);
-    cp0.entryHi  = cp0.set_bits(cp0.entryHi, ENTRYHI_VPN2_MASK, addr >> 13);
+    cp0.context  = cp0.set_bits(cp0.context, CONTEXT_BADVPN2_MASK, (addr >> 13) << CONTEXT_BADVPN2_SHIFT);
+    cp0.xcontext = cp0.set_bits(cp0.xcontext, XCONTEXT_BADVPN2_MASK, (addr >> 13) << XCONTEXT_BADVPN2_SHIFT);
+    cp0.entryHi  = cp0.set_bits(cp0.entryHi, ENTRYHI_VPN2_MASK, (addr >> 13) << ENTRYHI_VPN2_SHIFT);
 }
 
 void VR4300::dcache_write_size(VR4300::Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size)
@@ -634,4 +667,115 @@ uint64_t VR4300::dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uin
         result |= (uint64_t)*(line.data + offset + i) << ((size - 1 - i) * 8);
     }
     return result;
+}
+
+uint8_t VR4300::handle_cache_op(VR4300::Operation op){
+    uint8_t sub_op_code = op.rt >> 2;
+    uint8_t accessed_cache = op.rt & 0x3;
+    uint32_t icalculated_id = (op.data_addr_p & 0x3FE0) >> 5;
+    uint32_t icalculated_tag = op.data_addr_p >> 12;
+    Icache_line& i_line = Icache[icalculated_id];
+    uint32_t dcalculated_id = (op.data_addr_p & 0x1FF0) >> 4;
+    uint32_t dcalculated_tag = op.data_addr_p >> 12;
+    Dcache_line& d_line = Dcache[dcalculated_id];
+    bool d_hit = d_line.tag == dcalculated_tag;
+    bool i_hit = i_line.tag == icalculated_tag;
+    switch (sub_op_code)
+    {
+        case 0:
+        if (accessed_cache == 0) i_line.valid = 0;
+        else{
+            //Index_Write_Back_Invalidate
+            if(d_line.valid){
+                dcache_write_back(d_line,dcalculated_id);
+            }
+            d_line.valid = 0;
+        }
+        break;
+        case 1:
+        //Index_Load_Tag
+        if(accessed_cache == 0){
+            cp0.tagLo = cp0.set_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, i_line.tag << TAGLO_PTAGLO_SHIFT);
+            cp0.tagLo = cp0.set_bits(cp0.tagLo, TAGLO_PSTATE_MASK, i_line.valid << (TAGLO_PTAGLO_SHIFT + 1));
+        }
+        else{
+            cp0.tagLo = cp0.set_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, d_line.tag << TAGLO_PTAGLO_SHIFT);
+            cp0.tagLo = cp0.set_bits(cp0.tagLo, TAGLO_PSTATE_MASK, (d_line.valid?3:0) << TAGLO_PSTATE_SHIFT);
+        }
+        break;
+        case 2:
+        //Index_Store_Tag
+        if(accessed_cache == 0) i_line.tag = cp0.get_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, TAGLO_PTAGLO_SHIFT);
+        else d_line.tag = cp0.get_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, TAGLO_PTAGLO_SHIFT);
+        break;
+        case 3:
+        //Create_Dirty_Exclusive
+        if(accessed_cache == 1){
+            if(d_line.dirty && !d_hit){
+                dcache_write_back(d_line,dcalculated_id);
+            }
+            d_line.tag = dcalculated_tag;
+            d_line.dirty = 1;
+            d_line.valid = 1;
+        }
+        break;
+        case 4:
+        //Hit_Invalidate
+        if(accessed_cache == 0 && i_hit)i_line.valid = 0;
+        if(accessed_cache == 1 && d_hit){d_line.valid = 0; d_line.dirty = 0;}
+        break;
+        case 5:
+        if(accessed_cache == 1){
+            //Hit_Write_Back_Invalidate
+            if(d_hit && d_line.valid){
+                if(d_line.dirty){
+                    dcache_write_back(d_line,dcalculated_id);
+                }
+                d_line.valid = 0;
+            }
+        }else if(accessed_cache == 0){
+            //Fill
+            uint64_t line_start_addr = op.data_addr_p & ~0xF;
+            for (int i = 0; i < 8; i++) i_line.data[i] = bus.read_word(line_start_addr + i * 4);
+            i_line.tag = icalculated_tag;
+            i_line.valid = true;
+        }
+        break;
+        case 6:
+        if(accessed_cache == 1){
+            //Hit_Write_Back
+            if(d_hit && d_line.valid){
+                if(d_line.dirty){
+                    dcache_write_back(d_line,dcalculated_id);
+                }
+            }
+        }else if(accessed_cache == 0){
+            if(i_hit && i_line.valid){
+                uint64_t line_start_addr = op.data_addr_p & ~0xF;
+                for (int i = 0; i < 8; i++) bus.write_word(line_start_addr + i * 4, i_line.data[i]);
+            }
+        }
+        break;
+        default:
+        break;
+    }
+    return 0;
+}
+
+void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
+    uint64_t half_1 = dcache_read_size(line, 0, 8);
+    uint64_t half_2 = dcache_read_size(line, 8, 8);
+    bus.write_doubleword((line.tag << 12) + (index << 4),half_1);
+    bus.write_doubleword((line.tag << 12) + (index << 4) + 8,half_2);
+    line.dirty = 0;
+}
+
+VR4300::Operation::Operation()
+{
+    execute = NOP;
+}
+
+const char *VR4300::Operation::op_name()
+{
+    return optype_str[static_cast<uint32_t>(instruction_type)];
 }
