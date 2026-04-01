@@ -2,7 +2,10 @@
 #include <fstream>
 #include <cstdint>
 #include "VR4300.h"
-#include "Bus.h"
+#include "RCP.h"
+#include "Cartridge.h"
+#include "Rdram.h"
+#include "Pif.h"
 #include <vector>
 
 int main(){
@@ -13,23 +16,21 @@ int main(){
         std::istreambuf_iterator<char>()
     );
     rom_file.close();
-    uint8_t rdram[4 * 1024 * 1024];
-    Bus bus(rdram, rom);
-    VR4300 vr4300(bus);
-    vr4300.PC = 0xffffffffA0000000;
-    bus.RI_SELECT = 0x14;
-
+    Pif pif;
+    Rdram rdram;
+    Cartridge cartridge(rom);
+    RCP rcp(rdram, cartridge, pif);
+    VR4300 vr4300(rcp);
+    
     //IPL2
+    vr4300.PC = 0xffffffffa4000040;
     for (int i = 0; i < 0xFC0; i++)
     {
-        bus.rsp_dmem[i] = rom[i];
+        rcp.rsp.dmem.dmem[i] = rom[i];
     }
-
-    //ipl3 skip
-    for (int i = 0; i < 2*1024*1024; i++)
-    {
-        rdram[i] = rom[i + 0x1000];
-    }
+    
+    //ram init skip
+    rcp.ri.RI_SELECT = 0x14;
     
     while(true){
         vr4300.on_clock();

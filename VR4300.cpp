@@ -3,17 +3,7 @@
 #include <iostream>
 #include <cstring>
 #include <iomanip>
-VR4300::VR4300(Bus& bus):
-cp0(),
-bus(bus)
-{
-    discard_bd = true;
-}
-
-VR4300::~VR4300()
-{
-
-}
+VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp){discard_bd = true;}
 
 //todo
 //for sided access make sure cache across lines is working
@@ -70,7 +60,7 @@ bool VR4300::WB()
             Dcache_line &line = Dcache[in.op.dcache_index];
             dcache_write_size(line, offset, in.op.result, access_size);
         }else{
-            bus.write_size(in.op.data_addr_p, in.op.result, access_size);
+            rcp.write_size(in.op.data_addr_p, in.op.result, access_size);
         }
     }
     if(in.op.flags & WRITES_REG){
@@ -100,10 +90,10 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(((in.op.PC & 0xFFFC)) == 0x420){
+    if(((in.op.PC & 0xFFFC)) == 0xf888){
         std::cout<<"stop condition";
     }
-    if(in.op.result == 0x7FFFF888){
+    if(in.op.instruction_type == OpType::SLL && DC_in.op.instruction_type == OpType::SLL){
         std::cout<<"stop condition 2";
     }
 
@@ -245,7 +235,7 @@ bool VR4300::DC()
             }
             //update dcache
             uint64_t line_start_addr = out.op.data_addr_p & ~0xF;
-            for (int i = 0; i < 16; i++) line.data[i] = bus.read_byte(line_start_addr + i);
+            for (int i = 0; i < 16; i++) line.data[i] = rcp.read_byte(line_start_addr + i);
             line.tag = out.op.data_addr_p >> 12;
             line.valid = true;
         }
@@ -288,11 +278,15 @@ bool VR4300::DC()
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
+            if(WB_in.op.flags & IS_STORE && out.op.data_addr_p == WB_in.op.data_addr_p && !WB_in.cacheable){
+                WB();
+                WB_in = {};
+            }
             uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
             if(in.op.flags & IS_LOAD){
 
                 //this is the most consise i could get it...
-                uint64_t mem = bus.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
+                uint64_t mem = rcp.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
 
                 uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
@@ -308,7 +302,7 @@ bool VR4300::DC()
                 }else {
                     bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
-                    out.op.result = bus.read_size(out.op.data_addr_p, access_size);
+                    out.op.result = rcp.read_size(out.op.data_addr_p, access_size);
                     if(access_size == 1) out.op.result = (sign_extended) ? (int64_t)(int8_t)out.op.result:(uint64_t)(uint8_t)out.op.result;
                     else if(access_size == 2) out.op.result = (sign_extended) ? (int64_t)(int16_t)out.op.result:(uint64_t)(uint16_t)out.op.result;
                     else if(access_size == 4) out.op.result = (sign_extended) ? (int64_t)(int32_t)out.op.result:(uint64_t)(uint32_t)out.op.result;
@@ -318,9 +312,7 @@ bool VR4300::DC()
             if(in.op.flags & IS_STORE){
                 //this og_val can't get info from one instruction back in the future
                 uint64_t og_val;
-                if(WB_in.op.flags & IS_STORE && out.op.data_addr_p == WB_in.op.data_addr_p)
-                    og_val = WB_in.op.result;
-                else og_val = bus.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
+                og_val = rcp.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
                 uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = access_size * 8;
@@ -471,7 +463,7 @@ bool VR4300::RF()
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)
             {
-                line.data[i] = bus.read_word(line_start_addr + i * 4);
+                line.data[i] = rcp.read_word(line_start_addr + i * 4);
             }
             line.tag = PC_p >> 12;
             line.valid = true;
@@ -484,7 +476,7 @@ bool VR4300::RF()
             in.uncacheable_stall_triggered = 1;
             return true;
         }
-        op_code = bus.read_word(PC_p);
+        op_code = rcp.read_word(PC_p);
     }
 
     decode_op(op_code);
@@ -640,7 +632,7 @@ void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
             cp0.EPC = op.PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{
-            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_MASK);
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_SHIFT);
             cp0.EPC = op.PC;
         }
     }
@@ -741,7 +733,7 @@ uint8_t VR4300::handle_cache_op(VR4300::Operation op){
         }else if(accessed_cache == 0){
             //Fill
             uint64_t line_start_addr = op.data_addr_p & ~0xF;
-            for (int i = 0; i < 8; i++) i_line.data[i] = bus.read_word(line_start_addr + i * 4);
+            for (int i = 0; i < 8; i++) i_line.data[i] = rcp.read_word(line_start_addr + i * 4);
             i_line.tag = icalculated_tag;
             i_line.valid = true;
         }
@@ -757,7 +749,7 @@ uint8_t VR4300::handle_cache_op(VR4300::Operation op){
         }else if(accessed_cache == 0){
             if(i_hit && i_line.valid){
                 uint64_t line_start_addr = op.data_addr_p & ~0xF;
-                for (int i = 0; i < 8; i++) bus.write_word(line_start_addr + i * 4, i_line.data[i]);
+                for (int i = 0; i < 8; i++) rcp.write_word(line_start_addr + i * 4, i_line.data[i]);
             }
         }
         break;
@@ -770,8 +762,8 @@ uint8_t VR4300::handle_cache_op(VR4300::Operation op){
 void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
     uint64_t half_1 = dcache_read_size(line, 0, 8);
     uint64_t half_2 = dcache_read_size(line, 8, 8);
-    bus.write_doubleword((line.tag << 12) + (index << 4),half_1);
-    bus.write_doubleword((line.tag << 12) + (index << 4) + 8,half_2);
+    rcp.write_doubleword((line.tag << 12) + (index << 4),half_1);
+    rcp.write_doubleword((line.tag << 12) + (index << 4) + 8,half_2);
     line.dirty = 0;
 }
 

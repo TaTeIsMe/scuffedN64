@@ -1,7 +1,7 @@
 #include <cstdint>
 #include "CP0.h"
 #include "FPU.h"
-#include "Bus.h"
+#include "RCP.h"
 
 #pragma once
 
@@ -54,12 +54,11 @@ enum OpFlags:uint32_t{
 class VR4300
 {
 public:
-    VR4300(Bus& bus);
-    ~VR4300();
+    VR4300(RCP& rcp);
 
     FPU fpu;
     CP0 cp0;
-    Bus& bus;
+    RCP& rcp;
 
     uint64_t PC = 0;
     uint64_t HI = 0;

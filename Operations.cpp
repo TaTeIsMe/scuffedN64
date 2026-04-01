@@ -1,6 +1,4 @@
 #include "VR4300.h"
-#pragma once
-
 
 void NOP(VR4300& cpu){};
 
@@ -116,11 +114,11 @@ void ADDIU(VR4300& cpu){
 }
 void SLTI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = ((uint64_t)(int16_t)op.immediate > (int64_t)op.rs_val);
+    op.result = ((int64_t)(int16_t)op.immediate > (int64_t)op.rs_val);
 }
 void SLTIU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = ((uint64_t)(int16_t)op.immediate > op.rs_val);
+    op.result = ((uint64_t)(int16_t)op.immediate > (uint64_t)op.rs_val);
 }
 void ANDI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -513,11 +511,11 @@ void TLTIU(VR4300& cpu){
 //immidiate is sign extended here, it doesn't say in general description, so good i checked...
 void TEQI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    if(op.rs_val == (int16_t)op.immediate)op.result = 1;
+    if(op.rs_val == (uint64_t)(int16_t)op.immediate)op.result = 1;
 }
 void TNEI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    if(op.rs_val == (int16_t)op.immediate)op.result = 1;
+    if(op.rs_val == (uint64_t)(int16_t)op.immediate)op.result = 1;
 }
 void LWCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;

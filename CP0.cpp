@@ -88,12 +88,12 @@ CP0::TLB_Result CP0::tlb_translate(uint64_t v_addr)
         const uint64_t* tlb_entry = TLB[i];
         uint64_t mask = tlb_entry[0];
         uint64_t line2 = tlb_entry[1];
-        if(~mask & line2 != ~mask & v_addr)continue;
+        if((~mask & line2) != (~mask & v_addr))continue;
         else{
             uint8_t asid = line2 & 0xFF;
             uint32_t offset = v_addr & (mask + 0xFFF);
             bool global = line2 & 1<<12;
-            uint8_t PFN_line = 2+(v_addr >> 12) & 1;
+            uint8_t PFN_line = 2+((v_addr >> 12) & 1);
             uint32_t PFN = tlb_entry[PFN_line] << 6;
             uint8_t cache = (tlb_entry[PFN_line] >> 3) & 0x7;
             bool dirty = (tlb_entry[PFN_line] >> 2) & 1;
