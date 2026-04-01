@@ -1,21 +1,24 @@
 #include "Cartridge.h"
 #include<iostream>
-Cartridge::Cartridge(std::vector<uint8_t> rom):mem(rom)
-{
+Cartridge::Cartridge(std::vector<uint8_t> rom):mem(rom){}
 
-}
-
-void Cartridge::write_byte(uint32_t address, uint8_t byte)
+void Cartridge::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
-    mem[address] = byte;
-    if(address== 0xB3FF0014- 0xA0000000 - 0x10000000)
-    for (uint32_t i = 0xB3FF0020; i < 0xB3FF0220; i++)
+    if((address + size - 1) >= mem.size())return;
+    
+    for (uint8_t i = 0; i < size; i++)
     {
-        std::cout<<mem[i];
+        mem[address + i] = (value >> ((size - 1 - i) * 8)) & 0xFF;
     }
 }
 
-uint8_t Cartridge::read_byte(uint32_t address)
+uint64_t Cartridge::read_size(uint32_t address, uint8_t size)
 {
-    return mem[address]; 
+    if((address + size - 1) >= mem.size()) return 0;
+    uint64_t result = 0;
+    for (uint8_t i = 0; i < size; i++)
+    {
+        result |= (uint64_t)mem[(address + i)] << ((size - 1 - i) * 8);
+    }
+    return result;
 }

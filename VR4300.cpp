@@ -93,7 +93,7 @@ bool VR4300::WB()
     if(((in.op.PC & 0xFFFC)) == 0xf888){
         std::cout<<"stop condition";
     }
-    if(in.op.instruction_type == OpType::SLL && DC_in.op.instruction_type == OpType::SLL){
+    if(in.op.data_addr_p == 0x2000){
         std::cout<<"stop condition 2";
     }
 
@@ -235,7 +235,7 @@ bool VR4300::DC()
             }
             //update dcache
             uint64_t line_start_addr = out.op.data_addr_p & ~0xF;
-            for (int i = 0; i < 16; i++) line.data[i] = rcp.read_byte(line_start_addr + i);
+            for (int i = 0; i < 16; i++) line.data[i] = rcp.read_size(line_start_addr + i, 1);
             line.tag = out.op.data_addr_p >> 12;
             line.valid = true;
         }
@@ -463,7 +463,7 @@ bool VR4300::RF()
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)
             {
-                line.data[i] = rcp.read_word(line_start_addr + i * 4);
+                line.data[i] = rcp.read_size(line_start_addr + i * 4, 4);
             }
             line.tag = PC_p >> 12;
             line.valid = true;
@@ -476,7 +476,7 @@ bool VR4300::RF()
             in.uncacheable_stall_triggered = 1;
             return true;
         }
-        op_code = rcp.read_word(PC_p);
+        op_code = rcp.read_size(PC_p, 4);
     }
 
     decode_op(op_code);
@@ -733,7 +733,7 @@ uint8_t VR4300::handle_cache_op(VR4300::Operation op){
         }else if(accessed_cache == 0){
             //Fill
             uint64_t line_start_addr = op.data_addr_p & ~0xF;
-            for (int i = 0; i < 8; i++) i_line.data[i] = rcp.read_word(line_start_addr + i * 4);
+            for (int i = 0; i < 8; i++) i_line.data[i] = rcp.read_size(line_start_addr + i * 4, 4);
             i_line.tag = icalculated_tag;
             i_line.valid = true;
         }
@@ -749,7 +749,7 @@ uint8_t VR4300::handle_cache_op(VR4300::Operation op){
         }else if(accessed_cache == 0){
             if(i_hit && i_line.valid){
                 uint64_t line_start_addr = op.data_addr_p & ~0xF;
-                for (int i = 0; i < 8; i++) rcp.write_word(line_start_addr + i * 4, i_line.data[i]);
+                for (int i = 0; i < 8; i++) rcp.write_size(line_start_addr + i * 4, i_line.data[i], 4);
             }
         }
         break;
@@ -762,8 +762,8 @@ uint8_t VR4300::handle_cache_op(VR4300::Operation op){
 void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
     uint64_t half_1 = dcache_read_size(line, 0, 8);
     uint64_t half_2 = dcache_read_size(line, 8, 8);
-    rcp.write_doubleword((line.tag << 12) + (index << 4),half_1);
-    rcp.write_doubleword((line.tag << 12) + (index << 4) + 8,half_2);
+    rcp.write_size((line.tag << 12) + (index << 4),half_1,8);
+    rcp.write_size((line.tag << 12) + (index << 4) + 8,half_2,8);
     line.dirty = 0;
 }
 

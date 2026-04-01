@@ -8,11 +8,8 @@
 class MemoryArea
 {
 public:
-    MemoryArea();
-    ~MemoryArea();
-
-    virtual void write_byte(uint32_t address, uint8_t byte);
-    virtual uint8_t read_byte(uint32_t address);
+    virtual void write_size(uint32_t address, uint64_t value, uint8_t size);
+    virtual uint64_t read_size(uint32_t address, uint8_t size);
 
 private:
 

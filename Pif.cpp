@@ -5,11 +5,11 @@ Pif::Pif()
 
 }
 
-void Pif::write_byte(uint32_t address, uint8_t byte)
+void Pif::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t Pif::read_byte(uint32_t address)
+uint64_t Pif::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }

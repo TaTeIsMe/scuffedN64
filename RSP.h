@@ -4,21 +4,22 @@
 #pragma once
 
 #include"MemoryArea.h"
-
+#include<vector>
 class RSP
 {
 public:
-    RSP();
-    ~RSP();
+
     struct Dmem : public MemoryArea{
-        uint8_t dmem[0x1000];
-        void write_byte(uint32_t address, uint8_t byte) override;
-        uint8_t read_byte(uint32_t address) override;
+        Dmem();
+        std::vector<uint8_t> mem;
+        void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+        uint64_t read_size(uint32_t address, uint8_t size) override;
     };
     struct Imem : public MemoryArea{
-        uint8_t imem[0x1000];
-        void write_byte(uint32_t address, uint8_t byte) override;
-        uint8_t read_byte(uint32_t address) override;
+        Imem();
+        std::vector<uint8_t> mem;
+        void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+        uint64_t read_size(uint32_t address, uint8_t size) override;
     };
     struct RSPRegs : public MemoryArea{
         union{
@@ -34,8 +35,8 @@ public:
             };
             uint32_t regs[8];
         };
-        void write_byte(uint32_t address, uint8_t byte) override;
-        uint8_t read_byte(uint32_t address) override;
+        void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+        uint64_t read_size(uint32_t address, uint8_t size) override;
     };
     uint32_t PC;
     Dmem dmem;

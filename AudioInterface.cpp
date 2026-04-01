@@ -1,20 +1,10 @@
 #include "AudioInterface.h"
 
-AudioInterface::AudioInterface()
-{
-
-}
-
-AudioInterface::~AudioInterface()
-{
-
-}
-
-void AudioInterface::write_byte(uint32_t address, uint8_t byte)
+void AudioInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t AudioInterface::read_byte(uint32_t address)
+uint64_t AudioInterface::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }

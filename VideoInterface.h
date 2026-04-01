@@ -6,8 +6,6 @@
 class VideoInterface : public MemoryArea
 {
 public:
-    VideoInterface();
-    ~VideoInterface();
 
     union{
         struct{
@@ -31,8 +29,8 @@ public:
         uint32_t regs[16];
     };
 
-    void write_byte(uint32_t address, uint8_t byte) override;
-    uint8_t read_byte(uint32_t address) override;
+    void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+    uint64_t read_size(uint32_t address, uint8_t size) override;
 private:
 
 };

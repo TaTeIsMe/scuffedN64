@@ -1,29 +1,19 @@
 #include "RDP.h"
 
-RDP::RDP()
-{
-
-}
-
-RDP::~RDP()
-{
-
-}
-
-void RDP::RDPCommandRegs::write_byte(uint32_t address, uint8_t byte)
+void RDP::RDPCommandRegs::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t RDP::RDPCommandRegs::read_byte(uint32_t address)
+uint64_t RDP::RDPCommandRegs::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }
 
-void RDP::RDPSpanRegs::write_byte(uint32_t address, uint8_t byte)
+void RDP::RDPSpanRegs::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t RDP::RDPSpanRegs::read_byte(uint32_t address)
+uint64_t RDP::RDPSpanRegs::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }

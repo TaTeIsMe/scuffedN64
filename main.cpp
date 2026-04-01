@@ -26,7 +26,7 @@ int main(){
     vr4300.PC = 0xffffffffa4000040;
     for (int i = 0; i < 0xFC0; i++)
     {
-        rcp.rsp.dmem.dmem[i] = rom[i];
+        rcp.rsp.dmem.mem[i] = rom[i];
     }
     
     //ram init skip

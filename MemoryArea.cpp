@@ -1,20 +1,10 @@
 #include "MemoryArea.h"
 
-MemoryArea::MemoryArea()
-{
-
-}
-
-MemoryArea::~MemoryArea()
-{
-
-}
-
-void MemoryArea::write_byte(uint32_t address, uint8_t byte)
+void MemoryArea::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t MemoryArea::read_byte(uint32_t address)
+uint64_t MemoryArea::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }

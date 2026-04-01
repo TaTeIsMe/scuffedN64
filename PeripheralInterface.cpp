@@ -1,20 +1,10 @@
 #include "PeripheralInterface.h"
 
-PeripheralInterface::PeripheralInterface()
-{
-
-}
-
-PeripheralInterface::~PeripheralInterface()
-{
-
-}
-
-void PeripheralInterface::write_byte(uint32_t address, uint8_t byte)
+void PeripheralInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t PeripheralInterface::read_byte(uint32_t address)
+uint64_t PeripheralInterface::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }

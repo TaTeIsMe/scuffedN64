@@ -1,20 +1,11 @@
 #include "MipsInterface.h"
 
-MipsInterface::MipsInterface()
-{
-
-}
-
-MipsInterface::~MipsInterface()
-{
-
-}
-
-void MipsInterface::write_byte(uint32_t address, uint8_t byte)
+void MipsInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }
 
-uint8_t MipsInterface::read_byte(uint32_t address)
+uint64_t MipsInterface::read_size(uint32_t address, uint8_t size)
 {
     return 0;
 }
+

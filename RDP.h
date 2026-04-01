@@ -6,8 +6,6 @@
 class RDP
 {
 public:
-    RDP();
-    ~RDP();
 
     struct RDPCommandRegs : public MemoryArea {
         union{
@@ -23,8 +21,8 @@ public:
             };
             uint32_t regs[8];
         };
-        void write_byte(uint32_t address, uint8_t byte) override;
-        uint8_t read_byte(uint32_t address) override;
+        void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+        uint64_t read_size(uint32_t address, uint8_t size) override;
     };
 
     struct RDPSpanRegs : public MemoryArea {
@@ -37,8 +35,8 @@ public:
             };
             uint32_t rdp_span_regs[4];
         };
-        void write_byte(uint32_t address, uint8_t byte) override;
-        uint8_t read_byte(uint32_t address) override;
+        void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+        uint64_t read_size(uint32_t address, uint8_t size) override;
     };
 
     RDPCommandRegs command_regs;
