@@ -1,10 +1,8 @@
-#ifndef RSP_H
-#define RSP_H
-
 #pragma once
 
 #include"MemoryArea.h"
 #include<vector>
+
 class RSP
 {
 public:
@@ -22,6 +20,8 @@ public:
         uint64_t read_size(uint32_t address, uint8_t size) override;
     };
     struct RSPRegs : public MemoryArea{
+        RSPRegs(RSP& rsp);
+        RSP& rsp;
         union{
             struct{
                 uint32_t SP_DMA_SPADDR;
@@ -38,10 +38,34 @@ public:
         void write_size(uint32_t address, uint64_t value, uint8_t size) override;
         uint64_t read_size(uint32_t address, uint8_t size) override;
     };
+    union{
+        struct{
+            uint32_t pending_dma_spaddr;
+            uint32_t pending_dma_ramddr;
+            uint32_t pending_dma_rdlen;
+            uint32_t pending_dma_wrlen;
+        };
+        uint32_t pending_dma[4];
+    };
+    bool pending_dma_direction;
+    uint32_t status_input;
+    
+    class RCP& rcp;
+    class Rdram& rdram;
+    RSP(RCP& rcp, Rdram& rdram);
+
     uint32_t PC;
     Dmem dmem;
     Imem imem;
     RSPRegs regs;
-};
 
-#endif
+
+    int16_t len;
+    uint8_t count;
+    uint16_t skip;
+    bool dma_direction; //1 when from d/imem to rdram
+    void start_dma();
+    void continue_dma();
+    void finish_dma();
+
+};

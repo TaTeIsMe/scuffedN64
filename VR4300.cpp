@@ -17,7 +17,7 @@ VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp){discard_bd = true;}
 // reset exceptions
 // wrong operation is lethal anyway so skip for now
 //fpu
-void VR4300::on_clock()
+void VR4300::on_pclock()
 {
     //on interlock the ENTIRE pipeline is stalled
 
@@ -90,10 +90,10 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(((in.op.PC & 0xFFFC)) == 0xf888){
+    if(((in.op.PC & 0xFFFC)) == 0x13c){
         std::cout<<"stop condition";
     }
-    if(in.op.data_addr_p == 0x2000){
+    if(in.op.instruction_type == OpType::SLL && DC_in.op.instruction_type == OpType::SLL){
         std::cout<<"stop condition 2";
     }
 

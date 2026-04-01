@@ -1,9 +1,9 @@
+#pragma once
 #include <cstdint>
 #include "CP0.h"
 #include "FPU.h"
 #include "RCP.h"
 
-#pragma once
 
 #define CACHE_OP_STALL_TIME 2
 #define DCACHE_STALL_TIME 2
@@ -192,7 +192,7 @@ public:
     };
 
     uint16_t stall;
-    void on_clock();
+    void on_pclock();
 
     //Pipeline stages.
     bool WB(); // write back

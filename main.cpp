@@ -8,6 +8,11 @@
 #include "Pif.h"
 #include <vector>
 
+//todo:
+    //interrupts
+    //dmas
+    //fpu
+    //make rcp address range only output and accept 32 but values
 int main(){
     
     std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
@@ -33,7 +38,9 @@ int main(){
     rcp.ri.RI_SELECT = 0x14;
     
     while(true){
-        vr4300.on_clock();
+        vr4300.on_pclock();
+        vr4300.on_pclock();
+        if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
     }
 
 }
