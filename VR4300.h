@@ -60,11 +60,8 @@ public:
     CP0 cp0;
     RCP& rcp;
 
-    uint64_t PC = 0;
-    uint64_t HI = 0;
-    uint64_t LO = 0;
     uint8_t LLBit = 0;
-
+    
     //general purpose registers
     //r0 is always 0
     union {
@@ -101,8 +98,11 @@ public:
             uint64_t r29;
             uint64_t r30;
             uint64_t r31;
+            uint64_t HI;
+            uint64_t LO;
+            uint64_t PC;
         };
-        uint64_t GPR[32];
+        uint64_t GPR[35];
     };
 
     struct Dcache_line{

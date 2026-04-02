@@ -61,9 +61,12 @@ public:
 
 
     int16_t len;
+    int16_t start_len;
     uint8_t count;
     uint16_t skip;
-    bool dma_direction; //1 when from d/imem to rdram
+    uint32_t current_ram_addr;
+    uint16_t current_mem_addr;
+    bool dma_direction; //1 when writing to ram
     void start_dma();
     void continue_dma();
     void finish_dma();

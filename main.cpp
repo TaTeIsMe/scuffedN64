@@ -27,8 +27,12 @@ int main(){
     RCP rcp(rdram, cartridge, pif);
     VR4300 vr4300(rcp);
     
-    //IPL2
+    //IPL2 skip
     vr4300.PC = 0xffffffffa4000040;
+    rcp.pi.PI_BSD_DOM1_LAT = 64;
+    rcp.pi.PI_BSD_DOM1_PWD = 18;
+    rcp.pi.PI_BSD_DOM1_PGS = 7;
+    rcp.pi.PI_BSD_DOM1_RLS = 3;
     for (int i = 0; i < 0xFC0; i++)
     {
         rcp.rsp.dmem.mem[i] = rom[i];
@@ -41,6 +45,7 @@ int main(){
         vr4300.on_pclock();
         vr4300.on_pclock();
         if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
     }
 
 }

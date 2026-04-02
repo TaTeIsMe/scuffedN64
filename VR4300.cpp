@@ -90,21 +90,21 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(((in.op.PC & 0xFFFC)) == 0x13c){
+    if(((in.op.PC & 0xFFFC)) == 0x1120){
         std::cout<<"stop condition";
     }
     if(in.op.instruction_type == OpType::SLL && DC_in.op.instruction_type == OpType::SLL){
         std::cout<<"stop condition 2";
     }
 
-    std::cout<<"PC: "<< std::left <<std::setw(3)<<((in.op.PC & 0xFFFC));
+    std::cout<<"PC: "<< std::left <<std::setw(3) << std::hex <<((in.op.PC & 0xFFFC));
     std::cout<< " Operation: "<< std::left << std::setw(8) << in.op.op_name();
-    std::cout<<" Result: 0x" << std::hex << std::left << std::setw(16) << in.op.result;
+    std::cout<<" Result: 0x" << std::left << std::setw(16) << in.op.result;
     if(in.op.rs_val) std::cout<< " Rs val: " << (int)in.op.rs_val;
     if(in.op.rt_val) std::cout<< " Rt val: " << (int)in.op.rt_val;
     if(in.op.rs) std::cout<< " Rs: " << (int)in.op.rs;
     if(in.op.rt) std::cout<< " Rt: " << (int)in.op.rt;
-    if(in.op.dest_reg) std::cout<< " Dest reg: " << (int)in.op.dest_reg;
+    if(in.op.dest_reg) std::cout<< " Dest reg: "<< std::dec << (int)in.op.dest_reg;
     std::cout<< "\n";
     
     return false;

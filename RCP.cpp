@@ -2,7 +2,12 @@
 #include<iostream>
 
 
-RCP::RCP(Rdram& rdram, Cartridge& cartridge, Pif& pif):rsp(*this, rdram), rdram(rdram), cartridge(cartridge), pif(pif) {}
+RCP::RCP(Rdram& rdram, Cartridge& cartridge, Pif& pif):
+rsp(*this, rdram), 
+pi(rdram, cartridge), 
+rdram(rdram), 
+cartridge(cartridge), 
+pif(pif) {}
 
 uint64_t RCP::read_size(uint64_t address, uint8_t size){
     uint64_t value = 0;
