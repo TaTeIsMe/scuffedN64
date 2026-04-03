@@ -90,14 +90,14 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(((in.op.PC & 0xFFFC)) == 0x1120){
-        std::cout<<"stop condition";
+    if(in.op.instruction_type == OpType::CACHE){
+        std::cout<<"stop condition 4";
     }
-    if(in.op.instruction_type == OpType::SLL && DC_in.op.instruction_type == OpType::SLL){
-        std::cout<<"stop condition 2";
+    if(((in.op.PC & 0xFFFC)) == 0x105c){
+        std::cout<<"stop condition 8";
     }
 
-    std::cout<<"PC: "<< std::left <<std::setw(3) << std::hex <<((in.op.PC & 0xFFFC));
+    std::cout<<"PC: "<< std::left <<std::setw(3) << std::hex <<(((in.op.PC) & 0xFFFC));
     std::cout<< " Operation: "<< std::left << std::setw(8) << in.op.op_name();
     std::cout<<" Result: 0x" << std::left << std::setw(16) << in.op.result;
     if(in.op.rs_val) std::cout<< " Rs val: " << (int)in.op.rs_val;
@@ -220,6 +220,7 @@ bool VR4300::DC()
                 in.COp_triggered = true;
                 return true;
             }
+            return false;
         }
 
         if((!cache_hit || !line.valid)  && !in.DCB_triggered){
@@ -238,6 +239,7 @@ bool VR4300::DC()
             for (int i = 0; i < 16; i++) line.data[i] = rcp.read_size(line_start_addr + i, 1);
             line.tag = out.op.data_addr_p >> 12;
             line.valid = true;
+            line.dirty = false;
         }
 
         if(in.op.flags & IS_LOAD){
@@ -584,6 +586,7 @@ void VR4300::abort_pipeline() {
     IC_out = {};
     stall = 0; // maybe
     next_op_bd = false;
+    discard_bd = true;
 }
 
 void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause){

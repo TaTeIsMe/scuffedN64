@@ -45,6 +45,10 @@ int main(){
         vr4300.on_pclock();
         vr4300.on_pclock();
         if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
         if(rcp.pi.dma_busy)rcp.pi.continue_dma();
     }
 
