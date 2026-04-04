@@ -93,19 +93,13 @@ bool VR4300::WB()
     if(in.op.instruction_type == OpType::CACHE){
         std::cout<<"stop condition 4";
     }
-    if(((in.op.PC & 0xFFFC)) == 0x105c){
-        std::cout<<"stop condition 8";
+
+    //entrypoint
+    if(in.op.PC == 0xffffffff8016b908){
+        std::cout<<"stop condition 2";
     }
 
-    std::cout<<"PC: "<< std::left <<std::setw(3) << std::hex <<(((in.op.PC) & 0xFFFC));
-    std::cout<< " Operation: "<< std::left << std::setw(8) << in.op.op_name();
-    std::cout<<" Result: 0x" << std::left << std::setw(16) << in.op.result;
-    if(in.op.rs_val) std::cout<< " Rs val: " << (int)in.op.rs_val;
-    if(in.op.rt_val) std::cout<< " Rt val: " << (int)in.op.rt_val;
-    if(in.op.rs) std::cout<< " Rs: " << (int)in.op.rs;
-    if(in.op.rt) std::cout<< " Rt: " << (int)in.op.rt;
-    if(in.op.dest_reg) std::cout<< " Dest reg: "<< std::dec << (int)in.op.dest_reg;
-    std::cout<< "\n";
+    std::cout << in.op << "\n";
     
     return false;
 }
@@ -242,11 +236,11 @@ bool VR4300::DC()
             line.dirty = false;
         }
 
+        uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);            
         if(in.op.flags & IS_LOAD){
             if(in.op.flags & ATOMIC) LLBit = 1;
             //fetch data from the cache to put in a reg
             uint32_t offset_into_line = out.op.data_addr_p & 0xF;
-            uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);            
             uint64_t mem = dcache_read_size(line,(offset_into_line & ~(access_size - 1)),access_size );
 
             uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
@@ -254,12 +248,12 @@ bool VR4300::DC()
             uint8_t bits = access_size * 8;
 
             if (in.op.flags & LEFT_ACCESS){
-                uint64_t mask = ~0ULL << (bits - bit_offset);
-                out.op.result = (in.op.rt_val & ~mask) | (mem << bit_offset);
+                uint64_t mask = ~0ULL << bit_offset;
+                out.op.result = (in.op.rt_val & ~mask) | ((mem << bit_offset) & mask);
             }
             else if (in.op.flags & RIGHT_ACCESS){
-                uint64_t mask = ~(~0ULL << bit_offset);
-                out.op.result = (in.op.rt_val & ~mask) | (mem >> (bits - bit_offset));
+                uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
+                out.op.result = (in.op.rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
             }else {
                 bool sign_extended = in.op.flags & SIGN_EXTENDED;
                 
@@ -271,7 +265,20 @@ bool VR4300::DC()
             }
 
         }else if(in.op.flags & IS_STORE){
-            line.dirty = 1;//this might have to happen in wb
+            //this won't work for 32 bits. reg  value needs to be masked correctly
+            uint64_t og_val;
+            og_val = dcache_read_size(line, out.op.data_addr_p & ~(access_size - 1), access_size);
+            uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
+            uint8_t bit_offset = byte_offset * 8;
+            uint8_t bits = access_size * 8;
+            if(in.op.flags & LEFT_ACCESS){
+                uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
+                out.op.result = (og_val & mask) | (out.op.result & ~mask);
+            }else if(in.op.flags & RIGHT_ACCESS){
+                uint64_t mask = ~0ULL << (bits - bit_offset - 8);
+                out.op.result = (og_val & ~mask) | (out.op.result & mask);
+            }
+            line.dirty = 1;
         }
     }else{//if not cacheable
         if( in.op.flags & (IS_LOAD | IS_STORE)){
@@ -295,12 +302,12 @@ bool VR4300::DC()
                 uint8_t bits = access_size * 8;
 
                 if (in.op.flags & LEFT_ACCESS){
-                    uint64_t mask = ~0ULL << (bits - bit_offset);
-                    out.op.result = (in.op.rt_val & ~mask) | (mem << bit_offset);
+                    uint64_t mask = ~0ULL << bit_offset;
+                    out.op.result = (in.op.rt_val & ~mask) | ((mem << bit_offset) & mask);
                 }
                 else if (in.op.flags & RIGHT_ACCESS){
-                    uint64_t mask = ~(~0ULL << bit_offset);
-                    out.op.result = (in.op.rt_val & ~mask) | (mem >> (bits - bit_offset));
+                    uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
+                    out.op.result = (in.op.rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
                 }else {
                     bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
@@ -312,18 +319,18 @@ bool VR4300::DC()
                 }
             }
             if(in.op.flags & IS_STORE){
-                //this og_val can't get info from one instruction back in the future
+                //this won't work for 32 bits. reg  value needs to be masked correctly
                 uint64_t og_val;
                 og_val = rcp.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
                 uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = access_size * 8;
                 if(in.op.flags & LEFT_ACCESS){
-                    uint64_t mask = ~(~0ULL << (bit_offset));
-                    out.op.result = (og_val & mask) | out.op.result;
+                    uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
+                    out.op.result = (og_val & mask) | (out.op.result & ~mask);
                 }else if(in.op.flags & RIGHT_ACCESS){
-                    uint64_t mask = ~0ULL << (bits - bit_offset);
-                    out.op.result = (og_val & mask) | out.op.result;
+                    uint64_t mask = ~0ULL << (bits - bit_offset - 8);
+                    out.op.result = (og_val & ~mask) | (out.op.result & mask);
                 }
             }
         }
@@ -575,6 +582,13 @@ void VR4300::decode_op(uint32_t word)
 }
 
 void VR4300::abort_pipeline() {
+
+    std::cout<<"aborting: \n" << 
+    "WB: " << WB_in.op << "\n" <<
+    "DC: " << DC_out.op << "\n" <<
+    "EX: " << EX_in.op << "\n" <<
+    "RF: " << RF_in.op << "\n";
+
     RF_in = {};
     EX_in = {};
     DC_in = {};
@@ -659,7 +673,7 @@ void VR4300::dcache_write_size(VR4300::Dcache_line &line, uint8_t offset, uint64
     }
 }
 
-uint64_t VR4300::dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uint8_t size)
+uint64_t VR4300::dcache_read_size(const VR4300::Dcache_line &line, uint8_t offset, uint8_t size)
 {
     uint64_t result = 0;
     for (int i = 0; i < size; i++)
@@ -669,7 +683,7 @@ uint64_t VR4300::dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uin
     return result;
 }
 
-uint8_t VR4300::handle_cache_op(VR4300::Operation op){
+uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
     uint8_t sub_op_code = op.rt >> 2;
     uint8_t accessed_cache = op.rt & 0x3;
     uint32_t icalculated_id = (op.data_addr_p & 0x3FE0) >> 5;
@@ -775,7 +789,20 @@ VR4300::Operation::Operation()
     execute = NOP;
 }
 
-const char *VR4300::Operation::op_name()
+const char *VR4300::Operation::op_name() const
 {
     return optype_str[static_cast<uint32_t>(instruction_type)];
+}
+
+std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
+{
+    os<<"PC: "<< std::left <<std::setw(3) << std::hex <<(((op.PC) & 0xFFFC));
+    os<< " Operation: "<< std::left << std::setw(8) << op.op_name();
+    os<<" Result: 0x" << std::left << std::setw(16) << op.result;
+    if(op.rs_val) os<< " Rs val: " << (int)op.rs_val;
+    if(op.rt_val) os<< " Rt val: " << (int)op.rt_val;
+    if(op.rs) os<< " Rs: " << (int)op.rs;
+    if(op.rt) os<< " Rt: " << (int)op.rt;
+    if(op.dest_reg) os<< " Dest reg: "<< std::dec << (int)op.dest_reg;
+    return os;
 }

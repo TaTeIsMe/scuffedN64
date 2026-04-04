@@ -101,7 +101,7 @@ void SDL(VR4300& cpu){
 void SDR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
-    op.result = op.rt_val << ((8-(op.data_addr & 0x7)) * 8);
+    op.result = op.rt_val << ((7-(op.data_addr & 0x7)) * 8);
 }
 //Computational
 void ADDI(VR4300 &cpu){

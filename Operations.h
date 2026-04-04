@@ -291,13 +291,16 @@ VR4300::OperationTemplate special_op_lut[64]{
 /*32*/ {TLT,  IS_TRAP, 0, OpType::TLT},
 /*33*/ {TLTU, IS_TRAP, 0, OpType::TLTU},
 /*34*/ {TEQ,  IS_TRAP, 0, OpType::TEQ},
+/*35*/ {},
 /*36*/ {TNE,  IS_TRAP, 0, OpType::TNE},
 /*37*/ {},
 
 /*38*/ {DSLL,   WRITES_REG | STORES_IN_RD, 0, OpType::DSLL},
+/*39*/ {},
 /*3A*/ {DSRL,   WRITES_REG | STORES_IN_RD, 0, OpType::DSRL},
 /*3B*/ {DSRA,   WRITES_REG | STORES_IN_RD, 0, OpType::DSRA},
 /*3C*/ {DSLL32, WRITES_REG | STORES_IN_RD, 0, OpType::DSLL32},
+/*3D*/ {},
 /*3E*/ {DSRL32, WRITES_REG | STORES_IN_RD, 0, OpType::DSRL32},
 /*3F*/ {DSRA32, WRITES_REG | STORES_IN_RD, 0, OpType::DSRA32},
 };

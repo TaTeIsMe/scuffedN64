@@ -3,7 +3,7 @@
 #include "CP0.h"
 #include "FPU.h"
 #include "RCP.h"
-
+#include<iostream>
 
 #define CACHE_OP_STALL_TIME 2
 #define DCACHE_STALL_TIME 2
@@ -152,7 +152,8 @@ public:
         uint64_t result_LO = 0;//for multiplying and division
         uint64_t PC = 0;//virtual address of instruction
         uint64_t dcache_index = 0;//for cache writing
-        const char* op_name();
+        const char* op_name() const;
+        friend std::ostream& operator<<(std::ostream& os, const Operation& op);
     };
     
     void decode_op(uint32_t word);
@@ -210,11 +211,11 @@ public:
     bool IC(); // instruction cache fetch
     
     void submit_pipeline();
-    void dcache_write_size(VR4300::Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);
-    uint64_t dcache_read_size(VR4300::Dcache_line &line, uint8_t offset, uint8_t size);
+    void dcache_write_size(Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);
+    uint64_t dcache_read_size(const Dcache_line &line, uint8_t offset, uint8_t size);
 
-    uint8_t handle_cache_op(VR4300::Operation op);
-    void dcache_write_back(VR4300::Dcache_line& line, uint16_t index);
+    uint8_t handle_cache_op(const Operation& op);
+    void dcache_write_back(Dcache_line& line, uint16_t index);
 
 private:
 };
