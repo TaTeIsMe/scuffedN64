@@ -15,7 +15,7 @@
     //make rcp address range only output and accept 32 but values
 int main(){
     
-    std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
+    std::ifstream rom_file("n64-systemtest_standard.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
         std::istreambuf_iterator<char>()
@@ -29,6 +29,8 @@ int main(){
     
     //IPL2 skip
     vr4300.PC = 0xffffffffa4000040;
+    vr4300.cp0.regs[16] = 0x7006e463; //these two might have to be set somewhere else
+    vr4300.cp0.status = 0x34000000;
     rcp.pi.PI_BSD_DOM1_LAT = 64;
     rcp.pi.PI_BSD_DOM1_PWD = 18;
     rcp.pi.PI_BSD_DOM1_PGS = 7;

@@ -22,8 +22,8 @@ void PeripheralInterface::write_size(uint32_t address, uint64_t value, uint8_t s
         start_dma();
         break;
     case 0x10:
-        if(value & 2) ;//?? says clear interrupt i dont get it
         if(value & 1) finish_dma();
+        if(value & 2) dma_completed = 0;
         break;
     case 0x14: case 0x24: case 0x18: case 0x28:
         regs[reg_id] = value & 0xFF;
@@ -95,6 +95,8 @@ void PeripheralInterface::continue_dma()
 
 void PeripheralInterface::finish_dma()
 {
+    PI_CART_ADDR = current_cart_addr + 0x10000000;
+    PI_DRAM_ADDR = current_ram_addr;
     dma_busy = false;
     dma_completed = true;
 }

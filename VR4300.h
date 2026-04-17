@@ -55,10 +55,12 @@ class VR4300
 {
 public:
     VR4300(RCP& rcp);
-
+    
     FPU fpu;
     CP0 cp0;
     RCP& rcp;
+    uint64_t PC;
+    uint64_t cycle_count;
 
     uint8_t LLBit = 0;
     
@@ -100,9 +102,8 @@ public:
             uint64_t r31;
             uint64_t HI;
             uint64_t LO;
-            uint64_t PC;
         };
-        uint64_t GPR[35];
+        uint64_t GPR[34];
     };
 
     struct Dcache_line{
@@ -156,13 +157,13 @@ public:
         friend std::ostream& operator<<(std::ostream& os, const Operation& op);
     };
     
-    void decode_op(uint32_t word);
+    bool decode_op(uint32_t word);
 
     void abort_pipeline();
 
-    void handle_tlb_miss_exception(uint64_t addr, const Operation &op, ExceptionCode cause);
+    void handle_tlb_miss_exception(uint64_t addr, const Operation op, ExceptionCode cause);
 
-    void handle_general_exception(const Operation &op, ExceptionCode cause);
+    void handle_general_exception(const Operation op, ExceptionCode cause);
 
     void set_tlb_context(uint64_t addr);
 

@@ -13,10 +13,19 @@ CP0::~CP0()
 
 CP0::Segment CP0::get_segment(uint64_t v_addr)
 {
-    uint32_t sign_extension = (v_addr >> 39) & 0x7FFFFF; //includes the sign bit
 
-    if (sign_extension != 0 && sign_extension != 0x7FFFFF)
-        return segment_lut[err];
+    if(!is_xmode()){
+        uint64_t sign_extension = (v_addr >> 31); //includes the sign bit
+    
+        if (sign_extension != 0 && sign_extension != 0x1FFFFFFFFULL)
+            return segment_lut[err];
+    }else{
+        uint32_t sign_extension = (v_addr >> 39) & 0x7FFFFF; //includes the sign bit
+    
+        if (sign_extension != 0 && sign_extension != 0x7FFFFF)
+            return segment_lut[err];
+    }
+
 
     uint8_t region = (v_addr >> 62) & 0x3;
 
@@ -78,6 +87,13 @@ bool CP0::in_kernel_mode()
     uint8_t EXL = get_bits(status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint8_t ERL = get_bits(status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
     return (KSU == 0b00 || EXL == 1 || ERL == 1);
+}
+
+bool CP0::is_xmode(){
+    uint8_t UX = get_bits(status,STATUS_UX_MASK, STATUS_UX_SHIFT);
+    uint8_t SX = get_bits(status,STATUS_SX_MASK, STATUS_SX_SHIFT);
+    uint8_t KX = get_bits(status,STATUS_KX_MASK, STATUS_KX_SHIFT);
+    return (in_user_mode() && UX)|| (in_supervisor_mode() && SX) || (in_kernel_mode() && KX);
 }
 
 // figure out the c (cache) bit in entrylo register

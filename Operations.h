@@ -212,23 +212,23 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*2F*/ {CACHE, 0, 0, OpType::CACHE},
 
 /*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC,0, OpType::LL},
-/*31*/ {LWCz, IS_LOAD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP,0, OpType::LWCz},
-/*32*/ {LWCz, IS_LOAD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP,0, OpType::LWCz},
+/*31*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP,0, OpType::LWCz},
+/*32*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP,0, OpType::LWCz},
 /*33*/ {},
 
 /*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | ATOMIC,0,OpType::LLD},
-/*35*/ {LDCz, WRITES_REG | IS_LOAD | SIGN_EXTENDED | WRITES_CP | STORES_IN_RT ,0,OpType::LDCz},
-/*36*/ {LDCz, WRITES_REG | IS_LOAD | SIGN_EXTENDED| WRITES_CP | STORES_IN_RT ,0,OpType::LDCz},
+/*35*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED | WRITES_CP | STORES_IN_RT ,0,OpType::LDCz},
+/*36*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED| WRITES_CP | STORES_IN_RT ,0,OpType::LDCz},
 /*37*/ {LD, IS_LOAD | ACCESSES_DOUBLE_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT,0,OpType::LD},
 
 /*38*/ {SC, IS_STORE | ACCESSES_WORD | STORES_IN_RT | ATOMIC,0,OpType::SC}, //this technically writes reg but it's a special case since result has data to be stored
-/*39*/ {SWCz, IS_STORE | READS_CP,0,OpType::SWCz},
-/*3A*/ {SWCz, IS_STORE | READS_CP,0,OpType::SWCz},
+/*39*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD,0,OpType::SWCz},
+/*3A*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD,0,OpType::SWCz},
 /*3B*/ {},
 
 /*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | STORES_IN_RT | ATOMIC, 0, OpType::SCD}, //this technically writes reg but it's a s[ecial case since result has data to be stored
-/*3D*/ {SDCz, IS_STORE | READS_CP,0,OpType::SDCz},
-/*3E*/ {SDCz, IS_STORE | READS_CP,0,OpType::SDCz},
+/*3D*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD,0,OpType::SDCz},
+/*3E*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD,0,OpType::SDCz},
 /*3F*/ {SD, IS_STORE | ACCESSES_DOUBLE_WORD,0,OpType::SD}
 };
 VR4300::OperationTemplate special_op_lut[64]{
@@ -263,8 +263,8 @@ VR4300::OperationTemplate special_op_lut[64]{
 /*19*/ {MULTU, WRITES_HI | WRITES_LO, 5,OpType::MULTU},
 /*1A*/ {DIV, WRITES_HI | WRITES_LO, 37,OpType::DIV},
 /*1B*/ {DIVU, WRITES_HI | WRITES_LO, 37,OpType::DIVU},
-/*1C*/ {},
-/*1D*/ {},
+/*1C*/ {DMULT,WRITES_HI | WRITES_LO,8,OpType::DMULT},
+/*1D*/ {DMULTU,WRITES_HI | WRITES_LO,8,OpType::DMULTU},
 /*1E*/ {DDIV, WRITES_HI | WRITES_LO, 69, OpType::DDIV},
 /*1F*/ {DDIVU, WRITES_HI | WRITES_LO, 69, OpType::DDIVU},
 
@@ -424,4 +424,79 @@ VR4300::OperationTemplate CP0_op_lut[32]{
 /*1D*/ {},
 /*1E*/ {},
 /*1F*/ {}
+};
+
+VR4300::OperationTemplate CP1_op_lut[64]{
+/*00*/ {NOP},
+/*01*/ {NOP},
+/*02*/ {NOP},
+/*03*/ {NOP},
+/*04*/ {NOP},
+/*05*/ {NOP},
+/*06*/ {NOP},
+/*07*/ {NOP},
+
+/*08*/ {NOP},
+/*09*/ {NOP},
+/*0A*/ {NOP},
+/*0B*/ {NOP},
+/*0C*/ {NOP},
+/*0D*/ {NOP},
+/*0E*/ {NOP},
+/*0F*/ {NOP},
+
+/*10*/ {NOP},
+/*11*/ {NOP},
+/*12*/ {NOP},
+/*13*/ {NOP},
+/*14*/ {NOP},
+/*15*/ {NOP},
+/*16*/ {NOP},
+/*17*/ {NOP},
+
+/*18*/ {NOP},
+/*19*/ {NOP},
+/*1A*/ {NOP},
+/*1B*/ {NOP},
+/*1C*/ {NOP},
+/*1D*/ {NOP},
+/*1E*/ {NOP},
+/*1F*/ {NOP},
+
+/*20*/ {NOP},
+/*21*/ {NOP},
+/*22*/ {NOP},
+/*23*/ {NOP},
+/*24*/ {NOP},
+/*25*/ {NOP},
+/*26*/ {NOP},
+/*27*/ {NOP},
+
+/*28*/ {NOP},
+/*29*/ {NOP},
+/*2A*/ {NOP},
+/*2B*/ {NOP},
+/*2C*/ {NOP},
+/*2D*/ {NOP},
+/*2E*/ {NOP},
+/*2F*/ {NOP},
+
+/*30*/ {NOP},
+/*31*/ {NOP},
+/*32*/ {NOP},
+/*33*/ {NOP},
+/*34*/ {NOP},
+/*35*/ {NOP},
+/*36*/ {NOP},
+/*37*/ {NOP},
+
+/*38*/ {NOP},
+/*39*/ {NOP},
+/*3A*/ {NOP},
+/*3B*/ {NOP},
+/*3C*/ {NOP},
+/*3D*/ {NOP},
+/*3E*/ {NOP},
+/*3F*/ {NOP},
+
 };

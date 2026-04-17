@@ -1,6 +1,6 @@
 #include "Rdram.h"
 
-Rdram::Rdram():mem(4*1024*1024){}
+Rdram::Rdram():mem(8*1024*1024){}
 
 void Rdram::write_size(uint32_t address, uint64_t value, uint8_t size)
 {

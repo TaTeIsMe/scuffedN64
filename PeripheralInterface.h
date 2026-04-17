@@ -37,7 +37,7 @@ public:
     uint8_t dma_direction; //1 when writing to ram
     uint32_t current_ram_addr;
     uint32_t current_cart_addr;
-    uint32_t len;
+    int64_t len;
     void start_dma();
     void continue_dma();
     void finish_dma();

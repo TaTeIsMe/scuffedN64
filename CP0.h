@@ -166,6 +166,7 @@ public:
     bool in_user_mode();
     bool in_supervisor_mode();
     bool in_kernel_mode();
+    bool is_xmode();
     TLB_Result tlb_translate(uint64_t v_addr);
     uint32_t set_bits(uint32_t reg, uint32_t mask, uint32_t value);
     uint32_t get_bits(uint32_t reg, uint32_t mask, int shift);

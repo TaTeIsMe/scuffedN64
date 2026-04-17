@@ -3,11 +3,10 @@
 #include <iostream>
 #include <cstring>
 #include <iomanip>
+#include<inttypes.h>
 VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp){discard_bd = true;}
 
 //todo
-//for sided access make sure cache across lines is working
-//make sure next_op_branchdelay is working correctly
 //fix asid
 //add exceptions.
 // overflow exception in dc
@@ -15,7 +14,6 @@ VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp){discard_bd = true;}
 // all exception caused by operations will be added with them
 // fpu exceptions will be added with it
 // reset exceptions
-// wrong operation is lethal anyway so skip for now
 //fpu
 void VR4300::on_pclock()
 {
@@ -38,13 +36,44 @@ void VR4300::on_pclock()
 bool VR4300::WB()
 {
     auto& in = WB_in;
-    
-    if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
-    {
-        //CP0I
-        stall = 1;
-        in.CP0I_triggered = true;
-        return true;
+    bool enable_logging = 0;
+    static int logging_started = 0;
+    static FILE* log_file = NULL;
+
+    if(enable_logging){
+    ////
+        if (logging_started && in.op.PC == 0xffffffff8004b5d0)
+        {
+            logging_started = 0;
+        }
+        if (!logging_started && in.op.PC == 0xffffffff800171f0)
+        {
+            logging_started = 1;
+            log_file = fopen("opcode_log.txt", "w");
+        }
+    ////
+        if (logging_started && log_file && in.op.PC)
+        {
+            fprintf(log_file, "PC: %08X | ", in.op.PC);
+            
+            for (int i = 0; i < 32; i++)
+            {
+                fprintf(log_file, "R%02d: %016" PRIX64 " | ", i, (uint64_t)GPR[i]);
+            }
+    ////
+            fprintf(log_file, " %s | ", in.op.op_name());
+            fprintf(log_file, "\n");
+            fflush(log_file); 
+        }
+        ////
+        if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
+        {
+            //CP0I
+            stall = 1;
+            in.CP0I_triggered = true;
+            return true;
+        }
+        
     }
     //what WB does is:
     // write back. just as the name suggests really
@@ -66,7 +95,7 @@ bool VR4300::WB()
     if(in.op.flags & WRITES_REG){
         if(in.op.flags & WRITES_CP){
             if(in.op.CPz == 0) cp0.regs[in.op.dest_reg] = in.op.result;
-            //if(in.op.CPz == 1) fpu.regs[in.op.dest_reg] = in.op.result;
+            if(in.op.CPz == 1) fpu.regs[in.op.dest_reg] = in.op.result;
         }else
         if(in.op.dest_reg != 0)
             GPR[in.op.dest_reg] = in.op.result;
@@ -90,16 +119,8 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(in.op.instruction_type == OpType::CACHE){
-        std::cout<<"stop condition 4";
-    }
 
-    //entrypoint
-    if(in.op.PC == 0xffffffff8016b908){
-        std::cout<<"stop condition 2";
-    }
-
-    std::cout << in.op << "\n";
+    //std::cout << in.op << "\n";
     
     return false;
 }
@@ -142,6 +163,21 @@ bool VR4300::DC()
     const CP0::Segment& segment = cp0.get_segment(in.op.data_addr);
     out.cacheable = segment.cacheable;
     
+    //DADE
+    bool misalligned = (in.op.flags & ACCESSES_DOUBLE_WORD && out.op.data_addr % 8 != 0) ||
+    (in.op.flags & ACCESSES_WORD && out.op.data_addr % 4 != 0) ||
+    (in.op.flags & ACCESSES_HALF_WORD && out.op.data_addr % 2 != 0);
+    bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
+    (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
+    (cp0.in_kernel_mode() && !segment.kernel_accesible);
+    bool sided = (in.op.flags & (RIGHT_ACCESS | LEFT_ACCESS));
+    if( !sided && (misalligned || wrong_mode)){
+        cp0.badVAddr = in.op.data_addr;
+        if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
+        else handle_general_exception(in.op,AdEL);
+        return true;
+    }
+
     if(segment.tlb_mapped){
         CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.data_addr);
         if(tlb_result.miss){
@@ -167,20 +203,6 @@ bool VR4300::DC()
         out.cacheable = tlb_result.cache;
     }else out.op.data_addr_p = in.op.data_addr - segment.translation_offset;
     out.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
-    //DADE
-    bool misalligned = (in.op.flags & ACCESSES_DOUBLE_WORD && out.op.data_addr_p % 8 != 0) ||
-    (in.op.flags & ACCESSES_WORD && out.op.data_addr_p % 4 != 0) ||
-    (in.op.flags & ACCESSES_HALF_WORD && out.op.data_addr_p % 2 != 0);
-    bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
-    (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
-    (cp0.in_kernel_mode() && !segment.kernel_accesible);
-    bool sided = (in.op.flags & (RIGHT_ACCESS | LEFT_ACCESS));
-    if( !sided && (misalligned || wrong_mode)){
-        cp0.badVAddr = in.op.data_addr;
-        if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
-        else handle_general_exception(in.op,AdEL);
-        return true;
-    }
     
     
     if((cp0.watchLo & WATCHLO_R_MASK) && ((out.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
@@ -196,7 +218,8 @@ bool VR4300::DC()
         Dcache_line& line = Dcache[out.op.dcache_index];
         bool cache_hit = ((out.op.data_addr_p >> 12) == line.tag);
         
-        if(WB_in.op.flags & IS_STORE && cache_hit){
+        //this interlock logic is messy in general and probably needs to be cleaned up for accuracy, but it works for now
+        if(WB_in.op.flags & IS_STORE /*&& cache_hit*/){// this will cause the interlock to happen too often, but it fixes a bug with two stores following each other 
             //DCB on hit
             if(!in.DCB_triggered){
                 stall = 1;
@@ -224,7 +247,7 @@ bool VR4300::DC()
             return true;
         }else if((!cache_hit || !line.valid)  && in.DCB_triggered){
 
-            if(line.dirty){
+            if(line.dirty && line.valid){
                 //write back previous entry
                 dcache_write_back(line, out.op.dcache_index);
             }
@@ -265,9 +288,8 @@ bool VR4300::DC()
             }
 
         }else if(in.op.flags & IS_STORE){
-            //this won't work for 32 bits. reg  value needs to be masked correctly
-            uint64_t og_val;
-            og_val = dcache_read_size(line, out.op.data_addr_p & ~(access_size - 1), access_size);
+            uint32_t offset_into_line = out.op.data_addr_p & 0xF;
+            uint64_t og_val = dcache_read_size(line, offset_into_line & ~(access_size - 1), access_size);
             uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
             uint8_t bits = access_size * 8;
@@ -385,6 +407,15 @@ bool VR4300::EX()
         return true;
     }
 
+    //this isn't perfect but i actually don't understand how sc would know during dc whether it succeded or not
+    //even assuming it knows, with how the pipeline works here implementing that would be hell
+    if((DC_in.op.flags & ATOMIC) && (DC_in.op.flags & IS_STORE) && (in.op.rs == DC_in.op.dest_reg)){
+        in.op.rs_val = LLBit;
+    }
+    if((DC_in.op.flags & ATOMIC) && (DC_in.op.flags & IS_STORE) && (in.op.rt == DC_in.op.dest_reg)){
+        in.op.rt_val = LLBit;
+    }
+
     in.op.execute(*this);
     out.op = in.op;
     return false;
@@ -399,6 +430,7 @@ bool VR4300::RF()
     auto& dc  = DC_out;
     auto& wb  = WB_in;
 
+
     //what RF does is:
     // gets data from earlier stages if needed registers were operated on
     // get physical PC from TLB
@@ -411,6 +443,7 @@ bool VR4300::RF()
     //add microtlb miss in the future
 
     //this 100% could be done smarter
+
     if(discard_bd){
         discard_bd = false;
         uint64_t prev_PC = in.op.PC;
@@ -488,27 +521,28 @@ bool VR4300::RF()
         op_code = rcp.read_size(PC_p, 4);
     }
 
-    decode_op(op_code);
+    if(decode_op(op_code))
+    return true;
 
     in.op.rs_val = GPR[in.op.rs];
     in.op.rt_val = GPR[in.op.rt];
 
     //see if override is nessesarry
-    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg)
+    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg && !(wb.op.flags & WRITES_CP))
         in.op.rs_val = wb.op.result;
-    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rt == wb.op.dest_reg)
+    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rt == wb.op.dest_reg && !(wb.op.flags & WRITES_CP))
         in.op.rt_val = wb.op.result;
-    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg)
+    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg && !(dc.op.flags & WRITES_CP))
         in.op.rs_val = dc.op.result;
-    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg)
+    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg && !(dc.op.flags & WRITES_CP))
         in.op.rt_val = dc.op.result;
-    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rs == ex.op.dest_reg)
+    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rs == ex.op.dest_reg && !(ex.op.flags & WRITES_CP))
         in.op.rs_val = ex.op.result;
-    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rt == ex.op.dest_reg)
+    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rt == ex.op.dest_reg && !(ex.op.flags & WRITES_CP))
         in.op.rt_val = ex.op.result;
 
     if(in.op.CPz == 0)in.op.cp_val = cp0.regs[in.op.rd];
-    //if(in.op.CPz == 1)in.op.cp_val = fpu.regs[in.op.rd]; // uncomment this when making fpu
+    if(in.op.CPz == 1)in.op.cp_val = fpu.regs[in.op.rd]; // uncomment this when making fpu
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
@@ -535,7 +569,7 @@ void VR4300::submit_pipeline(){
     WB_in = DC_out;
 }
 
-void VR4300::decode_op(uint32_t word)
+bool VR4300::decode_op(uint32_t word)
 {
     uint8_t opcode = word >> 26;
 
@@ -550,8 +584,9 @@ void VR4300::decode_op(uint32_t word)
             tmplt = &COPzrt_op_lut[(word >> 16) & 0x1F];
         else if((word >> 25) == 33)
             tmplt = &CP0_op_lut[word & 0x3F];
-        else
-        tmplt = &COPzrs_op_lut[(word >> 21) & 0x1F];
+        else if((word >> 26) == 17)
+            tmplt = &CP1_op_lut[word & 0x3F];
+        else tmplt = &COPzrs_op_lut[(word >> 21) & 0x1F];
     }
     else
         tmplt = &primary_op_lut[opcode];
@@ -561,6 +596,7 @@ void VR4300::decode_op(uint32_t word)
     if (!tmplt->execute) {
         // invalid instruction exception (RI)
         handle_general_exception(op,RI);
+        return true;
     }
 
     op.execute = tmplt->execute;
@@ -578,16 +614,17 @@ void VR4300::decode_op(uint32_t word)
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;
+    return false;
 
 }
 
 void VR4300::abort_pipeline() {
 
-    std::cout<<"aborting: \n" << 
-    "WB: " << WB_in.op << "\n" <<
-    "DC: " << DC_out.op << "\n" <<
-    "EX: " << EX_in.op << "\n" <<
-    "RF: " << RF_in.op << "\n";
+    //std::cout<<"aborting: \n" << 
+    //"WB: " << WB_in.op << "\n" <<
+    //"DC: " << DC_out.op << "\n" <<
+    //"EX: " << EX_in.op << "\n" <<
+    //"RF: " << RF_in.op << "\n";
 
     RF_in = {};
     EX_in = {};
@@ -603,7 +640,7 @@ void VR4300::abort_pipeline() {
     discard_bd = true;
 }
 
-void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause){
+void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, ExceptionCode cause){
     std::cout<<"tlb_exception! \n";
     abort_pipeline();
     //this is literally just the flow chart from page 203 copied
@@ -619,12 +656,8 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, Excep
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_SHIFT);
             cp0.EPC = op.PC;
         }
-        uint8_t UX = cp0.get_bits(cp0.status,STATUS_UX_MASK, STATUS_UX_SHIFT);
-        uint8_t SX = cp0.get_bits(cp0.status,STATUS_SX_MASK, STATUS_SX_SHIFT);
-        uint8_t KX = cp0.get_bits(cp0.status,STATUS_KX_MASK, STATUS_KX_SHIFT);
-        bool is_xmode = (cp0.in_user_mode() && UX)|| (cp0.in_supervisor_mode() && SX) || (cp0.in_kernel_mode() && KX);
-        if(is_xmode) jump_offset=0x0080;
-        else      jump_offset=0x0000;
+        if(cp0.is_xmode()) jump_offset=0x0080;
+        else jump_offset=0x0000;
     }else{
         jump_offset=0x180; // says 80 in flow chart but 180 in description. 180 makes more sense prolly
     }
@@ -638,7 +671,7 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, Excep
 //set fp status registers
 //set tlb related registers 
 //set badvaddr
-void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
+void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
     std::cout<<"general_exception! \n";
     abort_pipeline();
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
@@ -653,7 +686,7 @@ void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
             cp0.EPC = op.PC;
         }
     }
-    cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1);
+    cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + 0x0180;
 }
@@ -719,8 +752,14 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
         break;
         case 2:
         //Index_Store_Tag
-        if(accessed_cache == 0) i_line.tag = cp0.get_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, TAGLO_PTAGLO_SHIFT);
-        else d_line.tag = cp0.get_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, TAGLO_PTAGLO_SHIFT);
+        if(accessed_cache == 0){
+            i_line.tag = cp0.get_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, TAGLO_PTAGLO_SHIFT);
+            i_line.valid = (cp0.get_bits(cp0.tagLo, TAGLO_PSTATE_MASK, TAGLO_PSTATE_SHIFT) == 2)?1:0;
+        }
+        else{
+            d_line.tag = cp0.get_bits(cp0.tagLo, TAGLO_PTAGLO_MASK, TAGLO_PTAGLO_SHIFT);
+            d_line.valid = (cp0.get_bits(cp0.tagLo, TAGLO_PSTATE_MASK, TAGLO_PSTATE_SHIFT) == 3)?1:0;
+        }
         break;
         case 3:
         //Create_Dirty_Exclusive
@@ -779,8 +818,8 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
 void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
     uint64_t half_1 = dcache_read_size(line, 0, 8);
     uint64_t half_2 = dcache_read_size(line, 8, 8);
-    rcp.write_size((line.tag << 12) + (index << 4),half_1,8);
-    rcp.write_size((line.tag << 12) + (index << 4) + 8,half_2,8);
+    rcp.write_size((line.tag << 12) + ((index & 0xFF) << 4),half_1,8);
+    rcp.write_size((line.tag << 12) + ((index & 0xFF) << 4) + 8,half_2,8);
     line.dirty = 0;
 }
 
@@ -796,13 +835,14 @@ const char *VR4300::Operation::op_name() const
 
 std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
 {
-    os<<"PC: "<< std::left <<std::setw(3) << std::hex <<(((op.PC) & 0xFFFC));
-    os<< " Operation: "<< std::left << std::setw(8) << op.op_name();
-    os<<" Result: 0x" << std::left << std::setw(16) << op.result;
-    if(op.rs_val) os<< " Rs val: " << (int)op.rs_val;
-    if(op.rt_val) os<< " Rt val: " << (int)op.rt_val;
-    if(op.rs) os<< " Rs: " << (int)op.rs;
-    if(op.rt) os<< " Rt: " << (int)op.rt;
-    if(op.dest_reg) os<< " Dest reg: "<< std::dec << (int)op.dest_reg;
+    os<<"PC: "<< std::left <<std::setw(4) << std::hex <<(((op.PC) & 0xFFFC))
+    << " Operation: "<< std::left << std::setw(8) << op.op_name() 
+    <<" Result: 0x" << std::left << std::setw(16) << std::hex << op.result
+    << " Rs val: "<< std::left <<std::setw(8) << std::hex << (int)op.rs_val
+    << " Rt val: "<< std::left <<std::setw(8) << std::hex << (int)op.rt_val
+    << " Rs: "<< std::left <<std::setw(3) << std::dec << (int)op.rs
+    << " Rt: "<< std::left <<std::setw(3) << std::dec << (int)op.rt
+    << " Dest reg: "<< std::left <<std::setw(3) << std::dec << (int)op.dest_reg
+    << " Data addr phys: "<< std::left <<std::setw(7) << std::hex << (int)op.data_addr_p;
     return os;
 }

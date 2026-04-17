@@ -26,6 +26,7 @@ void RCP::write_size(uint64_t address, uint64_t value, uint8_t size){
     {
         if(address >= map[i].start && address <= map[i].end){
             map[i].memory_area.write_size((address - map[i].start)&map[i].access_mask, value, size);
+            break;
         }
     }
 }

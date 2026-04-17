@@ -210,10 +210,9 @@ void SRL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = (int32_t)((uint32_t)op.rt_val >> op.sa);
 }
-//this might not work
 void SRA(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int32_t)((int32_t)op.rt_val >> op.sa);
+    op.result = (int32_t)(op.rt_val >> op.sa);
 }
 void SLLV(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -225,7 +224,7 @@ void SRLV(VR4300& cpu){
 }
 void SRAV(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int32_t)((int32_t)op.rt_val >> (op.rs_val & 0x1F));
+    op.result = (int32_t)(op.rt_val >> (op.rs_val & 0x1F));
 }
 void DSLL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -267,23 +266,30 @@ void DSRA32(VR4300& cpu){
 }
 void MULT(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    int64_t result = (int32_t)op.rs_val * (int32_t)op.rt_val;
+    int64_t result = (int64_t)(int32_t)op.rs_val * (int64_t)(int32_t)op.rt_val;
     op.result_LO = (int32_t)(result);
-    op.result_HI = result>>32;
+    op.result_HI = (int32_t)(result>>32);
 }
 void MULTU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    int64_t result = (uint32_t)op.rs_val * (uint32_t)op.rt_val;
+    uint64_t result = (uint64_t)(uint32_t)op.rs_val * (uint64_t)(uint32_t)op.rt_val;
     op.result_LO = (int32_t)(result);
-    op.result_HI = result>>32;
+    op.result_HI = (int32_t)(result>>32);
 }
 void DIV(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     if(op.rt_val == 0){
-        op.result_LO = -1;
+        op.result_LO = ((int32_t)op.rs_val<0)?1:-1;
         op.result_HI = op.rs_val;
         return;
     }
+
+    if (op.rs_val == (int32_t)0x80000000 && op.rt_val == -1) {
+        op.result_LO = (int32_t)0x80000000;
+        op.result_HI = 0;
+        return;
+    }
+
     int32_t quotient = (int32_t)op.rs_val / (int32_t)op.rt_val;
     int32_t remainder = (int32_t)op.rs_val % (int32_t)op.rt_val;
     op.result_LO = quotient;
@@ -325,18 +331,31 @@ void MTLO(VR4300& cpu){
 }
 void DMULT(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    __int128_t result = (int64_t)op.rs_val * (int64_t)op.rt_val;
+    __int128_t result = (__int128_t)(int64_t)op.rs_val * (__int128_t)(int64_t)op.rt_val;
     op.result_LO = result;
     op.result_HI = result>>64;
 }
 void DMULTU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    __int128_t result = (uint64_t)op.rs_val * (uint64_t)op.rt_val;
+    __uint128_t result = (__uint128_t)(uint64_t)op.rs_val * (__uint128_t)(uint64_t)op.rt_val;
     op.result_LO = result;
     op.result_HI = result>>64;
 }
 void DDIV(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+
+    if(op.rt_val == 0){
+        op.result_LO = ((int64_t)op.rs_val<0)?1:-1;
+        op.result_HI = op.rs_val;
+        return;
+    }
+
+    if (op.rs_val == (int64_t)0x8000000000000000 && op.rt_val == -1) {
+        op.result_LO = (int64_t)0x8000000000000000;
+        op.result_HI = 0;
+        return;
+    }
+
     int64_t quotient = (int64_t)op.rs_val / (int64_t)op.rt_val;
     int64_t remainder = (int64_t)op.rs_val % (int64_t)op.rt_val;
     op.result_LO = quotient;
@@ -344,6 +363,13 @@ void DDIV(VR4300& cpu){
 }
 void DDIVU(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+
+    if(op.rt_val == 0){
+        op.result_LO = -1;
+        op.result_HI = op.rs_val;
+        return;
+    }
+
     int64_t quotient = (uint64_t)op.rs_val / (uint64_t)op.rt_val;
     int64_t remainder = (uint64_t)op.rs_val % (uint64_t)op.rt_val;
     op.result_LO = quotient;
@@ -532,7 +558,7 @@ void SWCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
     if(op.CPz == 0) op.result = cpu.cp0.regs[op.rt];
-    //if(op.CPz == 1) op.result = cpu.fpu.regs[op.rt];
+    if(op.CPz == 1) op.result = cpu.fpu.regs[op.rt];
 }
 void MTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -550,7 +576,7 @@ void CTCz(VR4300& cpu){
 void CFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
 }
-//this technically doesn't even exist i think.. maybe?
+
 void COPz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
 }
@@ -572,11 +598,13 @@ void DMFCz(VR4300& cpu){
 }
 void LDCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 void SDCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int16_t)op.immediate + op.rs_val;
+    op.data_addr = (int16_t)op.immediate + op.rs_val;
+    if(op.CPz == 0) op.result = cpu.cp0.regs[op.rt];
+    if(op.CPz == 1) op.result = cpu.fpu.regs[op.rt];
 }
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzTL(VR4300& cpu){
@@ -645,6 +673,7 @@ void TLBP(VR4300& cpu){
 }
 void ERET(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    cpu.discard_bd = true;
     if(cpu.cp0.status & STATUS_ERL_MASK){
         cpu.PC = cpu.cp0.errorEPC;
         cpu.cp0.status = cpu.cp0.set_bits(cpu.cp0.status,STATUS_EXL_MASK,0);
