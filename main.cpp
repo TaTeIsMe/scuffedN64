@@ -15,7 +15,7 @@
     //make rcp address range only output and accept 32 but values
 int main(){
     
-    std::ifstream rom_file("n64-systemtest_standard.z64", std::ios::binary);
+    std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
         std::istreambuf_iterator<char>()

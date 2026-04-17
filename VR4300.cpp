@@ -644,6 +644,7 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, Except
     std::cout<<"tlb_exception! \n";
     abort_pipeline();
     //this is literally just the flow chart from page 203 copied
+    cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     set_tlb_context(addr);
     uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint16_t jump_offset;
