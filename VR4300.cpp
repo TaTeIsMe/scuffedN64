@@ -4,7 +4,7 @@
 #include <cstring>
 #include <iomanip>
 #include<inttypes.h>
-VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp){discard_bd = true;}
+VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp),fpu(cp0){discard_bd = true;}
 
 //todo
 //fix asid
@@ -39,14 +39,15 @@ bool VR4300::WB()
     bool enable_logging = 0;
     static int logging_started = 0;
     static FILE* log_file = NULL;
+    int log_count = 0;
 
     if(enable_logging){
     ////
-        if (logging_started && in.op.PC == 0xffffffff8004b5d0)
+        if (log_count == 1000)
         {
             logging_started = 0;
         }
-        if (!logging_started && in.op.PC == 0xffffffff800171f0)
+        if (!logging_started)
         {
             logging_started = 1;
             log_file = fopen("opcode_log.txt", "w");
@@ -60,23 +61,27 @@ bool VR4300::WB()
             {
                 fprintf(log_file, "R%02d: %016" PRIX64 " | ", i, (uint64_t)GPR[i]);
             }
+            log_count += 1;
     ////
             fprintf(log_file, " %s | ", in.op.op_name());
             fprintf(log_file, "\n");
             fflush(log_file); 
         }
         ////
-        if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
-        {
-            //CP0I
-            stall = 1;
-            in.CP0I_triggered = true;
-            return true;
-        }
-        
     }
     //what WB does is:
     // write back. just as the name suggests really
+
+    if(in.op.instruction_type == OpType::CTCz)
+    std::cout<<"";
+
+    if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
+    {
+        //CP0I
+        stall = 1;
+        in.CP0I_triggered = true;
+        return true;
+    }
     if(in.op.flags & IS_STORE){
         uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
         if(in.op.flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op.data_addr_p = in.op.data_addr_p & ~(access_size - 1);
@@ -94,8 +99,13 @@ bool VR4300::WB()
     }
     if(in.op.flags & WRITES_REG){
         if(in.op.flags & WRITES_CP){
-            if(in.op.CPz == 0) cp0.regs[in.op.dest_reg] = in.op.result;
-            if(in.op.CPz == 1) fpu.regs[in.op.dest_reg] = in.op.result;
+            if(in.op.CPz == 0)
+                cp0.regs[in.op.dest_reg] = in.op.result;
+            if(in.op.CPz == 1 && (in.op.flags & CPControl)){
+                //if(in.op.rd == 0) fpu.FCR0 = in.op.result; // Nothing. fcr0 is constant
+                if(in.op.rd == 31) fpu.FCR31 = in.op.result;}
+            else if(in.op.CPz == 1) 
+                fpu.write_fpr(in.op.dest_reg,in.op.result,in.op.access_size());
         }else
         if(in.op.dest_reg != 0)
             GPR[in.op.dest_reg] = in.op.result;
@@ -119,6 +129,8 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
+    if(in.op.PC == 0xffffffff8001653c)
+    std::cout << "";
 
     //std::cout << in.op << "\n";
     
@@ -148,6 +160,23 @@ bool VR4300::DC()
     //    stall = 2;
     //    return true;
     //}
+
+
+    if(in.fire_fpu_exception){
+        in.fire_fpu_exception = false;
+        EX_out.fire_fpu_exception = false;
+        uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
+        uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
+        //wooo magic numbers
+        fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
+        if( Enables & Cause != 0){
+            //fpu.write_fpr(0, 0x4b3c614e,in.op.access_size());
+            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
+            handle_general_exception(in.op,FPE);
+            return true;
+        }
+    }
+
 
     
     if((in.op.flags & IS_TRAP) && in.op.result){
@@ -371,6 +400,19 @@ bool VR4300::EX()
     // does the operation
 
 
+    uint8_t CU = (cp0.status >> 28) & 0xF;
+    if((in.op.flags & CPZ) && in.op.CPz == 2)
+    std::cout << "";
+
+    if((in.op.flags & CPZ) && !((CU >> in.op.CPz) & 1)){
+        if(!(in.op.CPz == 0 && cp0.in_kernel_mode())){
+            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op.CPz << 28);
+            handle_general_exception(in.op,CpU);
+            return true;
+        }
+    }
+
+
     if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg){
         //LDI
         stall = 1;
@@ -526,6 +568,14 @@ bool VR4300::RF()
 
     in.op.rs_val = GPR[in.op.rs];
     in.op.rt_val = GPR[in.op.rt];
+    if(in.op.CPz == 0 && (in.op.flags & READS_CP))in.op.cp_val = cp0.regs[in.op.rd];
+    if(in.op.CPz == 1 && (in.op.flags & READS_CP)){
+        if(in.op.flags & CPControl){
+            if(in.op.rd == 0) in.op.cp_val = fpu.FCR0;
+            else if(in.op.rd == 31) in.op.cp_val = WB_in.op.instruction_type == OpType::CTCz?WB_in.op.result:fpu.FCR31;
+        }
+        else in.op.cp_val = fpu.get_fpr(in.op.rd, in.op.access_size()) ;
+    }
 
     //see if override is nessesarry
     if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg && !(wb.op.flags & WRITES_CP))
@@ -540,9 +590,14 @@ bool VR4300::RF()
         in.op.rs_val = ex.op.result;
     if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rt == ex.op.dest_reg && !(ex.op.flags & WRITES_CP))
         in.op.rt_val = ex.op.result;
-
-    if(in.op.CPz == 0)in.op.cp_val = cp0.regs[in.op.rd];
-    if(in.op.CPz == 1)in.op.cp_val = fpu.regs[in.op.rd]; // uncomment this when making fpu
+    //also for cp
+    
+    if(wb.op.flags & WRITES_REG && in.op.rt == wb.op.dest_reg && (wb.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && wb.op.CPz == in.op.CPz)
+        in.op.cp_val = wb.op.result;
+    if(dc.op.flags & WRITES_REG && in.op.rt == dc.op.dest_reg && (dc.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && dc.op.CPz == in.op.CPz)
+        in.op.cp_val = dc.op.result;
+    if(ex.op.flags & WRITES_REG && in.op.rt == ex.op.dest_reg && (ex.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && ex.op.CPz == in.op.CPz)
+        in.op.cp_val = ex.op.result;
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
@@ -572,7 +627,7 @@ void VR4300::submit_pipeline(){
 bool VR4300::decode_op(uint32_t word)
 {
     uint8_t opcode = word >> 26;
-
+    
     const OperationTemplate* tmplt;
 
     if(opcode == 0)
@@ -584,7 +639,7 @@ bool VR4300::decode_op(uint32_t word)
             tmplt = &COPzrt_op_lut[(word >> 16) & 0x1F];
         else if((word >> 25) == 33)
             tmplt = &CP0_op_lut[word & 0x3F];
-        else if((word >> 26) == 17)
+        else if((word >> 25) == 35)
             tmplt = &CP1_op_lut[word & 0x3F];
         else tmplt = &COPzrs_op_lut[(word >> 21) & 0x1F];
     }
@@ -599,6 +654,7 @@ bool VR4300::decode_op(uint32_t word)
         return true;
     }
 
+
     op.execute = tmplt->execute;
     op.multicycle = tmplt->multicycle;
     op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
@@ -610,6 +666,7 @@ bool VR4300::decode_op(uint32_t word)
     op.sa = (word >> 6) & 0x1F;
     if(op.flags & STORES_IN_RD) op.dest_reg = op.rd;
     if(op.flags & STORES_IN_RT) op.dest_reg = op.rt;
+    if(op.flags & STORES_IN_SA)op.dest_reg = op.sa;
     if(op.flags & STORES_IN_31) op.dest_reg = 31;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
@@ -827,6 +884,11 @@ void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
 VR4300::Operation::Operation()
 {
     execute = NOP;
+}
+
+inline uint8_t VR4300::Operation::access_size()
+{
+   return flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
 }
 
 const char *VR4300::Operation::op_name() const

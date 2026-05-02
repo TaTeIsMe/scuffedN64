@@ -1,4 +1,6 @@
 #include "VR4300.h"
+#include<bit>
+#include <cmath>
 
 void NOP(VR4300& cpu){};
 
@@ -557,24 +559,23 @@ void LWCz(VR4300& cpu){
 void SWCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
-    if(op.CPz == 0) op.result = cpu.cp0.regs[op.rt];
-    if(op.CPz == 1) op.result = cpu.fpu.regs[op.rt];
+    op.result = op.cp_val;
 }
 void MTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (uint32_t)op.rt_val; // i think these shouldn't be sign extended??
+        op.result = (int32_t)op.rt_val;
 }
 void MFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (uint32_t)op.cp_val;
+    op.result = (int32_t)op.cp_val;
 }
-//this only does stuff for fpu so make later with fpu
 void CTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    op.result = (int32_t)op.rt_val & 0x183ffff; //Whatever, this only writes one register anyway so might as well hard code this mask
 }
-//this only does stuff for fpu so make later with fpu
 void CFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    op.result = (int32_t)op.cp_val;
 }
 
 void COPz(VR4300& cpu){
@@ -603,8 +604,7 @@ void LDCz(VR4300& cpu){
 void SDCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
-    if(op.CPz == 0) op.result = cpu.cp0.regs[op.rt];
-    if(op.CPz == 1) op.result = cpu.fpu.regs[op.rt];
+    op.result = op.cp_val;
 }
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzTL(VR4300& cpu){
@@ -689,3 +689,542 @@ void CACHE(VR4300& cpu){
     op.data_addr = (int16_t)op.immediate + op.rs_val;
 }
 
+
+//these would have been so much nicer to split into sub formats
+void CVTSfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr_val = op.cp_val;
+    uint8_t fmt = op.rs;
+    cpu.fpu.FCR31 &= ~(0x3F << 12);
+    
+    bool inexact = false;
+    bool overflow = false;
+    bool underflow = false;
+    bool unimplemented = false;
+    bool invalid = false;
+
+    float converted;
+    switch (fmt)
+    {
+    case 16:{
+        float interpreted = std::bit_cast<float>((uint32_t)fpr_val);
+        converted = (float) interpreted;
+        op.result = (uint64_t)std::bit_cast<uint32_t>(converted);
+        unimplemented = true;
+        break;
+    }
+    case 17:{
+        double interpreted = std::bit_cast<double>((uint64_t)fpr_val);
+        converted = (float) interpreted;
+        op.result = (uint64_t)std::bit_cast<uint32_t>(converted);
+        inexact = (converted != interpreted);
+        overflow = std::fabs(interpreted) > std::numeric_limits<float>::max();
+        underflow = std::fabs(interpreted) < std::numeric_limits<float>::min() && interpreted != 0.0;
+        unimplemented = (std::fpclassify(interpreted) == FP_SUBNORMAL);
+        invalid = std::isnan(interpreted) && !((fpr_val >> 51) & 1); // make sure this should be ! before checking the quiet bit
+        break;
+    }
+    case 20:{
+        int32_t interpreted = (int32_t)fpr_val;
+        converted = (float) interpreted;
+        op.result = (uint64_t)std::bit_cast<uint32_t>(converted);
+        inexact = (converted != interpreted);
+        break;
+    }
+    case 21:{
+        int64_t interpreted = (int64_t)fpr_val;
+        converted = (float) interpreted;
+        op.result = (uint64_t)std::bit_cast<uint32_t>(converted);
+        inexact = (converted != interpreted);
+        overflow = std::fabs(interpreted) > std::numeric_limits<float>::max();
+        unimplemented = ((interpreted & 0xEFFFFFFFFFFFFFFF) >> 55) != 0;
+        break;
+    }
+    default:
+        break;
+    }
+    cpu.fpu.FCR31 |= (inexact << CAUSE_INEXACT_SHIFT);
+    cpu.fpu.FCR31 |= (overflow << CAUSE_OVERFLOW_SHIFT);
+    cpu.fpu.FCR31 |= (underflow << CAUSE_UNDERFLOW_SHIFT);
+    cpu.fpu.FCR31 |= (invalid << CAUSE_INVALID_SHIFT);
+    cpu.fpu.FCR31 |= (unimplemented << CAUSE_UNIMPLEMENTED_SHIFT);
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+}
+
+void CVTDfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr_val = op.cp_val;
+    uint8_t fmt = op.rs;
+    double converted;
+    switch (fmt)
+    {
+    case 16:{
+        float interpreted = std::bit_cast<float>((uint32_t)fpr_val);
+        converted = (double) interpreted;
+        op.result = std::bit_cast<uint64_t>(converted);
+        break;
+    }
+    case 17:{
+        double interpreted = std::bit_cast<double>((uint64_t)fpr_val);
+        converted = (double) interpreted;
+        op.result = std::bit_cast<uint64_t>(converted);
+        break;
+    }
+    case 20:{
+        int32_t interpreted = (int32_t)fpr_val;
+        converted = (double) interpreted;
+        op.result = std::bit_cast<uint64_t>(converted);
+        break;
+    }
+    case 21:{
+        int64_t interpreted = (int64_t)fpr_val;
+        converted = (double) interpreted;
+        op.result = std::bit_cast<uint64_t>(converted);
+        break;
+    }
+    default:
+        break;
+    }
+};
+void CVTLfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr_val = op.cp_val;
+    uint8_t fmt = op.rs;
+    int64_t converted;
+    switch (fmt)
+    {
+    case 16:{
+        float interpreted = std::bit_cast<float>((uint32_t)fpr_val);
+        converted = (int64_t) interpreted;
+        op.result = std::bit_cast<uint64_t>(converted);
+        break;
+    }
+    case 17:{
+        double interpreted = std::bit_cast<double>((uint64_t)fpr_val);
+        converted = (int64_t) interpreted;
+        op.result = std::bit_cast<uint64_t>(converted);
+        break;
+    }
+    case 20:{
+        int32_t interpreted = (int32_t)fpr_val;
+        converted = (int64_t) interpreted;
+        op.result = converted;
+        break;
+    }
+    case 21:{
+        int64_t interpreted = (int64_t)fpr_val;
+        converted = (int64_t) interpreted;
+        op.result = converted;
+        break;
+    }
+    default:
+        break;
+    }
+};
+void CVTWfmt(VR4300& cpu){
+        VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr_val = op.cp_val;
+    uint8_t fmt = op.rs;
+    int32_t converted;
+    switch (fmt)
+    {
+    case 16:{
+        float interpreted = std::bit_cast<float>((uint32_t)fpr_val);
+        converted = (int32_t) interpreted;
+        op.result = (uint64_t)std::bit_cast<uint32_t>(converted);
+        break;
+    }
+    case 17:{
+        double interpreted = std::bit_cast<double>((uint64_t)fpr_val);
+        converted = (int32_t) interpreted;
+        op.result = (uint64_t)std::bit_cast<uint32_t>(converted);
+        break;
+    }
+    case 20:{
+        int32_t interpreted = (int32_t)fpr_val;
+        converted = (int32_t) interpreted;
+        op.result = (uint64_t)converted;
+        break;
+    }
+    case 21:{
+        int64_t interpreted = (int64_t)fpr_val;
+        converted = (int32_t) interpreted;
+        op.result = (uint64_t) converted;
+        break;
+    }
+    default:
+        break;
+    }
+};
+
+void ROUNDLfmt(VR4300& cpu){};
+void ROUNDWfmt(VR4300& cpu){};
+void TRUNCLfmt(VR4300& cpu){};
+void TRUNCWfmt(VR4300& cpu){};
+void CEILLfmt(VR4300& cpu){};
+void CEILWfmt(VR4300& cpu){};
+void FLOORLfmt(VR4300& cpu){};
+void FLOORWfmt(VR4300& cpu){};
+
+//fpu computational
+void ADDfmt(VR4300& cpu){};
+void SUBfmt(VR4300& cpu){};
+void MULfmt(VR4300& cpu){};
+void DIVfmt(VR4300& cpu){};
+void ABSfmt(VR4300& cpu){};
+void MOVfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    op.result = op.cp_val;
+};
+void NEGfmt(VR4300& cpu){};
+void SQRTfmt(VR4300& cpu){};
+
+//fpu compare
+void Ccondfmt(VR4300& cpu){};
+
+VR4300::OperationTemplate primary_op_lut[64]{
+/*00*/ {nullptr,0,0,OpType::SPECIAL},                       // SPECIAL
+/*01*/ {nullptr,0,0,OpType::REGIMM},                        // REGIMM
+/*02*/ {J, CAUSES_BRANCH_DELAY, 0, OpType::J},
+/*03*/ {JAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG,0,OpType::JAL},
+/*04*/ {BEQ, CAUSES_BRANCH_DELAY,0,OpType::BEQ},
+/*05*/ {BNE, CAUSES_BRANCH_DELAY,0,OpType::BNE},
+/*06*/ {BLEZ, CAUSES_BRANCH_DELAY,0,OpType::BLEZ},
+/*07*/ {BGTZ, CAUSES_BRANCH_DELAY,0,OpType::BGTZ},
+
+/*08*/ {ADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION,0,OpType::ADDI},
+/*09*/ {ADDIU, WRITES_REG | STORES_IN_RT,0,OpType::ADDIU},
+/*0A*/ {SLTI, WRITES_REG | STORES_IN_RT,0,OpType::SLTI},
+/*0B*/ {SLTIU, WRITES_REG | STORES_IN_RT,0,OpType::SLTIU},
+/*0C*/ {ANDI, WRITES_REG | STORES_IN_RT,0,OpType::ANDI},
+/*0D*/ {ORI, WRITES_REG | STORES_IN_RT,0,OpType::ORI},
+/*0E*/ {XORI, WRITES_REG | STORES_IN_RT,0,OpType::XORI},
+/*0F*/ {LUI, WRITES_REG | STORES_IN_RT ,0,OpType::LUI}, //technically not IS_LOAD since it doesn't access memory
+
+/*10*/ {COPz, 0,0,OpType::COPz},
+/*11*/ {COPz, 0,0,OpType::COPz},
+/*12*/ {},
+/*13*/ {},
+
+/*14*/ {BEQL, CAUSES_BRANCH_DELAY,0,OpType::BEQL},
+/*15*/ {BNEL, CAUSES_BRANCH_DELAY,0,OpType::BNEL},
+/*16*/ {BLEZL, CAUSES_BRANCH_DELAY,0,OpType::BLEZL},
+/*17*/ {BGTZL, CAUSES_BRANCH_DELAY,0,OpType::BGTZL},
+
+/*18*/ {DADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION, 0, OpType::DADDI},
+/*19*/ {DADDIU, WRITES_REG | STORES_IN_RT, 0, OpType::DADDIU},
+/*1A*/ {LDL, IS_LOAD | LEFT_ACCESS | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT, 0, OpType::LDL},
+/*1B*/ {LDR, IS_LOAD | RIGHT_ACCESS | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT, 0, OpType::LDR},
+
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {},
+
+/*20*/ {LB, IS_LOAD | ACCESSES_BYTE | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED,0,OpType::LB},
+/*21*/ {LH, IS_LOAD | ACCESSES_HALF_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED,0,OpType::LH},
+/*22*/ {LWL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | LEFT_ACCESS,0,OpType::LWL},
+/*23*/ {LW, IS_LOAD | ACCESSES_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT,0,OpType::LW},
+/*24*/ {LBU, IS_LOAD | ACCESSES_BYTE | WRITES_REG | STORES_IN_RT,0,OpType::LBU},
+/*25*/ {LHU, IS_LOAD | ACCESSES_HALF_WORD | WRITES_REG | STORES_IN_RT,0,OpType::LHU},
+/*26*/ {LWR, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | RIGHT_ACCESS,0,OpType::LWR},
+/*27*/ {LWU, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT,0,OpType::LWU},
+
+/*28*/ {SB, IS_STORE | ACCESSES_BYTE,0,OpType::SB},
+/*29*/ {SH, IS_STORE | ACCESSES_HALF_WORD,0,OpType::SH},
+/*2A*/ {SWL, IS_STORE | ACCESSES_WORD | LEFT_ACCESS,0,OpType::SWL},
+/*2B*/ {SW, IS_STORE | ACCESSES_WORD,0,OpType::SW},
+/*2C*/ {SDL, IS_STORE | ACCESSES_DOUBLE_WORD | LEFT_ACCESS, 0, OpType::SDL},
+/*2D*/ {SDR, IS_STORE | ACCESSES_DOUBLE_WORD | RIGHT_ACCESS, 0, OpType::SDR},
+/*2E*/ {SWR, IS_STORE | ACCESSES_WORD | RIGHT_ACCESS,0,OpType::SWR},
+/*2F*/ {CACHE, 0, 0, OpType::CACHE},
+
+/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC,0, OpType::LL},
+/*31*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP,0, OpType::LWCz},
+/*32*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP,0, OpType::LWCz},
+/*33*/ {},
+
+/*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | ATOMIC,0,OpType::LLD},
+/*35*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED | WRITES_CP | STORES_IN_RT ,0,OpType::LDCz},
+/*36*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED| WRITES_CP | STORES_IN_RT ,0,OpType::LDCz},
+/*37*/ {LD, IS_LOAD | ACCESSES_DOUBLE_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT,0,OpType::LD},
+
+/*38*/ {SC, IS_STORE | ACCESSES_WORD | STORES_IN_RT | ATOMIC,0,OpType::SC}, //this technically writes reg but it's a special case since result has data to be stored
+/*39*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD,0,OpType::SWCz},
+/*3A*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD,0,OpType::SWCz},
+/*3B*/ {},
+
+/*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | STORES_IN_RT | ATOMIC, 0, OpType::SCD}, //this technically writes reg but it's a s[ecial case since result has data to be stored
+/*3D*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD,0,OpType::SDCz},
+/*3E*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD,0,OpType::SDCz},
+/*3F*/ {SD, IS_STORE | ACCESSES_DOUBLE_WORD,0,OpType::SD}
+};
+VR4300::OperationTemplate special_op_lut[64]{
+/*00*/ {SLL, WRITES_REG | STORES_IN_RD,0,OpType::SLL},
+/*01*/ {},
+/*02*/ {SRL, WRITES_REG | STORES_IN_RD,0,OpType::SRL},
+/*03*/ {SRA, WRITES_REG | STORES_IN_RD,0,OpType::SRA},
+/*04*/ {SLLV, WRITES_REG | STORES_IN_RD,0,OpType::SLLV},
+/*05*/ {},
+/*06*/ {SRLV, WRITES_REG | STORES_IN_RD,0,OpType::SRLV},
+/*07*/ {SRAV, WRITES_REG | STORES_IN_RD,0,OpType::SRAV},
+
+/*08*/ {JR, CAUSES_BRANCH_DELAY,0,OpType::JR},
+/*09*/ {JALR, CAUSES_BRANCH_DELAY | STORES_IN_RD | WRITES_REG,0,OpType::JALR},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {SYSCALL, CAUSED_EXCEPTION,0,OpType::SYSCALL},
+/*0D*/ {BREAK, CAUSED_EXCEPTION,0,OpType::BREAK},
+/*0E*/ {},
+/*0F*/ {SYNC, 0, 0, OpType::SYNC},
+
+/*10*/ {MFHI, WRITES_REG | STORES_IN_RD,0,OpType::MFHI},
+/*11*/ {MTHI, WRITES_HI, 0, OpType::MTHI},
+/*12*/ {MFLO, WRITES_REG | STORES_IN_RD,0,OpType::MFLO},
+/*13*/ {MTLO, WRITES_LO, 0, OpType::MTLO},
+/*14*/ {DSLLV, WRITES_REG | STORES_IN_RD, 0, OpType::DSLLV},
+/*15*/ {},
+/*16*/ {DSRLV, WRITES_REG | STORES_IN_RD, 0, OpType::DSRLV},
+/*17*/ {DSRAV, WRITES_REG | STORES_IN_RD, 0, OpType::DSRAV},
+
+/*18*/ {MULT, WRITES_HI | WRITES_LO, 5,OpType::MULT},
+/*19*/ {MULTU, WRITES_HI | WRITES_LO, 5,OpType::MULTU},
+/*1A*/ {DIV, WRITES_HI | WRITES_LO, 37,OpType::DIV},
+/*1B*/ {DIVU, WRITES_HI | WRITES_LO, 37,OpType::DIVU},
+/*1C*/ {DMULT,WRITES_HI | WRITES_LO,8,OpType::DMULT},
+/*1D*/ {DMULTU,WRITES_HI | WRITES_LO,8,OpType::DMULTU},
+/*1E*/ {DDIV, WRITES_HI | WRITES_LO, 69, OpType::DDIV},
+/*1F*/ {DDIVU, WRITES_HI | WRITES_LO, 69, OpType::DDIVU},
+
+/*20*/ {ADD, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION,0,OpType::ADD},
+/*21*/ {ADDU, WRITES_REG | STORES_IN_RD,0,OpType::ADDU},
+/*22*/ {SUB, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION,0,OpType::SUB},
+/*23*/ {SUBU, WRITES_REG | STORES_IN_RD,0,OpType::SUBU},
+/*24*/ {AND, WRITES_REG | STORES_IN_RD,0,OpType::AND},
+/*25*/ {OR, WRITES_REG | STORES_IN_RD,0,OpType::OR},
+/*26*/ {XOR, WRITES_REG | STORES_IN_RD,0,OpType::XOR},
+/*27*/ {NOR, WRITES_REG | STORES_IN_RD,0,OpType::NOR},
+
+/*28*/ {},
+/*29*/ {},
+/*2A*/ {SLT, WRITES_REG | STORES_IN_RD,0,OpType::SLT},
+/*2B*/ {SLTU, WRITES_REG | STORES_IN_RD,0,OpType::SLTU},
+/*2C*/ {DADD,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION, 0, OpType::DADD},
+/*2D*/ {DADDU, WRITES_REG | STORES_IN_RD, 0, OpType::DADDU},
+/*2E*/ {DSUB,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION, 0, OpType::DSUB},
+/*2F*/ {DSUBU, WRITES_REG | STORES_IN_RD, 0, OpType::DSUBU},
+
+/*30*/ {TGE,  IS_TRAP, 0, OpType::TGE},
+/*31*/ {TGEU, IS_TRAP, 0, OpType::TGEU},
+/*32*/ {TLT,  IS_TRAP, 0, OpType::TLT},
+/*33*/ {TLTU, IS_TRAP, 0, OpType::TLTU},
+/*34*/ {TEQ,  IS_TRAP, 0, OpType::TEQ},
+/*35*/ {},
+/*36*/ {TNE,  IS_TRAP, 0, OpType::TNE},
+/*37*/ {},
+
+/*38*/ {DSLL,   WRITES_REG | STORES_IN_RD, 0, OpType::DSLL},
+/*39*/ {},
+/*3A*/ {DSRL,   WRITES_REG | STORES_IN_RD, 0, OpType::DSRL},
+/*3B*/ {DSRA,   WRITES_REG | STORES_IN_RD, 0, OpType::DSRA},
+/*3C*/ {DSLL32, WRITES_REG | STORES_IN_RD, 0, OpType::DSLL32},
+/*3D*/ {},
+/*3E*/ {DSRL32, WRITES_REG | STORES_IN_RD, 0, OpType::DSRL32},
+/*3F*/ {DSRA32, WRITES_REG | STORES_IN_RD, 0, OpType::DSRA32},
+};
+VR4300::OperationTemplate regimm_op_lut[32]{
+/*00*/ {BLTZ, CAUSES_BRANCH_DELAY,0,OpType::BLTZ},
+/*01*/ {BGEZ, CAUSES_BRANCH_DELAY,0,OpType::BGEZ},
+/*02*/ {BLTZL, CAUSES_BRANCH_DELAY,0,OpType::BLTZL},
+/*03*/ {BGEZL, CAUSES_BRANCH_DELAY,0,OpType::BGEZL},
+
+/*04*/ {},
+/*05*/ {},
+/*06*/ {},
+/*07*/ {},
+
+/*08*/ {TGEI, IS_TRAP,0,OpType::TGEI},
+/*09*/ {TGEIU, IS_TRAP,0,OpType::TGEIU},
+/*0A*/ {TLTI, IS_TRAP,0,OpType::TLTI},
+/*0B*/ {TLTIU, IS_TRAP,0,OpType::TLTIU},
+/*0C*/ {TEQI, IS_TRAP,0,OpType::TEQI},
+/*0D*/ {},
+/*0E*/ {TNEI, IS_TRAP,0,OpType::TNEI},
+/*0F*/ {},
+
+/*10*/ {BLTZAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG,0,OpType::BLTZAL},
+/*11*/ {BGEZAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG,0,OpType::BGEZAL},
+/*12*/ {BLTZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG, 0, OpType::BLTZALL},
+/*13*/ {BGEZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG, 0, OpType::BGEZALL},
+
+};
+
+VR4300::OperationTemplate COPzrs_op_lut[32]{
+/*00*/ {MFCz, WRITES_REG | STORES_IN_RT | READS_CP | ACCESSES_WORD | CPZ,0,OpType::MFCz},
+/*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::DMFCz},
+/*02*/ {CFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPControl | CPZ,0,OpType::CFCz},
+/*03*/ {},
+/*04*/ {MTCz, WRITES_REG | WRITES_CP | STORES_IN_RD | ACCESSES_WORD | CPZ,0,OpType::MTCz},
+/*05*/ {DMTCz, WRITES_REG | WRITES_CP | STORES_IN_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::DMTCz},
+/*06*/ {CTCz, WRITES_REG | WRITES_CP | CPControl | CPZ,0,OpType::CTCz},
+/*07*/ {},
+
+/*08*/ {},
+/*09*/ {},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {},
+/*0D*/ {},
+/*0E*/ {},
+/*0F*/ {},
+};
+VR4300::OperationTemplate COPzrt_op_lut[32]{
+/*00*/ {BCzF, CAUSES_BRANCH_DELAY | CPZ,0,OpType::BCzF},
+/*01*/ {BCzT, CAUSES_BRANCH_DELAY | CPZ,0,OpType::BCzT},
+/*02*/ {BCzFL, CAUSES_BRANCH_DELAY | CPZ,0,OpType::BCzFL},
+/*03*/ {BCzTL, CAUSES_BRANCH_DELAY | CPZ,0,OpType::BCzTL},
+
+/*04*/ {},
+/*05*/ {},
+/*06*/ {},
+/*07*/ {},
+
+/*08*/ {},
+/*09*/ {},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {},
+/*0D*/ {},
+/*0E*/ {},
+/*0F*/ {},
+
+/*10*/ {},
+/*11*/ {},
+/*12*/ {},
+/*13*/ {},
+/*14*/ {},
+/*15*/ {},
+/*16*/ {},
+/*17*/ {},
+
+/*18*/ {},
+/*19*/ {},
+/*1A*/ {},
+/*1B*/ {},
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {}
+};
+VR4300::OperationTemplate CP0_op_lut[32]{
+/*00*/ {},
+/*01*/ {TLBR, CPZ,0,OpType::TLBR},
+/*02*/ {TLBWI, CPZ,0,OpType::TLBWI},
+/*03*/ {},
+/*04*/ {},
+/*05*/ {},
+/*06*/ {TLBWR, CPZ,0,OpType::TLBWR},
+/*07*/ {},
+
+/*08*/ {TLBP, CPZ,0,OpType::TLBP},
+/*09*/ {},
+/*0A*/ {},
+/*0B*/ {},
+/*0C*/ {},
+/*0D*/ {},
+/*0E*/ {},
+/*0F*/ {},
+
+/*10*/ {},
+/*11*/ {},
+/*12*/ {},
+/*13*/ {},
+/*14*/ {},
+/*15*/ {},
+/*16*/ {},
+/*17*/ {},
+
+/*18*/ {ERET, CAUSES_BRANCH_DELAY | CPZ,0,OpType::ERET},
+/*19*/ {},
+/*1A*/ {},
+/*1B*/ {},
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {}
+};
+
+VR4300::OperationTemplate CP1_op_lut[64]{
+/*00*/ {NOP},
+/*01*/ {NOP},
+/*02*/ {NOP},
+/*03*/ {NOP},
+/*04*/ {NOP},
+/*05*/ {NOP},
+/*06*/ {MOVfmt, READS_CP | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD | CPZ,0, OpType::MOVfmt}, // remember to handle access size correctly here
+/*07*/ {NOP},
+
+/*08*/ {NOP},
+/*09*/ {NOP},
+/*0A*/ {NOP},
+/*0B*/ {NOP},
+/*0C*/ {NOP},
+/*0D*/ {NOP},
+/*0E*/ {NOP},
+/*0F*/ {NOP},
+
+/*10*/ {NOP},
+/*11*/ {NOP},
+/*12*/ {NOP},
+/*13*/ {NOP},
+/*14*/ {NOP},
+/*15*/ {NOP},
+/*16*/ {NOP},
+/*17*/ {NOP},
+
+/*18*/ {NOP},
+/*19*/ {NOP},
+/*1A*/ {NOP},
+/*1B*/ {NOP},
+/*1C*/ {NOP},
+/*1D*/ {NOP},
+/*1E*/ {NOP},
+/*1F*/ {NOP},
+
+/*20*/ {CVTSfmt,WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*21*/ {CVTDfmt,WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTDfmt},
+/*22*/ {NOP},
+/*23*/ {NOP},
+/*24*/ {CVTWfmt,WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTWfmt},
+/*25*/ {CVTLfmt,WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTLfmt},
+/*26*/ {NOP},
+/*27*/ {NOP},
+
+/*28*/ {NOP},
+/*29*/ {NOP},
+/*2A*/ {NOP},
+/*2B*/ {NOP},
+/*2C*/ {NOP},
+/*2D*/ {NOP},
+/*2E*/ {NOP},
+/*2F*/ {NOP},
+
+/*30*/ {NOP},
+/*31*/ {NOP},
+/*32*/ {NOP},
+/*33*/ {NOP},
+/*34*/ {NOP},
+/*35*/ {NOP},
+/*36*/ {NOP},
+/*37*/ {NOP},
+
+/*38*/ {NOP},
+/*39*/ {NOP},
+/*3A*/ {NOP},
+/*3B*/ {NOP},
+/*3C*/ {NOP},
+/*3D*/ {NOP},
+/*3E*/ {NOP},
+/*3F*/ {NOP},
+
+};

@@ -1,17 +1,24 @@
-#ifndef FPU_H
-#define FPU_H
-
 #pragma once
 
 #include<cstdint>
+#include"CP0.h"
+
+#define CAUSE_INEXACT_SHIFT 12
+#define CAUSE_UNDERFLOW_SHIFT 13
+#define CAUSE_OVERFLOW_SHIFT 14
+#define CAUSE_ZERODIV_SHIFT 15
+#define CAUSE_INVALID_SHIFT 16
+#define CAUSE_UNIMPLEMENTED_SHIFT 17
 
 class FPU
 {
 public:
-    FPU();
+    FPU(CP0& cp0);
     ~FPU();
+    
+    CP0 &cp0;
 
-    uint32_t FCR0;
+    uint32_t FCR0 = 0xa00;
     uint32_t FCR31;
 
     union {
@@ -52,8 +59,9 @@ public:
         uint64_t regs[32];
     };
 
+    uint64_t get_fpr(uint8_t fpr, uint8_t write_size);
+    void write_fpr(uint8_t fpr, uint64_t val, uint8_t write_size);
+
 private:
 
 };
-
-#endif

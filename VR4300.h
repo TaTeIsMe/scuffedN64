@@ -48,7 +48,10 @@ enum OpFlags:uint32_t{
     READS_CP = 1 <<20,
     WRITES_HI = 1<<21,
     ATOMIC = 1<<22,
-    WRITES_CP = 1 <<23
+    WRITES_CP = 1 <<23,
+    CPControl = 1 << 24,
+    STORES_IN_SA = 1 << 25,
+    CPZ = 1 << 26
 };
 
 class VR4300
@@ -153,6 +156,7 @@ public:
         uint64_t result_LO = 0;//for multiplying and division
         uint64_t PC = 0;//virtual address of instruction
         uint64_t dcache_index = 0;//for cache writing
+        inline uint8_t access_size();
         const char* op_name() const;
         friend std::ostream& operator<<(std::ostream& os, const Operation& op);
     };
@@ -178,6 +182,7 @@ public:
         bool DCB_triggered;
         bool COp_triggered; // all these flags might have to be moved from ins to outs. That will also require them to be reset on submit pipeline
         bool uncacheable_stall_triggered;
+        bool fire_fpu_exception;
     };
     struct RF_EX{
         Operation op;

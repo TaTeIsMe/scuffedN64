@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -g
+CXXFLAGS = -Wall -g -std=c++20
 TARGET_DIR = debug
 TARGET = $(TARGET_DIR)/main
 SRCS = $(wildcard *.cpp)
