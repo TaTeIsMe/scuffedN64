@@ -9,6 +9,15 @@
 #define CAUSE_ZERODIV_SHIFT 15
 #define CAUSE_INVALID_SHIFT 16
 #define CAUSE_UNIMPLEMENTED_SHIFT 17
+#define CONTROL_FS_SHIFT 24
+#define CONTROL_FS_MASK 1
+
+enum RoundingMode:uint8_t{
+    RN = 0,
+    RZ = 1,
+    RP = 2,
+    RM = 3
+};
 
 class FPU
 {
@@ -61,6 +70,17 @@ public:
 
     uint64_t get_fpr(uint8_t fpr, uint8_t write_size);
     void write_fpr(uint8_t fpr, uint64_t val, uint8_t write_size);
+    void set_cause(bool inexact, bool underflow, bool overflow, bool zerodiv, bool invalid, bool unimplemented);
+    void clear_cause();
+    void set_control(uint8_t fcr, uint32_t val);
+
+    float flush_float(float value);
+    uint32_t rounding_mode();
+    bool inexact_enabled();
+    bool underflow_enabled();
+    bool overflow_enabled();
+    bool zerodiv_enabled();
+    bool invalid_enabled();
 
 private:
 

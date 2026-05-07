@@ -51,7 +51,10 @@ enum OpFlags:uint32_t{
     WRITES_CP = 1 <<23,
     CPControl = 1 << 24,
     STORES_IN_SA = 1 << 25,
-    CPZ = 1 << 26
+    CPZ = 1 << 26,
+    READS_RT = 1 << 27,
+    READS_RD = 1 << 28,
+    READS_RS = 1 << 29
 };
 
 class VR4300
@@ -139,6 +142,7 @@ public:
         uint8_t rd = 0;//reg number
         uint8_t sa = 0;//
         uint8_t CPz = 0;//for cp instructions
+        uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
         uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
         uint32_t target = 0;//for jumps

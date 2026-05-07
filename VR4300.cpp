@@ -101,9 +101,8 @@ bool VR4300::WB()
         if(in.op.flags & WRITES_CP){
             if(in.op.CPz == 0)
                 cp0.regs[in.op.dest_reg] = in.op.result;
-            if(in.op.CPz == 1 && (in.op.flags & CPControl)){
-                //if(in.op.rd == 0) fpu.FCR0 = in.op.result; // Nothing. fcr0 is constant
-                if(in.op.rd == 31) fpu.FCR31 = in.op.result;}
+            if(in.op.CPz == 1 && (in.op.flags & CPControl))
+                fpu.set_control(in.op.rd, in.op.result);
             else if(in.op.CPz == 1) 
                 fpu.write_fpr(in.op.dest_reg,in.op.result,in.op.access_size());
         }else
@@ -129,10 +128,11 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-    if(in.op.PC == 0xffffffff8001653c)
-    std::cout << "";
 
-    //std::cout << in.op << "\n";
+    static int start_outing = 0;
+    //if(in.op.instruction_type == OpType::CVTWfmt)
+    //    start_outing = 1;
+    if(start_outing)std::cout << in.op << "\n";
     
     return false;
 }
@@ -169,8 +169,7 @@ bool VR4300::DC()
         uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
         //wooo magic numbers
         fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
-        if( Enables & Cause != 0){
-            //fpu.write_fpr(0, 0x4b3c614e,in.op.access_size());
+        if( ((Enables | 0x20) & Cause) != 0){
             cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
             handle_general_exception(in.op,FPE);
             return true;
@@ -498,8 +497,7 @@ bool VR4300::RF()
     if(next_op_bd){
         in.op.flags = in.op.flags | IS_IN_BRANCH_DELAY;
         next_op_bd = false;
-    }else in.op.flags = in.op.flags & ~IS_IN_BRANCH_DELAY;
-
+    }
 
     uint32_t PC_p;
     CP0::Segment segment = cp0.get_segment(RF_in.op.PC);
@@ -568,13 +566,18 @@ bool VR4300::RF()
 
     in.op.rs_val = GPR[in.op.rs];
     in.op.rt_val = GPR[in.op.rt];
-    if(in.op.CPz == 0 && (in.op.flags & READS_CP))in.op.cp_val = cp0.regs[in.op.rd];
+    if(in.op.CPz == 0 && (in.op.flags & READS_CP))
+        in.op.cp_val = cp0.regs[in.op.rd];
     if(in.op.CPz == 1 && (in.op.flags & READS_CP)){
         if(in.op.flags & CPControl){
             if(in.op.rd == 0) in.op.cp_val = fpu.FCR0;
             else if(in.op.rd == 31) in.op.cp_val = WB_in.op.instruction_type == OpType::CTCz?WB_in.op.result:fpu.FCR31;
         }
-        else in.op.cp_val = fpu.get_fpr(in.op.rd, in.op.access_size()) ;
+        else {
+            in.op.cp_val = fpu.get_fpr(in.op.rd, in.op.access_size());
+            if(in.op.instruction_type == OpType::SDCz || in.op.instruction_type == OpType::SWCz)
+                in.op.cp_val = fpu.get_fpr(in.op.rt, in.op.access_size());
+        }
     }
 
     //see if override is nessesarry
@@ -592,11 +595,11 @@ bool VR4300::RF()
         in.op.rt_val = ex.op.result;
     //also for cp
     
-    if(wb.op.flags & WRITES_REG && in.op.rt == wb.op.dest_reg && (wb.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && wb.op.CPz == in.op.CPz)
+    if(wb.op.flags & WRITES_REG && in.op.source_reg == wb.op.dest_reg && (wb.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && wb.op.CPz == in.op.CPz)
         in.op.cp_val = wb.op.result;
-    if(dc.op.flags & WRITES_REG && in.op.rt == dc.op.dest_reg && (dc.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && dc.op.CPz == in.op.CPz)
+    if(dc.op.flags & WRITES_REG && in.op.source_reg == dc.op.dest_reg && (dc.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && dc.op.CPz == in.op.CPz)
         in.op.cp_val = dc.op.result;
-    if(ex.op.flags & WRITES_REG && in.op.rt == ex.op.dest_reg && (ex.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && ex.op.CPz == in.op.CPz)
+    if(ex.op.flags & WRITES_REG && in.op.source_reg == ex.op.dest_reg && (ex.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && ex.op.CPz == in.op.CPz)
         in.op.cp_val = ex.op.result;
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
@@ -612,7 +615,7 @@ bool VR4300::IC()
     // address icache and microtlb
     //it's comical how little it does
 
-    IC_out.icache_index = (PC & 0x3FE0) >> 5;
+    IC_out.icache_index = (PC >> 5) & 0x1FF;
     IC_out.op.PC = PC;
     return false;
 }
@@ -668,6 +671,9 @@ bool VR4300::decode_op(uint32_t word)
     if(op.flags & STORES_IN_RT) op.dest_reg = op.rt;
     if(op.flags & STORES_IN_SA)op.dest_reg = op.sa;
     if(op.flags & STORES_IN_31) op.dest_reg = 31;
+    if(op.flags & READS_RS) op.source_reg = op.rs;
+    if(op.flags & READS_RD) op.source_reg = op.rd;
+    if(op.flags & READS_RT) op.source_reg = op.rt;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;
@@ -730,7 +736,6 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, Except
 //set tlb related registers 
 //set badvaddr
 void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
-    std::cout<<"general_exception! \n";
     abort_pipeline();
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     
