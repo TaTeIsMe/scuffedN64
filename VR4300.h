@@ -51,10 +51,7 @@ enum OpFlags:uint32_t{
     WRITES_CP = 1 <<23,
     CPControl = 1 << 24,
     STORES_IN_SA = 1 << 25,
-    CPZ = 1 << 26,
-    READS_RT = 1 << 27,
-    READS_RD = 1 << 28,
-    READS_RS = 1 << 29
+    CPZ = 1 << 26
 };
 
 class VR4300
@@ -154,7 +151,7 @@ public:
         uint64_t data_addr_p = 0; //write dest but physical
         uint64_t rs_val = 0;//needed during operation
         uint64_t rt_val = 0;//needed during operation
-        uint64_t cp_val = 0;//for all the cp operations
+        uint64_t rd_val = 0;//for all the cp operations
         uint64_t result = 0; //what is stored
         uint64_t result_HI = 0;//for multiplying and division
         uint64_t result_LO = 0;//for multiplying and division

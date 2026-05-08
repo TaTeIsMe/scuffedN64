@@ -78,6 +78,21 @@ float FPU::flush_float(float value){
     return 0;
 }
 
+double FPU::flush_double(double value)
+{
+    uint8_t rm = FCR31 & 3;
+    if(!std::signbit(value)){
+        if(rm == RP) 
+            return std::numeric_limits<double>::min();
+        else return +0.;
+    }else{
+        if(rm == RM) 
+            return -std::numeric_limits<double>::min();
+        else return -0.;
+    }
+    return 0;
+}
+
 uint32_t FPU::rounding_mode()
 {
     return FCR31 & 3;

@@ -130,9 +130,11 @@ bool VR4300::WB()
     }
 
     static int start_outing = 0;
-    //if(in.op.instruction_type == OpType::CVTWfmt)
+    //if(in.op.instruction_type == OpType::ABSfmt)
     //    start_outing = 1;
     if(start_outing)std::cout << in.op << "\n";
+    if(in.op.result == 0x300000000)
+    std::cout<<"";
     
     return false;
 }
@@ -567,40 +569,43 @@ bool VR4300::RF()
     in.op.rs_val = GPR[in.op.rs];
     in.op.rt_val = GPR[in.op.rt];
     if(in.op.CPz == 0 && (in.op.flags & READS_CP))
-        in.op.cp_val = cp0.regs[in.op.rd];
+        in.op.rd_val = cp0.regs[in.op.rd];
     if(in.op.CPz == 1 && (in.op.flags & READS_CP)){
         if(in.op.flags & CPControl){
-            if(in.op.rd == 0) in.op.cp_val = fpu.FCR0;
-            else if(in.op.rd == 31) in.op.cp_val = WB_in.op.instruction_type == OpType::CTCz?WB_in.op.result:fpu.FCR31;
+            if(in.op.rd == 0) in.op.rd_val = fpu.FCR0;
+            else if(in.op.rd == 31) in.op.rd_val = fpu.FCR31;
         }
         else {
-            in.op.cp_val = fpu.get_fpr(in.op.rd, in.op.access_size());
-            if(in.op.instruction_type == OpType::SDCz || in.op.instruction_type == OpType::SWCz)
-                in.op.cp_val = fpu.get_fpr(in.op.rt, in.op.access_size());
+            in.op.rd_val = fpu.get_fpr(in.op.rd, in.op.access_size());
+            in.op.rt_val = fpu.get_fpr(in.op.rt, in.op.access_size());
         }
     }
 
     //see if override is nessesarry
-    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rs == wb.op.dest_reg && !(wb.op.flags & WRITES_CP))
-        in.op.rs_val = wb.op.result;
-    if(wb.op.flags & WRITES_REG && wb.op.dest_reg != 0 && in.op.rt == wb.op.dest_reg && !(wb.op.flags & WRITES_CP))
-        in.op.rt_val = wb.op.result;
-    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg && !(dc.op.flags & WRITES_CP))
-        in.op.rs_val = dc.op.result;
-    if(dc.op.flags & WRITES_REG && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg && !(dc.op.flags & WRITES_CP))
-        in.op.rt_val = dc.op.result;
-    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rs == ex.op.dest_reg && !(ex.op.flags & WRITES_CP))
-        in.op.rs_val = ex.op.result;
-    if(ex.op.flags & WRITES_REG && ex.op.dest_reg != 0 && in.op.rt == ex.op.dest_reg && !(ex.op.flags & WRITES_CP))
-        in.op.rt_val = ex.op.result;
-    //also for cp
-    
-    if(wb.op.flags & WRITES_REG && in.op.source_reg == wb.op.dest_reg && (wb.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && wb.op.CPz == in.op.CPz)
-        in.op.cp_val = wb.op.result;
-    if(dc.op.flags & WRITES_REG && in.op.source_reg == dc.op.dest_reg && (dc.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && dc.op.CPz == in.op.CPz)
-        in.op.cp_val = dc.op.result;
-    if(ex.op.flags & WRITES_REG && in.op.source_reg == ex.op.dest_reg && (ex.op.flags & WRITES_CP) && (in.op.flags & READS_CP) && ex.op.CPz == in.op.CPz)
-        in.op.cp_val = ex.op.result;
+    auto forward = [&](const Operation& stage_op)
+    {
+        if (!(stage_op.flags & WRITES_REG))
+        return;
+
+        if(stage_op.flags & WRITES_CP && in.op.flags & READS_CP){
+            if(stage_op.flags & WRITES_CP && stage_op.CPz != in.op.CPz)
+                return;
+             if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
+             if (in.op.rd == stage_op.dest_reg) in.op.rd_val = stage_op.result;
+            return;
+        }
+
+        if((stage_op.dest_reg == 0) || (stage_op.flags & WRITES_CP))
+            return;
+
+        if (in.op.rs == stage_op.dest_reg) in.op.rs_val = stage_op.result;
+        if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
+
+    };
+
+    forward(wb.op);
+    forward(dc.op);
+    forward(ex.op);
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
@@ -669,11 +674,8 @@ bool VR4300::decode_op(uint32_t word)
     op.sa = (word >> 6) & 0x1F;
     if(op.flags & STORES_IN_RD) op.dest_reg = op.rd;
     if(op.flags & STORES_IN_RT) op.dest_reg = op.rt;
-    if(op.flags & STORES_IN_SA)op.dest_reg = op.sa;
+    if(op.flags & STORES_IN_SA) op.dest_reg = op.sa;
     if(op.flags & STORES_IN_31) op.dest_reg = 31;
-    if(op.flags & READS_RS) op.source_reg = op.rs;
-    if(op.flags & READS_RD) op.source_reg = op.rd;
-    if(op.flags & READS_RT) op.source_reg = op.rt;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;

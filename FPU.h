@@ -75,6 +75,7 @@ public:
     void set_control(uint8_t fcr, uint32_t val);
 
     float flush_float(float value);
+    double flush_double(double value);
     uint32_t rounding_mode();
     bool inexact_enabled();
     bool underflow_enabled();

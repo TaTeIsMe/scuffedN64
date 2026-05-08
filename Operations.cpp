@@ -1,6 +1,9 @@
 #include "VR4300.h"
 #include<bit>
 #include <cmath>
+#include <fenv.h>
+
+#pragma STDC FENV_ACCESS ON
 
 void NOP(VR4300& cpu){};
 
@@ -559,7 +562,7 @@ void LWCz(VR4300& cpu){
 void SWCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
-    op.result = op.cp_val;
+    op.result = op.rt_val;
 }
 void MTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -567,7 +570,7 @@ void MTCz(VR4300& cpu){
 }
 void MFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int32_t)op.cp_val;
+    op.result = (int32_t)op.rd_val;
 }
 void CTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -575,7 +578,7 @@ void CTCz(VR4300& cpu){
 }
 void CFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int32_t)op.cp_val;
+    op.result = (int32_t)op.rd_val;
 }
 
 void COPz(VR4300& cpu){
@@ -595,7 +598,7 @@ void DMTCz(VR4300& cpu){
 }
 void DMFCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = op.cp_val;
+    op.result = op.rd_val;
 }
 void LDCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -604,7 +607,7 @@ void LDCz(VR4300& cpu){
 void SDCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;
-    op.result = op.cp_val;
+    op.result = op.rt_val;
 }
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzTL(VR4300& cpu){
@@ -623,7 +626,7 @@ void MTC0(VR4300& cpu){
 }
 void MFC0(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int32_t)op.cp_val;
+    op.result = (int32_t)op.rd_val;
 }
 void DMTC0(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -631,7 +634,7 @@ void DMTC0(VR4300& cpu){
 }
 void DMFC0(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = op.cp_val;
+    op.result = op.rd_val;
 }*/
 void TLBR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -692,7 +695,7 @@ void CACHE(VR4300& cpu){
 //these would have been so much nicer to split into sub formats
 void CVTSfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
     cpu.fpu.clear_cause();
@@ -774,7 +777,7 @@ void CVTSfmt(VR4300& cpu){
 
 void CVTDfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
     cpu.fpu.clear_cause();
@@ -838,7 +841,7 @@ void CVTDfmt(VR4300& cpu){
 
 void CVTLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
     cpu.fpu.clear_cause();
@@ -894,7 +897,7 @@ void CVTLfmt(VR4300& cpu){
 
 void CVTWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -957,7 +960,7 @@ void CVTWfmt(VR4300& cpu){
 
 void ROUNDLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
     cpu.fpu.clear_cause();
@@ -1009,7 +1012,7 @@ void ROUNDLfmt(VR4300& cpu){
 };
 void ROUNDWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -1070,7 +1073,7 @@ void ROUNDWfmt(VR4300& cpu){
 };
 void TRUNCLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
     cpu.fpu.clear_cause();
@@ -1122,7 +1125,7 @@ void TRUNCLfmt(VR4300& cpu){
 };
 void TRUNCWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -1183,7 +1186,7 @@ void TRUNCWfmt(VR4300& cpu){
 };
 void CEILLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
     cpu.fpu.clear_cause();
@@ -1235,7 +1238,7 @@ void CEILLfmt(VR4300& cpu){
 };
 void CEILWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -1296,7 +1299,7 @@ void CEILWfmt(VR4300& cpu){
 };
 void FLOORLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
     cpu.fpu.clear_cause();
@@ -1349,7 +1352,7 @@ void FLOORLfmt(VR4300& cpu){
 void FLOORWfmt(VR4300& cpu){
 
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -1410,13 +1413,142 @@ void FLOORWfmt(VR4300& cpu){
 };
 
 //fpu computational
-void ADDfmt(VR4300& cpu){};
+void ADDfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr1_val = op.rd_val;
+    uint64_t fpr2_val = op.rt_val;
+    uint8_t fmt = op.rs;
+    uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
+    cpu.fpu.clear_cause();
+    
+    bool inexact = false;
+    bool overflow = false;
+    bool underflow = false;
+    bool unimplemented = false;
+    bool invalid = false;
+
+
+    switch (fmt)
+    {
+    case 16:{
+        float operand1 = std::bit_cast<float>((uint32_t)fpr1_val);
+        float operand2 = std::bit_cast<float>((uint32_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        float result = operand1 + operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        
+        underflow = 
+            (operand1 != 0.0 && operand2 != 0.0 && result == 0.0 && operand1 != -operand2) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 22) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 22) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+
+        invalid = std::isnan(operand1) && ((fpr1_val >> 22) & 1) || 
+        std::isnan(operand2) && ((fpr2_val >> 22) & 1) ||
+        std::isinf(operand1) || std::isinf(operand2);
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7fbfffff;
+            break;
+        }
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_float(result);
+            op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 17:{
+        double operand1 = std::bit_cast<double>((uint64_t)fpr1_val);
+        double operand2 = std::bit_cast<double>((uint64_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        double result = operand1 + operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        
+        underflow = 
+            (operand1 != 0.0 && operand2 != 0.0 && result == 0.0 && operand1 != -operand2) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 51) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 51) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+
+        invalid = std::isnan(operand1) && ((fpr1_val >> 51) & 1) || 
+        std::isnan(operand2) && ((fpr2_val >> 51) & 1) ||
+        std::isinf(operand1) || std::isinf(operand2);
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7ff7ffffffffffff;
+            break;
+        }
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_double(result);
+            op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 20:{
+        unimplemented = 1;
+        break;
+    }
+    case 21:{
+        unimplemented = 1;
+        break;
+    }
+    default:
+        unimplemented = 1;
+        break;
+    }
+    cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+};
 void SUBfmt(VR4300& cpu){};
 void MULfmt(VR4300& cpu){};
 void DIVfmt(VR4300& cpu){};
 void ABSfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -1480,12 +1612,12 @@ void ABSfmt(VR4300& cpu){
 
 void MOVfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    op.result = op.cp_val;
+    op.result = op.rd_val;
 };
 
 void NEGfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
     cpu.fpu.clear_cause();
@@ -1549,7 +1681,7 @@ void NEGfmt(VR4300& cpu){
 
 void SQRTfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint64_t fpr_val = op.cp_val;
+    uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     cpu.fpu.clear_cause();
 
@@ -1631,18 +1763,18 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*01*/ {nullptr,0,0,OpType::REGIMM},                        // REGIMM
 /*02*/ {J, CAUSES_BRANCH_DELAY, 0, OpType::J},
 /*03*/ {JAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG,0,OpType::JAL},
-/*04*/ {BEQ, CAUSES_BRANCH_DELAY | READS_RS | READS_RT,0,OpType::BEQ},
-/*05*/ {BNE, CAUSES_BRANCH_DELAY | READS_RS | READS_RT,0,OpType::BNE},
-/*06*/ {BLEZ, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BLEZ},
-/*07*/ {BGTZ, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BGTZ},
+/*04*/ {BEQ, CAUSES_BRANCH_DELAY  ,0,OpType::BEQ},
+/*05*/ {BNE, CAUSES_BRANCH_DELAY  ,0,OpType::BNE},
+/*06*/ {BLEZ, CAUSES_BRANCH_DELAY ,0,OpType::BLEZ},
+/*07*/ {BGTZ, CAUSES_BRANCH_DELAY ,0,OpType::BGTZ},
 
-/*08*/ {ADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION | READS_RS,0,OpType::ADDI},
-/*09*/ {ADDIU, WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::ADDIU},
-/*0A*/ {SLTI, WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::SLTI},
-/*0B*/ {SLTIU, WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::SLTIU},
-/*0C*/ {ANDI, WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::ANDI},
-/*0D*/ {ORI, WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::ORI},
-/*0E*/ {XORI, WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::XORI},
+/*08*/ {ADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION ,0,OpType::ADDI},
+/*09*/ {ADDIU, WRITES_REG | STORES_IN_RT ,0,OpType::ADDIU},
+/*0A*/ {SLTI, WRITES_REG | STORES_IN_RT ,0,OpType::SLTI},
+/*0B*/ {SLTIU, WRITES_REG | STORES_IN_RT ,0,OpType::SLTIU},
+/*0C*/ {ANDI, WRITES_REG | STORES_IN_RT ,0,OpType::ANDI},
+/*0D*/ {ORI, WRITES_REG | STORES_IN_RT ,0,OpType::ORI},
+/*0E*/ {XORI, WRITES_REG | STORES_IN_RT ,0,OpType::XORI},
 /*0F*/ {LUI, WRITES_REG | STORES_IN_RT ,0,OpType::LUI}, // LUI reads no GPR (rs unused)
 
 /*10*/ {COPz, 0,0,OpType::COPz},
@@ -1650,72 +1782,72 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*12*/ {},
 /*13*/ {},
 
-/*14*/ {BEQL, CAUSES_BRANCH_DELAY | READS_RS | READS_RT,0,OpType::BEQL},
-/*15*/ {BNEL, CAUSES_BRANCH_DELAY | READS_RS | READS_RT,0,OpType::BNEL},
-/*16*/ {BLEZL, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BLEZL},
-/*17*/ {BGTZL, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BGTZL},
+/*14*/ {BEQL, CAUSES_BRANCH_DELAY  ,0,OpType::BEQL},
+/*15*/ {BNEL, CAUSES_BRANCH_DELAY  ,0,OpType::BNEL},
+/*16*/ {BLEZL, CAUSES_BRANCH_DELAY ,0,OpType::BLEZL},
+/*17*/ {BGTZL, CAUSES_BRANCH_DELAY ,0,OpType::BGTZL},
 
-/*18*/ {DADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION | READS_RS, 0, OpType::DADDI},
-/*19*/ {DADDIU, WRITES_REG | STORES_IN_RT | READS_RS, 0, OpType::DADDIU},
-/*1A*/ {LDL, IS_LOAD | LEFT_ACCESS | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | READS_RS | READS_RT, 0, OpType::LDL},
-/*1B*/ {LDR, IS_LOAD | RIGHT_ACCESS | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | READS_RS | READS_RT, 0, OpType::LDR},
+/*18*/ {DADDI, WRITES_REG | STORES_IN_RT | CAUSES_OVERFLOW_EXCEPTION , 0, OpType::DADDI},
+/*19*/ {DADDIU, WRITES_REG | STORES_IN_RT , 0, OpType::DADDIU},
+/*1A*/ {LDL, IS_LOAD | LEFT_ACCESS | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT  , 0, OpType::LDL},
+/*1B*/ {LDR, IS_LOAD | RIGHT_ACCESS | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT  , 0, OpType::LDR},
 
 /*1C*/ {},
 /*1D*/ {},
 /*1E*/ {},
 /*1F*/ {},
 
-/*20*/ {LB, IS_LOAD | ACCESSES_BYTE | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED | READS_RS,0,OpType::LB},
-/*21*/ {LH, IS_LOAD | ACCESSES_HALF_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED | READS_RS,0,OpType::LH},
-/*22*/ {LWL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | LEFT_ACCESS | READS_RS | READS_RT,0,OpType::LWL},
-/*23*/ {LW, IS_LOAD | ACCESSES_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::LW},
-/*24*/ {LBU, IS_LOAD | ACCESSES_BYTE | WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::LBU},
-/*25*/ {LHU, IS_LOAD | ACCESSES_HALF_WORD | WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::LHU},
-/*26*/ {LWR, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | RIGHT_ACCESS | READS_RS | READS_RT,0,OpType::LWR},
-/*27*/ {LWU, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::LWU},
+/*20*/ {LB, IS_LOAD | ACCESSES_BYTE | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED ,0,OpType::LB},
+/*21*/ {LH, IS_LOAD | ACCESSES_HALF_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED ,0,OpType::LH},
+/*22*/ {LWL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | LEFT_ACCESS  ,0,OpType::LWL},
+/*23*/ {LW, IS_LOAD | ACCESSES_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT ,0,OpType::LW},
+/*24*/ {LBU, IS_LOAD | ACCESSES_BYTE | WRITES_REG | STORES_IN_RT ,0,OpType::LBU},
+/*25*/ {LHU, IS_LOAD | ACCESSES_HALF_WORD | WRITES_REG | STORES_IN_RT ,0,OpType::LHU},
+/*26*/ {LWR, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | RIGHT_ACCESS  ,0,OpType::LWR},
+/*27*/ {LWU, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT ,0,OpType::LWU},
 
-/*28*/ {SB, IS_STORE | ACCESSES_BYTE | READS_RS | READS_RT,0,OpType::SB},
-/*29*/ {SH, IS_STORE | ACCESSES_HALF_WORD | READS_RS | READS_RT,0,OpType::SH},
-/*2A*/ {SWL, IS_STORE | ACCESSES_WORD | LEFT_ACCESS | READS_RS | READS_RT,0,OpType::SWL},
-/*2B*/ {SW, IS_STORE | ACCESSES_WORD | READS_RS | READS_RT,0,OpType::SW},
-/*2C*/ {SDL, IS_STORE | ACCESSES_DOUBLE_WORD | LEFT_ACCESS | READS_RS | READS_RT, 0, OpType::SDL},
-/*2D*/ {SDR, IS_STORE | ACCESSES_DOUBLE_WORD | RIGHT_ACCESS | READS_RS | READS_RT, 0, OpType::SDR},
-/*2E*/ {SWR, IS_STORE | ACCESSES_WORD | RIGHT_ACCESS | READS_RS | READS_RT,0,OpType::SWR},
-/*2F*/ {CACHE, 0 | READS_RS, 0, OpType::CACHE},           // CACHE uses base (rs)
+/*28*/ {SB, IS_STORE | ACCESSES_BYTE  ,0,OpType::SB},
+/*29*/ {SH, IS_STORE | ACCESSES_HALF_WORD  ,0,OpType::SH},
+/*2A*/ {SWL, IS_STORE | ACCESSES_WORD | LEFT_ACCESS  ,0,OpType::SWL},
+/*2B*/ {SW, IS_STORE | ACCESSES_WORD  ,0,OpType::SW},
+/*2C*/ {SDL, IS_STORE | ACCESSES_DOUBLE_WORD | LEFT_ACCESS  , 0, OpType::SDL},
+/*2D*/ {SDR, IS_STORE | ACCESSES_DOUBLE_WORD | RIGHT_ACCESS  , 0, OpType::SDR},
+/*2E*/ {SWR, IS_STORE | ACCESSES_WORD | RIGHT_ACCESS  ,0,OpType::SWR},
+/*2F*/ {CACHE, 0 , 0, OpType::CACHE},           // CACHE uses base (rs)
 
-/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC | READS_RS,0, OpType::LL},
-/*31*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP | READS_RS,0, OpType::LWCz},
-/*32*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP | READS_RS,0, OpType::LWCz},
+/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC ,0, OpType::LL},
+/*31*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP ,0, OpType::LWCz},
+/*32*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP ,0, OpType::LWCz},
 /*33*/ {},
 
-/*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | ATOMIC | READS_RS,0,OpType::LLD},
-/*35*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED | WRITES_CP | STORES_IN_RT | READS_RS ,0,OpType::LDCz},
-/*36*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED| WRITES_CP | STORES_IN_RT | READS_RS ,0,OpType::LDCz},
-/*37*/ {LD, IS_LOAD | ACCESSES_DOUBLE_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | READS_RS,0,OpType::LD},
+/*34*/ {LLD, IS_LOAD | ACCESSES_DOUBLE_WORD | WRITES_REG | STORES_IN_RT | ATOMIC ,0,OpType::LLD},
+/*35*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED | WRITES_CP | STORES_IN_RT  ,0,OpType::LDCz},
+/*36*/ {LDCz, WRITES_REG | ACCESSES_DOUBLE_WORD | IS_LOAD | SIGN_EXTENDED| WRITES_CP | STORES_IN_RT  ,0,OpType::LDCz},
+/*37*/ {LD, IS_LOAD | ACCESSES_DOUBLE_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT ,0,OpType::LD},
 
-/*38*/ {SC, IS_STORE | ACCESSES_WORD | STORES_IN_RT | ATOMIC | READS_RS | READS_RT,0,OpType::SC},
-/*39*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD | READS_RT ,0,OpType::SWCz},
-/*3A*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD | READS_RT ,0,OpType::SWCz},
+/*38*/ {SC, IS_STORE | ACCESSES_WORD | STORES_IN_RT | ATOMIC  ,0,OpType::SC},
+/*39*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD  ,0,OpType::SWCz},
+/*3A*/ {SWCz, IS_STORE | READS_CP | ACCESSES_WORD  ,0,OpType::SWCz},
 /*3B*/ {},
 
-/*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | STORES_IN_RT | ATOMIC | READS_RS | READS_RT, 0, OpType::SCD},
-/*3D*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD | READS_RT ,0,OpType::SDCz},
-/*3E*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD | READS_RT ,0,OpType::SDCz},
-/*3F*/ {SD, IS_STORE | ACCESSES_DOUBLE_WORD | READS_RS | READS_RT,0,OpType::SD}
+/*3C*/ {SCD, IS_STORE | ACCESSES_DOUBLE_WORD | STORES_IN_RT | ATOMIC  , 0, OpType::SCD},
+/*3D*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD  ,0,OpType::SDCz},
+/*3E*/ {SDCz, IS_STORE | READS_CP | ACCESSES_DOUBLE_WORD  ,0,OpType::SDCz},
+/*3F*/ {SD, IS_STORE | ACCESSES_DOUBLE_WORD  ,0,OpType::SD}
 };
 
 VR4300::OperationTemplate special_op_lut[64]{
-/*00*/ {SLL, WRITES_REG | STORES_IN_RD | READS_RT,0,OpType::SLL},
+/*00*/ {SLL, WRITES_REG | STORES_IN_RD ,0,OpType::SLL},
 /*01*/ {},
-/*02*/ {SRL, WRITES_REG | STORES_IN_RD | READS_RT,0,OpType::SRL},
-/*03*/ {SRA, WRITES_REG | STORES_IN_RD | READS_RT,0,OpType::SRA},
-/*04*/ {SLLV, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::SLLV},
+/*02*/ {SRL, WRITES_REG | STORES_IN_RD ,0,OpType::SRL},
+/*03*/ {SRA, WRITES_REG | STORES_IN_RD ,0,OpType::SRA},
+/*04*/ {SLLV, WRITES_REG | STORES_IN_RD  ,0,OpType::SLLV},
 /*05*/ {},
-/*06*/ {SRLV, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::SRLV},
-/*07*/ {SRAV, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::SRAV},
+/*06*/ {SRLV, WRITES_REG | STORES_IN_RD  ,0,OpType::SRLV},
+/*07*/ {SRAV, WRITES_REG | STORES_IN_RD  ,0,OpType::SRAV},
 
-/*08*/ {JR, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::JR},
-/*09*/ {JALR, CAUSES_BRANCH_DELAY | STORES_IN_RD | WRITES_REG | READS_RS,0,OpType::JALR},
+/*08*/ {JR, CAUSES_BRANCH_DELAY ,0,OpType::JR},
+/*09*/ {JALR, CAUSES_BRANCH_DELAY | STORES_IN_RD | WRITES_REG ,0,OpType::JALR},
 /*0A*/ {},
 /*0B*/ {},
 /*0C*/ {SYSCALL, CAUSED_EXCEPTION,0,OpType::SYSCALL},
@@ -1724,95 +1856,95 @@ VR4300::OperationTemplate special_op_lut[64]{
 /*0F*/ {SYNC, 0, 0, OpType::SYNC},
 
 /*10*/ {MFHI, WRITES_REG | STORES_IN_RD,0,OpType::MFHI},
-/*11*/ {MTHI, WRITES_HI | READS_RS, 0, OpType::MTHI},
+/*11*/ {MTHI, WRITES_HI , 0, OpType::MTHI},
 /*12*/ {MFLO, WRITES_REG | STORES_IN_RD,0,OpType::MFLO},
-/*13*/ {MTLO, WRITES_LO | READS_RS, 0, OpType::MTLO},
-/*14*/ {DSLLV, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT, 0, OpType::DSLLV},
+/*13*/ {MTLO, WRITES_LO , 0, OpType::MTLO},
+/*14*/ {DSLLV, WRITES_REG | STORES_IN_RD  , 0, OpType::DSLLV},
 /*15*/ {},
-/*16*/ {DSRLV, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT, 0, OpType::DSRLV},
-/*17*/ {DSRAV, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT, 0, OpType::DSRAV},
+/*16*/ {DSRLV, WRITES_REG | STORES_IN_RD  , 0, OpType::DSRLV},
+/*17*/ {DSRAV, WRITES_REG | STORES_IN_RD  , 0, OpType::DSRAV},
 
-/*18*/ {MULT, WRITES_HI | WRITES_LO | READS_RS | READS_RT, 5,OpType::MULT},
-/*19*/ {MULTU, WRITES_HI | WRITES_LO | READS_RS | READS_RT, 5,OpType::MULTU},
-/*1A*/ {DIV, WRITES_HI | WRITES_LO | READS_RS | READS_RT, 37,OpType::DIV},
-/*1B*/ {DIVU, WRITES_HI | WRITES_LO | READS_RS | READS_RT, 37,OpType::DIVU},
-/*1C*/ {DMULT,WRITES_HI | WRITES_LO | READS_RS | READS_RT,8,OpType::DMULT},
-/*1D*/ {DMULTU,WRITES_HI | WRITES_LO | READS_RS | READS_RT,8,OpType::DMULTU},
-/*1E*/ {DDIV, WRITES_HI | WRITES_LO | READS_RS | READS_RT, 69, OpType::DDIV},
-/*1F*/ {DDIVU, WRITES_HI | WRITES_LO | READS_RS | READS_RT, 69, OpType::DDIVU},
+/*18*/ {MULT, WRITES_HI | WRITES_LO  , 5,OpType::MULT},
+/*19*/ {MULTU, WRITES_HI | WRITES_LO  , 5,OpType::MULTU},
+/*1A*/ {DIV, WRITES_HI | WRITES_LO  , 37,OpType::DIV},
+/*1B*/ {DIVU, WRITES_HI | WRITES_LO  , 37,OpType::DIVU},
+/*1C*/ {DMULT,WRITES_HI | WRITES_LO  ,8,OpType::DMULT},
+/*1D*/ {DMULTU,WRITES_HI | WRITES_LO  ,8,OpType::DMULTU},
+/*1E*/ {DDIV, WRITES_HI | WRITES_LO  , 69, OpType::DDIV},
+/*1F*/ {DDIVU, WRITES_HI | WRITES_LO  , 69, OpType::DDIVU},
 
-/*20*/ {ADD, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION | READS_RS | READS_RT,0,OpType::ADD},
-/*21*/ {ADDU, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::ADDU},
-/*22*/ {SUB, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION | READS_RS | READS_RT,0,OpType::SUB},
-/*23*/ {SUBU, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::SUBU},
-/*24*/ {AND, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::AND},
-/*25*/ {OR, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::OR},
-/*26*/ {XOR, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::XOR},
-/*27*/ {NOR, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::NOR},
+/*20*/ {ADD, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION  ,0,OpType::ADD},
+/*21*/ {ADDU, WRITES_REG | STORES_IN_RD  ,0,OpType::ADDU},
+/*22*/ {SUB, WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION  ,0,OpType::SUB},
+/*23*/ {SUBU, WRITES_REG | STORES_IN_RD  ,0,OpType::SUBU},
+/*24*/ {AND, WRITES_REG | STORES_IN_RD  ,0,OpType::AND},
+/*25*/ {OR, WRITES_REG | STORES_IN_RD  ,0,OpType::OR},
+/*26*/ {XOR, WRITES_REG | STORES_IN_RD  ,0,OpType::XOR},
+/*27*/ {NOR, WRITES_REG | STORES_IN_RD  ,0,OpType::NOR},
 
 /*28*/ {},
 /*29*/ {},
-/*2A*/ {SLT, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::SLT},
-/*2B*/ {SLTU, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT,0,OpType::SLTU},
-/*2C*/ {DADD,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION | READS_RS | READS_RT, 0, OpType::DADD},
-/*2D*/ {DADDU, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT, 0, OpType::DADDU},
-/*2E*/ {DSUB,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION | READS_RS | READS_RT, 0, OpType::DSUB},
-/*2F*/ {DSUBU, WRITES_REG | STORES_IN_RD | READS_RS | READS_RT, 0, OpType::DSUBU},
+/*2A*/ {SLT, WRITES_REG | STORES_IN_RD  ,0,OpType::SLT},
+/*2B*/ {SLTU, WRITES_REG | STORES_IN_RD  ,0,OpType::SLTU},
+/*2C*/ {DADD,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION  , 0, OpType::DADD},
+/*2D*/ {DADDU, WRITES_REG | STORES_IN_RD  , 0, OpType::DADDU},
+/*2E*/ {DSUB,  WRITES_REG | STORES_IN_RD | CAUSES_OVERFLOW_EXCEPTION  , 0, OpType::DSUB},
+/*2F*/ {DSUBU, WRITES_REG | STORES_IN_RD  , 0, OpType::DSUBU},
 
-/*30*/ {TGE,  IS_TRAP | READS_RS | READS_RT, 0, OpType::TGE},
-/*31*/ {TGEU, IS_TRAP | READS_RS | READS_RT, 0, OpType::TGEU},
-/*32*/ {TLT,  IS_TRAP | READS_RS | READS_RT, 0, OpType::TLT},
-/*33*/ {TLTU, IS_TRAP | READS_RS | READS_RT, 0, OpType::TLTU},
-/*34*/ {TEQ,  IS_TRAP | READS_RS | READS_RT, 0, OpType::TEQ},
+/*30*/ {TGE,  IS_TRAP  , 0, OpType::TGE},
+/*31*/ {TGEU, IS_TRAP  , 0, OpType::TGEU},
+/*32*/ {TLT,  IS_TRAP  , 0, OpType::TLT},
+/*33*/ {TLTU, IS_TRAP  , 0, OpType::TLTU},
+/*34*/ {TEQ,  IS_TRAP  , 0, OpType::TEQ},
 /*35*/ {},
-/*36*/ {TNE,  IS_TRAP | READS_RS | READS_RT, 0, OpType::TNE},
+/*36*/ {TNE,  IS_TRAP  , 0, OpType::TNE},
 /*37*/ {},
 
-/*38*/ {DSLL,   WRITES_REG | STORES_IN_RD | READS_RT, 0, OpType::DSLL},
+/*38*/ {DSLL,   WRITES_REG | STORES_IN_RD , 0, OpType::DSLL},
 /*39*/ {},
-/*3A*/ {DSRL,   WRITES_REG | STORES_IN_RD | READS_RT, 0, OpType::DSRL},
-/*3B*/ {DSRA,   WRITES_REG | STORES_IN_RD | READS_RT, 0, OpType::DSRA},
-/*3C*/ {DSLL32, WRITES_REG | STORES_IN_RD | READS_RT, 0, OpType::DSLL32},
+/*3A*/ {DSRL,   WRITES_REG | STORES_IN_RD , 0, OpType::DSRL},
+/*3B*/ {DSRA,   WRITES_REG | STORES_IN_RD , 0, OpType::DSRA},
+/*3C*/ {DSLL32, WRITES_REG | STORES_IN_RD , 0, OpType::DSLL32},
 /*3D*/ {},
-/*3E*/ {DSRL32, WRITES_REG | STORES_IN_RD | READS_RT, 0, OpType::DSRL32},
-/*3F*/ {DSRA32, WRITES_REG | STORES_IN_RD | READS_RT, 0, OpType::DSRA32},
+/*3E*/ {DSRL32, WRITES_REG | STORES_IN_RD , 0, OpType::DSRL32},
+/*3F*/ {DSRA32, WRITES_REG | STORES_IN_RD , 0, OpType::DSRA32},
 };
 
 VR4300::OperationTemplate regimm_op_lut[32]{
-/*00*/ {BLTZ, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BLTZ},
-/*01*/ {BGEZ, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BGEZ},
-/*02*/ {BLTZL, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BLTZL},
-/*03*/ {BGEZL, CAUSES_BRANCH_DELAY | READS_RS,0,OpType::BGEZL},
+/*00*/ {BLTZ, CAUSES_BRANCH_DELAY ,0,OpType::BLTZ},
+/*01*/ {BGEZ, CAUSES_BRANCH_DELAY ,0,OpType::BGEZ},
+/*02*/ {BLTZL, CAUSES_BRANCH_DELAY ,0,OpType::BLTZL},
+/*03*/ {BGEZL, CAUSES_BRANCH_DELAY ,0,OpType::BGEZL},
 
 /*04*/ {},
 /*05*/ {},
 /*06*/ {},
 /*07*/ {},
 
-/*08*/ {TGEI, IS_TRAP | READS_RS,0,OpType::TGEI},
-/*09*/ {TGEIU, IS_TRAP | READS_RS,0,OpType::TGEIU},
-/*0A*/ {TLTI, IS_TRAP | READS_RS,0,OpType::TLTI},
-/*0B*/ {TLTIU, IS_TRAP | READS_RS,0,OpType::TLTIU},
-/*0C*/ {TEQI, IS_TRAP | READS_RS,0,OpType::TEQI},
+/*08*/ {TGEI, IS_TRAP ,0,OpType::TGEI},
+/*09*/ {TGEIU, IS_TRAP ,0,OpType::TGEIU},
+/*0A*/ {TLTI, IS_TRAP ,0,OpType::TLTI},
+/*0B*/ {TLTIU, IS_TRAP ,0,OpType::TLTIU},
+/*0C*/ {TEQI, IS_TRAP ,0,OpType::TEQI},
 /*0D*/ {},
-/*0E*/ {TNEI, IS_TRAP | READS_RS,0,OpType::TNEI},
+/*0E*/ {TNEI, IS_TRAP ,0,OpType::TNEI},
 /*0F*/ {},
 
-/*10*/ {BLTZAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG | READS_RS,0,OpType::BLTZAL},
-/*11*/ {BGEZAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG | READS_RS,0,OpType::BGEZAL},
-/*12*/ {BLTZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG | READS_RS, 0, OpType::BLTZALL},
-/*13*/ {BGEZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG | READS_RS, 0, OpType::BGEZALL},
+/*10*/ {BLTZAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG ,0,OpType::BLTZAL},
+/*11*/ {BGEZAL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG ,0,OpType::BGEZAL},
+/*12*/ {BLTZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG , 0, OpType::BLTZALL},
+/*13*/ {BGEZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG , 0, OpType::BGEZALL},
 
 };
 
 VR4300::OperationTemplate COPzrs_op_lut[32]{
-/*00*/ {MFCz,  WRITES_REG | STORES_IN_RT | READS_CP | READS_RD | ACCESSES_WORD | CPZ,0,OpType::MFCz},
-/*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::DMFCz},
-/*02*/ {CFCz,  WRITES_REG | STORES_IN_RT | READS_CP | READS_RD | CPControl | CPZ,0,OpType::CFCz},
+/*00*/ {MFCz,  WRITES_REG | STORES_IN_RT | READS_CP  | ACCESSES_WORD | CPZ,0,OpType::MFCz},
+/*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::DMFCz},
+/*02*/ {CFCz,  WRITES_REG | STORES_IN_RT | READS_CP  | CPControl | CPZ,0,OpType::CFCz},
 /*03*/ {},
-/*04*/ {MTCz,  WRITES_REG | WRITES_CP | STORES_IN_RD | ACCESSES_WORD | CPZ | READS_RT,0,OpType::MTCz},   // (unchanged, already correct)
-/*05*/ {DMTCz, WRITES_REG | WRITES_CP | STORES_IN_RD | ACCESSES_DOUBLE_WORD | CPZ | READS_RT,0,OpType::DMTCz},
-/*06*/ {CTCz,  WRITES_REG | WRITES_CP | CPControl | CPZ | READS_RT,0,OpType::CTCz},
+/*04*/ {MTCz,  WRITES_REG | WRITES_CP | STORES_IN_RD | ACCESSES_WORD | CPZ ,0,OpType::MTCz},   // (unchanged, already correct)
+/*05*/ {DMTCz, WRITES_REG | WRITES_CP | STORES_IN_RD | ACCESSES_DOUBLE_WORD | CPZ ,0,OpType::DMTCz},
+/*06*/ {CTCz,  WRITES_REG | WRITES_CP | CPControl | CPZ ,0,OpType::CTCz},
 /*07*/ {},
 
 /*08*/ {},
@@ -1903,23 +2035,23 @@ VR4300::OperationTemplate CP0_op_lut[32]{
 };
 
 VR4300::OperationTemplate CP1_op_lut[64]{
-/*00*/ {NOP},
+/*00*/ {ADDfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::ADDfmt},
 /*01*/ {NOP},
 /*02*/ {NOP},
 /*03*/ {NOP},
-/*04*/ {SQRTfmt, READS_CP | READS_RD | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::SQRTfmt},
-/*05*/ {ABSfmt, READS_CP | READS_RD | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::ABSfmt},
-/*06*/ {MOVfmt, READS_CP | READS_RD | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD | CPZ,0, OpType::MOVfmt},
-/*07*/ {NEGfmt, READS_CP | READS_RD | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::NEGfmt},
+/*04*/ {SQRTfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::SQRTfmt},
+/*05*/ {ABSfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::ABSfmt},
+/*06*/ {MOVfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD | CPZ,0, OpType::MOVfmt},
+/*07*/ {NEGfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::NEGfmt},
 
-/*08*/ {ROUNDLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*09*/ {TRUNCLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*0A*/ {CEILLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*0B*/ {FLOORLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*0C*/ {ROUNDWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*0D*/ {TRUNCWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*0E*/ {CEILWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*0F*/ {FLOORWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*08*/ {ROUNDLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*09*/ {TRUNCLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*0A*/ {CEILLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*0B*/ {FLOORLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*0C*/ {ROUNDWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*0D*/ {TRUNCWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*0E*/ {CEILWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*0F*/ {FLOORWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
 
 /*10*/ {NOP},
 /*11*/ {NOP},
@@ -1939,12 +2071,12 @@ VR4300::OperationTemplate CP1_op_lut[64]{
 /*1E*/ {NOP},
 /*1F*/ {NOP},
 
-/*20*/ {CVTSfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
-/*21*/ {CVTDfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTDfmt},
+/*20*/ {CVTSfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
+/*21*/ {CVTDfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTDfmt},
 /*22*/ {NOP},
 /*23*/ {NOP},
-/*24*/ {CVTWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTWfmt},
-/*25*/ {CVTLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP | READS_RD | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTLfmt},
+/*24*/ {CVTWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTWfmt},
+/*25*/ {CVTLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTLfmt},
 /*26*/ {NOP},
 /*27*/ {NOP},
 
