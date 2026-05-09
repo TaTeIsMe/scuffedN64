@@ -130,7 +130,7 @@ bool VR4300::WB()
     }
 
     static int start_outing = 0;
-    //if(in.op.instruction_type == OpType::ABSfmt)
+    //if(in.op.instruction_type == OpType::DIVfmt)
     //    start_outing = 1;
     if(start_outing)std::cout << in.op << "\n";
     if(in.op.result == 0x300000000)
@@ -584,22 +584,19 @@ bool VR4300::RF()
     //see if override is nessesarry
     auto forward = [&](const Operation& stage_op)
     {
-        if (!(stage_op.flags & WRITES_REG))
+        if (!(stage_op.flags & WRITES_REG) )
         return;
+
+        if (in.op.rs == stage_op.dest_reg && !(stage_op.flags & WRITES_CP)) in.op.rs_val = stage_op.result;
 
         if(stage_op.flags & WRITES_CP && in.op.flags & READS_CP){
             if(stage_op.flags & WRITES_CP && stage_op.CPz != in.op.CPz)
                 return;
-             if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
-             if (in.op.rd == stage_op.dest_reg) in.op.rd_val = stage_op.result;
+            if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
+            if (in.op.rd == stage_op.dest_reg) in.op.rd_val = stage_op.result;
             return;
-        }
-
-        if((stage_op.dest_reg == 0) || (stage_op.flags & WRITES_CP))
-            return;
-
-        if (in.op.rs == stage_op.dest_reg) in.op.rs_val = stage_op.result;
-        if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
+        }else if(!(stage_op.flags & WRITES_CP) && !(in.op.flags & READS_CP) && !(stage_op.dest_reg == 0))
+            if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
 
     };
 

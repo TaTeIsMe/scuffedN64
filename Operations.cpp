@@ -1543,9 +1543,410 @@ void ADDfmt(VR4300& cpu){
     cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
     if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
 };
-void SUBfmt(VR4300& cpu){};
-void MULfmt(VR4300& cpu){};
-void DIVfmt(VR4300& cpu){};
+void SUBfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr1_val = op.rd_val;
+    uint64_t fpr2_val = op.rt_val;
+    uint8_t fmt = op.rs;
+    uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
+    cpu.fpu.clear_cause();
+    
+    bool inexact = false;
+    bool overflow = false;
+    bool underflow = false;
+    bool unimplemented = false;
+    bool invalid = false;
+
+    switch (fmt)
+    {
+    case 16:{
+        float operand1 = std::bit_cast<float>((uint32_t)fpr1_val);
+        float operand2 = std::bit_cast<float>((uint32_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        float result = operand1 - operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        
+        underflow = 
+            (operand1 != 0.0 && operand2 != 0.0 && result == 0.0 && operand1 != operand2) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 22) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 22) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+
+        invalid = std::isnan(operand1) && ((fpr1_val >> 22) & 1) || 
+        std::isnan(operand2) && ((fpr2_val >> 22) & 1) ||
+        std::isinf(operand1) || std::isinf(operand2);
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7fbfffff;
+            break;
+        }
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_float(result);
+            op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 17:{
+        double operand1 = std::bit_cast<double>((uint64_t)fpr1_val);
+        double operand2 = std::bit_cast<double>((uint64_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        double result = operand1 - operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        
+        underflow = 
+            (operand1 != 0.0 && operand2 != 0.0 && result == 0.0 && operand1 != operand2) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 51) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 51) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+
+        invalid = std::isnan(operand1) && ((fpr1_val >> 51) & 1) || 
+        std::isnan(operand2) && ((fpr2_val >> 51) & 1) ||
+        std::isinf(operand1) || std::isinf(operand2);
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7ff7ffffffffffff;
+            break;
+        }
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_double(result);
+            op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 20:{
+        unimplemented = 1;
+        break;
+    }
+    case 21:{
+        unimplemented = 1;
+        break;
+    }
+    default:
+        unimplemented = 1;
+        break;
+    }
+    cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+};
+void MULfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr1_val = op.rd_val;
+    uint64_t fpr2_val = op.rt_val;
+    uint8_t fmt = op.rs;
+    uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
+    cpu.fpu.clear_cause();
+    
+    bool inexact = false;
+    bool overflow = false;
+    bool underflow = false;
+    bool unimplemented = false;
+    bool invalid = false;
+
+
+    switch (fmt)
+    {
+    case 16:{
+        float operand1 = std::bit_cast<float>((uint32_t)fpr1_val);
+        float operand2 = std::bit_cast<float>((uint32_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        float result = operand1 * operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        
+        underflow = 
+            (operand1 != 0.0 && operand2 != 0.0 && result == 0.0) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 22) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 22) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+
+        invalid = std::isnan(operand1) && ((fpr1_val >> 22) & 1) || 
+        std::isnan(operand2) && ((fpr2_val >> 22) & 1) ||
+        std::isinf(operand1) && (operand2 == 0) || 
+        std::isinf(operand2) && (operand1 == 0);
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7fbfffff;
+            break;
+        }
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_float(result);
+            op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 17:{
+        double operand1 = std::bit_cast<double>((uint64_t)fpr1_val);
+        double operand2 = std::bit_cast<double>((uint64_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        double result = operand1 * operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        
+        underflow = 
+            (operand1 != 0.0 && operand2 != 0.0 && result == 0.0) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 51) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 51) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+
+        invalid = std::isnan(operand1) && ((fpr1_val >> 51) & 1) || 
+        std::isnan(operand2) && ((fpr2_val >> 51) & 1) ||
+        std::isinf(operand1) && (operand2 == 0) || 
+        std::isinf(operand2) && (operand1 == 0);
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7ff7ffffffffffff;
+            break;
+        }
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_double(result);
+            op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 20:{
+        unimplemented = 1;
+        break;
+    }
+    case 21:{
+        unimplemented = 1;
+        break;
+    }
+    default:
+        unimplemented = 1;
+        break;
+    }
+    cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+};
+void DIVfmt(VR4300& cpu){
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr1_val = op.rd_val;
+    uint64_t fpr2_val = op.rt_val;
+    uint8_t fmt = op.rs;
+    uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
+    cpu.fpu.clear_cause();
+    
+    bool inexact = false;
+    bool overflow = false;
+    bool underflow = false;
+    bool unimplemented = false;
+    bool invalid = false;
+    bool zerodiv = false;
+
+
+    switch (fmt)
+    {
+    case 16:{
+        float operand1 = std::bit_cast<float>((uint32_t)fpr1_val);
+        float operand2 = std::bit_cast<float>((uint32_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        float result = operand1 / operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 22) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 22) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+        
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+        
+        invalid = (std::isnan(operand1) && ((fpr1_val >> 22) & 1)) || 
+        (std::isnan(operand2) && ((fpr2_val >> 22) & 1)) ||
+        ((operand1 == 0.f) && (operand2 == 0.f)) || 
+        (std::isinf(operand2) && std::isinf(operand1));
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7fbfffff;
+            break;
+        }
+        
+        if(operand2 == 0){
+            zerodiv = true;
+            break;
+        }
+        
+        underflow = 
+            (operand1 != 0.0 && std::isfinite(operand2) && result == 0.0) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+        inexact = inexact || underflow;
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_float(result);
+            op.result = (uint64_t)std::bit_cast<uint32_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 17:{
+        double operand1 = std::bit_cast<double>((uint64_t)fpr1_val);
+        double operand2 = std::bit_cast<double>((uint64_t)fpr2_val);
+
+        feclearexcept(FE_INEXACT);
+        double result = operand1 / operand2;
+        inexact = (bool)fetestexcept(FE_INEXACT);
+        op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        
+        unimplemented = (
+            (std::fpclassify(operand1) == FP_SUBNORMAL) ||
+            (std::fpclassify(operand2) == FP_SUBNORMAL) ||
+            (std::isnan(operand1) && !((fpr1_val >> 51) & 1))  ||
+            (std::isnan(operand2) && !((fpr2_val >> 51) & 1))  ||
+            ((std::fpclassify(result) == FP_SUBNORMAL) && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && FS_BIT && (cpu.fpu.underflow_enabled() || cpu.fpu.inexact_enabled())) ||
+            (underflow && !FS_BIT) ||
+            ((std::fpclassify(result) == FP_SUBNORMAL ) && !FS_BIT)
+        );
+
+        if(unimplemented){
+            inexact = 0;
+            underflow = 0; //weird, i know
+            break;
+        }
+        invalid = (std::isnan(operand1) && ((fpr1_val >> 51) & 1)) || 
+            (std::isnan(operand2) && ((fpr2_val >> 51) & 1)) ||
+            ((operand1 == 0.) && (operand2 == 0.)) || 
+            (std::isinf(operand2) && std::isinf(operand1));
+        if(invalid){
+            inexact = 0;
+            underflow = 0;
+            op.result = 0x7ff7ffffffffffff;
+            break;
+        }
+
+        if(operand2 == 0){
+            zerodiv = true;
+            break;
+        }
+        
+        underflow = 
+            (operand1 != 0.0 && std::isfinite(operand2) && result == 0.0) ||
+            (std::fpclassify(result) == FP_SUBNORMAL);
+            inexact = inexact || underflow;
+
+
+        if((underflow || (std::fpclassify(result) == FP_SUBNORMAL)) && FS_BIT){
+            result = cpu.fpu.flush_double(result);
+            op.result = (uint64_t)std::bit_cast<uint64_t>(result);
+        }
+        
+        overflow = std::isinf(result) && std::isfinite(operand1) && std::isfinite(operand2);
+        break;
+    }
+    case 20:{
+        unimplemented = 1;
+        break;
+    }
+    case 21:{
+        unimplemented = 1;
+        break;
+    }
+    default:
+        unimplemented = 1;
+        break;
+    }
+    cpu.fpu.set_cause(inexact, underflow, overflow, zerodiv, invalid, unimplemented);
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+};
 void ABSfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
@@ -2036,9 +2437,9 @@ VR4300::OperationTemplate CP0_op_lut[32]{
 
 VR4300::OperationTemplate CP1_op_lut[64]{
 /*00*/ {ADDfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::ADDfmt},
-/*01*/ {NOP},
-/*02*/ {NOP},
-/*03*/ {NOP},
+/*01*/ {SUBfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::SUBfmt},
+/*02*/ {MULfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::MULfmt},
+/*03*/ {DIVfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::DIVfmt},
 /*04*/ {SQRTfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::SQRTfmt},
 /*05*/ {ABSfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD |  CPZ, 0, OpType::ABSfmt},
 /*06*/ {MOVfmt, READS_CP  | WRITES_CP | WRITES_REG | STORES_IN_SA | ACCESSES_DOUBLE_WORD | CPZ,0, OpType::MOVfmt},
@@ -2053,41 +2454,41 @@ VR4300::OperationTemplate CP1_op_lut[64]{
 /*0E*/ {CEILWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
 /*0F*/ {FLOORWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
 
-/*10*/ {NOP},
-/*11*/ {NOP},
-/*12*/ {NOP},
-/*13*/ {NOP},
-/*14*/ {NOP},
-/*15*/ {NOP},
-/*16*/ {NOP},
-/*17*/ {NOP},
+/*10*/ {},
+/*11*/ {},
+/*12*/ {},
+/*13*/ {},
+/*14*/ {},
+/*15*/ {},
+/*16*/ {},
+/*17*/ {},
 
-/*18*/ {NOP},
-/*19*/ {NOP},
-/*1A*/ {NOP},
-/*1B*/ {NOP},
-/*1C*/ {NOP},
-/*1D*/ {NOP},
-/*1E*/ {NOP},
-/*1F*/ {NOP},
+/*18*/ {},
+/*19*/ {},
+/*1A*/ {},
+/*1B*/ {},
+/*1C*/ {},
+/*1D*/ {},
+/*1E*/ {},
+/*1F*/ {},
 
 /*20*/ {CVTSfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTSfmt},
 /*21*/ {CVTDfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTDfmt},
-/*22*/ {NOP},
-/*23*/ {NOP},
+/*22*/ {},
+/*23*/ {},
 /*24*/ {CVTWfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTWfmt},
 /*25*/ {CVTLfmt,  WRITES_REG | WRITES_CP | STORES_IN_SA | READS_CP  | ACCESSES_DOUBLE_WORD | CPZ,0,OpType::CVTLfmt},
-/*26*/ {NOP},
-/*27*/ {NOP},
+/*26*/ {},
+/*27*/ {},
 
-/*28*/ {NOP},
-/*29*/ {NOP},
-/*2A*/ {NOP},
-/*2B*/ {NOP},
-/*2C*/ {NOP},
-/*2D*/ {NOP},
-/*2E*/ {NOP},
-/*2F*/ {NOP},
+/*28*/ {},
+/*29*/ {},
+/*2A*/ {},
+/*2B*/ {},
+/*2C*/ {},
+/*2D*/ {},
+/*2E*/ {},
+/*2F*/ {},
 
 /*30*/ {NOP},
 /*31*/ {NOP},

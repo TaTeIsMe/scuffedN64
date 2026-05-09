@@ -43,6 +43,7 @@ void FPU::set_cause(bool inexact, bool underflow, bool overflow, bool zerodiv, b
     FCR31 |= (underflow << CAUSE_UNDERFLOW_SHIFT);
     FCR31 |= (invalid << CAUSE_INVALID_SHIFT);
     FCR31 |= (unimplemented << CAUSE_UNIMPLEMENTED_SHIFT);
+    FCR31 |= (zerodiv << CAUSE_ZERODIV_SHIFT);
 }
 
 void FPU::clear_cause(){
