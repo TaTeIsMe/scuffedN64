@@ -29,6 +29,7 @@ public:
 
     uint32_t FCR0 = 0xa00;
     uint32_t FCR31;
+    bool COC = false;
 
     union {
         struct {

@@ -587,10 +587,16 @@ void COPz(VR4300& cpu){
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzT(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    op.result = op.PC + 8;
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
+    if(cpu.fpu.COC)cpu.PC = target;
 }
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzF(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+    op.result = op.PC + 8;
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
+    if(!cpu.fpu.COC)cpu.PC = target;
 }
 void DMTCz(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -612,12 +618,18 @@ void SDCz(VR4300& cpu){
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzTL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    cpu.discard_bd = true;
+    op.result = op.PC + 8;
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
+    if(cpu.fpu.COC)cpu.PC = target;
+    else cpu.discard_bd = true;
 }
 //this only does stuff for fpu so make later with fpu, hopefully
 void BCzFL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    cpu.discard_bd = true;
+    op.result = op.PC + 8;
+    uint64_t target = 4 +  op.PC + (((int16_t)op.immediate) << 2); 
+    if(!cpu.fpu.COC)cpu.PC = target;
+    else cpu.discard_bd = true;
 }
 /* These are sub categories of MTCz and such
 void MTC0(VR4300& cpu){
@@ -831,7 +843,7 @@ void CVTDfmt(VR4300& cpu){
         break;
     }
     default:
-        unimplemented = 1;
+        unimplemented = 1; 
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, invalid, unimplemented);
@@ -2157,7 +2169,86 @@ void SQRTfmt(VR4300& cpu){
 };
 
 //fpu compare
-void Ccondfmt(VR4300& cpu){};
+void Ccondfmt(VR4300& cpu){
+
+    VR4300::Operation& op = cpu.EX_in.op;
+    uint64_t fpr1_val = op.rd_val;
+    uint64_t fpr2_val = op.rt_val;
+    uint8_t fmt = op.rs;
+    uint8_t cond = op.cond;
+    bool condition = false;
+    bool less = false;
+    bool equal = false;
+    bool unordered = false;
+
+    cpu.fpu.clear_cause();
+    
+    bool unimplemented = false;
+    bool invalid = false;
+
+    switch (fmt)
+    {
+    case 16:{
+        float operand1 = std::bit_cast<float>((uint32_t)fpr1_val);
+        float operand2 = std::bit_cast<float>((uint32_t)fpr2_val);
+
+        if(std::isnan(operand1) || std::isnan(operand2)){
+            less = false;
+            equal = false;
+            unordered = true;
+            invalid = (cond & 0x8) ||
+                (std::isnan(operand1) && ((fpr1_val >> 22) & 1)) ||
+                (std::isnan(operand2) && ((fpr2_val >> 22) & 1)) ;
+        }else{
+            less = operand1 < operand2;
+            equal = operand1 == operand2;
+            unordered = false;
+        }
+        condition =
+            ((cond & 0x4) && less) ||
+            ((cond & 0x2) && equal) ||
+            ((cond & 0x1) && unordered);
+        break;
+    }
+    case 17:{
+        double operand1 = std::bit_cast<double>((uint64_t)fpr1_val);
+        double operand2 = std::bit_cast<double>((uint64_t)fpr2_val);
+
+        if(std::isnan(operand1) || std::isnan(operand2)){
+            less = false;
+            equal = false;
+            unordered = true;
+            invalid = (cond & 0x8) ||
+                (std::isnan(operand1) && ((fpr1_val >> 51) & 1)) ||
+                (std::isnan(operand2) && ((fpr2_val >> 51) & 1));
+        }else{
+            less = operand1 < operand2;
+            equal = operand1 == operand2;
+            unordered = false;
+        }
+        condition =
+            ((cond & 0x4) && less) ||
+            ((cond & 0x2) && equal) ||
+            ((cond & 0x1) && unordered);
+        break;
+    }
+    case 20:{
+        unimplemented = 1;
+        break;
+    }
+    case 21:{
+        unimplemented = 1;
+        break;
+    }
+    default:
+        unimplemented = 1;
+        break;
+    }
+    cpu.EX_out.update_conditional = 1;
+    cpu.EX_out.conditional_val = condition;
+    cpu.fpu.set_cause(0, 0, 0, 0, invalid, unimplemented);
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+};
 
 VR4300::OperationTemplate primary_op_lut[64]{
 /*00*/ {nullptr,0,0,OpType::SPECIAL},                       // SPECIAL
@@ -2490,21 +2581,21 @@ VR4300::OperationTemplate CP1_op_lut[64]{
 /*2E*/ {},
 /*2F*/ {},
 
-/*30*/ {NOP},
-/*31*/ {NOP},
-/*32*/ {NOP},
-/*33*/ {NOP},
-/*34*/ {NOP},
-/*35*/ {NOP},
-/*36*/ {NOP},
-/*37*/ {NOP},
+/*30*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*31*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*32*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*33*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*34*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*35*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*36*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*37*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
 
-/*38*/ {NOP},
-/*39*/ {NOP},
-/*3A*/ {NOP},
-/*3B*/ {NOP},
-/*3C*/ {NOP},
-/*3D*/ {NOP},
-/*3E*/ {NOP},
-/*3F*/ {NOP},
+/*38*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*39*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*3A*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*3B*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*3C*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*3D*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*3E*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
+/*3F*/ {Ccondfmt, READS_CP  | ACCESSES_DOUBLE_WORD | CPZ},
 };

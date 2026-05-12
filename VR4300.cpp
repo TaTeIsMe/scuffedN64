@@ -20,12 +20,14 @@ void VR4300::on_pclock()
     //on interlock the ENTIRE pipeline is stalled
 
     cp0.count++;//make sure this advances at the correct rate todo
-
+    
     if(stall){
         stall--;
         return;
     }
-
+    
+    cp0.random--;
+    if(cp0.random == cp0.wired) cp0.random = 31;
     //writes back at the end to make sure cpu state doesn't get modified until submit pipeline
     if ( DC() || EX() || RF() || IC() || WB() ) return;
     PC += 4; //make sure it's ok for this to be here
@@ -133,8 +135,6 @@ bool VR4300::WB()
     //if(in.op.instruction_type == OpType::DIVfmt)
     //    start_outing = 1;
     if(start_outing)std::cout << in.op << "\n";
-    if(in.op.result == 0x300000000)
-    std::cout<<"";
     
     return false;
 }
@@ -176,6 +176,12 @@ bool VR4300::DC()
             handle_general_exception(in.op,FPE);
             return true;
         }
+    }
+    if(in.update_conditional){
+        fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.conditional_val << 23);
+        fpu.COC = in.conditional_val;
+        in.update_conditional = false;
+        EX_out.update_conditional = false;
     }
 
 
@@ -587,7 +593,8 @@ bool VR4300::RF()
         if (!(stage_op.flags & WRITES_REG) )
         return;
 
-        if (in.op.rs == stage_op.dest_reg && !(stage_op.flags & WRITES_CP)) in.op.rs_val = stage_op.result;
+        if (!(stage_op.flags & WRITES_CP))
+            if (in.op.rs == stage_op.dest_reg) in.op.rs_val = stage_op.result;
 
         if(stage_op.flags & WRITES_CP && in.op.flags & READS_CP){
             if(stage_op.flags & WRITES_CP && stage_op.CPz != in.op.CPz)
@@ -597,7 +604,6 @@ bool VR4300::RF()
             return;
         }else if(!(stage_op.flags & WRITES_CP) && !(in.op.flags & READS_CP) && !(stage_op.dest_reg == 0))
             if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
-
     };
 
     forward(wb.op);
@@ -676,6 +682,7 @@ bool VR4300::decode_op(uint32_t word)
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;
+    op.cond = word & 0xF;
     return false;
 
 }

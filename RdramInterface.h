@@ -13,11 +13,12 @@ public:
             uint32_t RI_CONFIG;
             uint32_t RI_CURRENT_LOAD;
             uint32_t RI_SELECT;
+            uint32_t RI_REFRESH;
             uint32_t RI_LATENCY;
-            uint32_t RI_ERROr;
+            uint32_t RI_ERROR;
             uint32_t RI_BANK_STATUS;
         };
-        uint32_t regs[7];
+        uint32_t regs[8];
     };
 
     void write_size(uint32_t address, uint64_t value, uint8_t size) override;

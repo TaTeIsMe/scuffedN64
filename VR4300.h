@@ -141,6 +141,7 @@ public:
         uint8_t CPz = 0;//for cp instructions
         uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
+        uint8_t cond = 0;
         uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
         uint32_t target = 0;//for jumps
         uint32_t result_entryHI = 0;//for tlb instructions
@@ -184,6 +185,8 @@ public:
         bool COp_triggered; // all these flags might have to be moved from ins to outs. That will also require them to be reset on submit pipeline
         bool uncacheable_stall_triggered;
         bool fire_fpu_exception;
+        bool update_conditional;
+        uint8_t conditional_val;
     };
     struct RF_EX{
         Operation op;
