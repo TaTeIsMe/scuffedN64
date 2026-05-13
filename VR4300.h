@@ -171,6 +171,8 @@ public:
 
     void handle_general_exception(const Operation op, ExceptionCode cause);
 
+    void hardware_interrupt(uint8_t enable, uint8_t value);
+
     void set_tlb_context(uint64_t addr);
 
     struct WB_DC{

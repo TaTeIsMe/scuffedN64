@@ -19,7 +19,10 @@ void VR4300::on_pclock()
 {
     //on interlock the ENTIRE pipeline is stalled
 
-    cp0.count++;//make sure this advances at the correct rate todo
+    cp0.count++;
+    if(cp0.count == cp0.compare){
+        cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
+    }else cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
     
     if(stall){
         stall--;
@@ -184,7 +187,13 @@ bool VR4300::DC()
         EX_out.update_conditional = false;
     }
 
-
+    uint8_t IP = cp0.get_bits(cp0.cause,CAUSE_IP_MASK,CAUSE_IP_SHIFT);
+    uint8_t IM = cp0.get_bits(cp0.status,STATUS_IM_MASK,STATUS_IM_SHIFT);
+    uint8_t IE = cp0.get_bits(cp0.status,STATUS_IE_MASK,STATUS_IE_SHIFT);
+    uint8_t EXL = cp0.get_bits(cp0.status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
+    uint8_t ERL = cp0.get_bits(cp0.status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
+    if((IP & IM) && IE && !EXL && !ERL)
+        handle_general_exception(in.op,Int);
     
     if((in.op.flags & IS_TRAP) && in.op.result){
         handle_general_exception(in.op, Tr);
@@ -758,6 +767,16 @@ void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + 0x0180;
+}
+
+void VR4300::hardware_interrupt(uint8_t enable, uint8_t value){
+    value &= 0x1F;
+    value <<= 2;
+    enable &= 0x1F;
+    enable <<= 2;
+    uint8_t prev_inter = cp0.get_bits(cp0.cause,CAUSE_IP_MASK,CAUSE_IP_SHIFT);
+    uint8_t new_inter = (prev_inter & ~enable) | (enable & value);
+    cp0.set_bits(cp0.cause, CAUSE_IP_MASK, new_inter << CAUSE_IP_SHIFT);
 }
 
 inline void VR4300::set_tlb_context(uint64_t addr){
