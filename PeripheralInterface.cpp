@@ -1,7 +1,7 @@
 #include "PeripheralInterface.h"
+#include "RCP.h"
 #include "Rdram.h"
 #include "Cartridge.h"
-
 void PeripheralInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
     address &= 0x3F; //mirroring
@@ -23,7 +23,10 @@ void PeripheralInterface::write_size(uint32_t address, uint64_t value, uint8_t s
         break;
     case 0x10:
         if(value & 1) finish_dma();
-        if(value & 2) dma_completed = 0;
+        if(value & 2){
+            dma_completed = 0;
+            rcp.mi.clear_interrupt(InterruptSource::PI);
+        }
         break;
     case 0x14: case 0x24: case 0x18: case 0x28:
         regs[reg_id] = value & 0xFF;
@@ -65,7 +68,7 @@ uint64_t PeripheralInterface::read_size(uint32_t address, uint8_t size)
     return 0;
 }
 
-PeripheralInterface::PeripheralInterface(Rdram &rdram, Cartridge &cartridge):rdram(rdram),cartridge(cartridge){}
+PeripheralInterface::PeripheralInterface(RCP &rcp):rcp(rcp){}
 
 void PeripheralInterface::start_dma()
 {
@@ -83,8 +86,8 @@ void PeripheralInterface::continue_dma()
     //for now this only handles cartridge access
     while(len > 0){
         dma_direction?
-        rdram.write_size(current_ram_addr, cartridge.read_size(current_cart_addr, 8), 8):
-        cartridge.write_size(current_cart_addr, rdram.read_size(current_ram_addr, 8), 8);
+        rcp.rdram.write_size(current_ram_addr, rcp.cartridge.read_size(current_cart_addr, 8), 8):
+        rcp.cartridge.write_size(current_cart_addr, rcp.rdram.read_size(current_ram_addr, 8), 8);
         current_ram_addr += 8;
         current_cart_addr += 8;
         len -= 8;
@@ -99,4 +102,5 @@ void PeripheralInterface::finish_dma()
     PI_DRAM_ADDR = current_ram_addr;
     dma_busy = false;
     dma_completed = true;
+    rcp.mi.route_interrupt(InterruptSource::PI);
 }

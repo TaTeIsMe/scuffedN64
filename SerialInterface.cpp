@@ -1,5 +1,7 @@
 #include "SerialInterface.h"
 
+SerialInterface::SerialInterface(RCP &rcp):rcp(rcp){}
+
 void SerialInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
 }

@@ -29,6 +29,10 @@ public:
         uint32_t regs[16];
     };
 
+    class RCP& rcp;
+
+    VideoInterface(RCP& rcp);
+
     void write_size(uint32_t address, uint64_t value, uint8_t size) override;
     uint64_t read_size(uint32_t address, uint8_t size) override;
 private:

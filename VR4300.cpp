@@ -4,25 +4,33 @@
 #include <cstring>
 #include <iomanip>
 #include<inttypes.h>
-VR4300::VR4300(RCP& rcp):cp0(),rcp(rcp),fpu(cp0){discard_bd = true;}
+#include"RCP.h"
+VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){discard_bd = true;}
 
-//todo
-//fix asid
-//add exceptions.
-// overflow exception in dc
-// interrupts and their exceptions
-// all exception caused by operations will be added with them
-// fpu exceptions will be added with it
-// reset exceptions
-//fpu
+void VR4300::on_clock()
+{
+    on_pclock();
+    on_pclock();
+    cp0.count++;
+    if(cp0.count == cp0.compare)
+        cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
+    if(cp0.count >= std::numeric_limits<uint32_t>::max())
+        cp0.count = 0;
+
+}
+
+// todo
+// fix asid
+// add exceptions.
+//  overflow exception in dc
+//  interrupts and their exceptions
+//  all exception caused by operations will be added with them
+//  fpu exceptions will be added with it
+//  reset exceptions
+// fpu
 void VR4300::on_pclock()
 {
     //on interlock the ENTIRE pipeline is stalled
-
-    cp0.count++;
-    if(cp0.count == cp0.compare){
-        cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
-    }else cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
     
     if(stall){
         stall--;
@@ -99,13 +107,16 @@ bool VR4300::WB()
             Dcache_line &line = Dcache[in.op.dcache_index];
             dcache_write_size(line, offset, in.op.result, access_size);
         }else{
-            rcp.write_size(in.op.data_addr_p, in.op.result, access_size);
+            rcp->write_size(in.op.data_addr_p, in.op.result, access_size);
         }
     }
     if(in.op.flags & WRITES_REG){
         if(in.op.flags & WRITES_CP){
-            if(in.op.CPz == 0)
-                cp0.regs[in.op.dest_reg] = in.op.result;
+            if(in.op.CPz == 0){
+                if(in.op.dest_reg == 11)
+                    cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
+                cp0.regs[in.op.dest_reg] = (in.op.result & cp0.write_masks[in.op.dest_reg]);
+            }
             if(in.op.CPz == 1 && (in.op.flags & CPControl))
                 fpu.set_control(in.op.rd, in.op.result);
             else if(in.op.CPz == 1) 
@@ -137,7 +148,14 @@ bool VR4300::WB()
     static int start_outing = 0;
     //if(in.op.instruction_type == OpType::DIVfmt)
     //    start_outing = 1;
-    if(start_outing)std::cout << in.op << "\n";
+    //if(start_outing)std::cout << in.op << "\n";
+    if(in.op.PC == 0xffffffff80002e8c)
+        std::cout<<std::hex<<cp0.EPC<<"\n";
+    if(in.op.PC == 0xffffffff80002de0) // few instructions before broken mtc1
+        std::cout<<"";
+    if(in.op.result == 0xffffffff80002e8c)
+        std::cout<<"";
+
     
     return false;
 }
@@ -192,8 +210,11 @@ bool VR4300::DC()
     uint8_t IE = cp0.get_bits(cp0.status,STATUS_IE_MASK,STATUS_IE_SHIFT);
     uint8_t EXL = cp0.get_bits(cp0.status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint8_t ERL = cp0.get_bits(cp0.status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
-    if((IP & IM) && IE && !EXL && !ERL)
-        handle_general_exception(in.op,Int);
+    if((IP & IM) && IE && !EXL && !ERL){
+        if(in.op.instruction_type == OpType::ERET) handle_general_exception(RF_in.op,Int);
+        else handle_general_exception(in.op,Int);
+        return true;
+    }
     
     if((in.op.flags & IS_TRAP) && in.op.result){
         handle_general_exception(in.op, Tr);
@@ -298,7 +319,7 @@ bool VR4300::DC()
             }
             //update dcache
             uint64_t line_start_addr = out.op.data_addr_p & ~0xF;
-            for (int i = 0; i < 16; i++) line.data[i] = rcp.read_size(line_start_addr + i, 1);
+            for (int i = 0; i < 16; i++) line.data[i] = rcp->read_size(line_start_addr + i, 1);
             line.tag = out.op.data_addr_p >> 12;
             line.valid = true;
             line.dirty = false;
@@ -362,7 +383,7 @@ bool VR4300::DC()
             if(in.op.flags & IS_LOAD){
 
                 //this is the most consise i could get it...
-                uint64_t mem = rcp.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
+                uint64_t mem = rcp->read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
 
                 uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
@@ -378,7 +399,7 @@ bool VR4300::DC()
                 }else {
                     bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
-                    out.op.result = rcp.read_size(out.op.data_addr_p, access_size);
+                    out.op.result = rcp->read_size(out.op.data_addr_p, access_size);
                     if(access_size == 1) out.op.result = (sign_extended) ? (int64_t)(int8_t)out.op.result:(uint64_t)(uint8_t)out.op.result;
                     else if(access_size == 2) out.op.result = (sign_extended) ? (int64_t)(int16_t)out.op.result:(uint64_t)(uint16_t)out.op.result;
                     else if(access_size == 4) out.op.result = (sign_extended) ? (int64_t)(int32_t)out.op.result:(uint64_t)(uint32_t)out.op.result;
@@ -388,7 +409,7 @@ bool VR4300::DC()
             if(in.op.flags & IS_STORE){
                 //this won't work for 32 bits. reg  value needs to be masked correctly
                 uint64_t og_val;
-                og_val = rcp.read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
+                og_val = rcp->read_size(out.op.data_addr_p & ~(access_size - 1), access_size);
                 uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = access_size * 8;
@@ -429,7 +450,7 @@ bool VR4300::EX()
     }
 
 
-    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg){
+    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg && !(dc.op.flags & WRITES_CP)){
         //LDI
         stall = 1;
         in.LDI_triggered = true;
@@ -438,7 +459,7 @@ bool VR4300::EX()
         in.op.rt_val = dc.op.result;
     }
 
-    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg){
+    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg && !(dc.op.flags & WRITES_CP)){
         //LDI
         stall = 1;
         in.LDI_triggered = true;
@@ -562,7 +583,7 @@ bool VR4300::RF()
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)
             {
-                line.data[i] = rcp.read_size(line_start_addr + i * 4, 4);
+                line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
             }
             line.tag = PC_p >> 12;
             line.valid = true;
@@ -575,7 +596,7 @@ bool VR4300::RF()
             in.uncacheable_stall_triggered = 1;
             return true;
         }
-        op_code = rcp.read_size(PC_p, 4);
+        op_code = rcp->read_size(PC_p, 4);
     }
 
     if(decode_op(op_code))
@@ -769,14 +790,14 @@ void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
     PC = jump_base + 0x0180;
 }
 
-void VR4300::hardware_interrupt(uint8_t enable, uint8_t value){
+void VR4300::update_hardware_interrupt(uint8_t enable, uint8_t value){
     value &= 0x1F;
     value <<= 2;
     enable &= 0x1F;
     enable <<= 2;
     uint8_t prev_inter = cp0.get_bits(cp0.cause,CAUSE_IP_MASK,CAUSE_IP_SHIFT);
     uint8_t new_inter = (prev_inter & ~enable) | (enable & value);
-    cp0.set_bits(cp0.cause, CAUSE_IP_MASK, new_inter << CAUSE_IP_SHIFT);
+    cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_MASK, new_inter << CAUSE_IP_SHIFT);
 }
 
 inline void VR4300::set_tlb_context(uint64_t addr){
@@ -877,7 +898,7 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
         }else if(accessed_cache == 0){
             //Fill
             uint64_t line_start_addr = op.data_addr_p & ~0xF;
-            for (int i = 0; i < 8; i++) i_line.data[i] = rcp.read_size(line_start_addr + i * 4, 4);
+            for (int i = 0; i < 8; i++) i_line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
             i_line.tag = icalculated_tag;
             i_line.valid = true;
         }
@@ -893,7 +914,7 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
         }else if(accessed_cache == 0){
             if(i_hit && i_line.valid){
                 uint64_t line_start_addr = op.data_addr_p & ~0xF;
-                for (int i = 0; i < 8; i++) rcp.write_size(line_start_addr + i * 4, i_line.data[i], 4);
+                for (int i = 0; i < 8; i++) rcp->write_size(line_start_addr + i * 4, i_line.data[i], 4);
             }
         }
         break;
@@ -906,8 +927,8 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
 void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
     uint64_t half_1 = dcache_read_size(line, 0, 8);
     uint64_t half_2 = dcache_read_size(line, 8, 8);
-    rcp.write_size((line.tag << 12) + ((index & 0xFF) << 4),half_1,8);
-    rcp.write_size((line.tag << 12) + ((index & 0xFF) << 4) + 8,half_2,8);
+    rcp->write_size((line.tag << 12) + ((index & 0xFF) << 4),half_1,8);
+    rcp->write_size((line.tag << 12) + ((index & 0xFF) << 4) + 8,half_2,8);
     line.dirty = 0;
 }
 

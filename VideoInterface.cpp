@@ -1,4 +1,7 @@
 #include "VideoInterface.h"
+#include"RCP.h"
+
+VideoInterface::VideoInterface(RCP &rcp):rcp(rcp){}
 
 void VideoInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
@@ -17,9 +20,12 @@ void VideoInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
         regs[reg_id] = value & 0xFFF;
         break;
     case 0xC:
-    case 0x10:
     case 0x18:
         regs[reg_id] = value & 0x3FF;
+        break;
+    case 0x10:
+        regs[reg_id] = value & 0x3FF;
+        rcp.mi.clear_interrupt(InterruptSource::VI);
         break;
     case 0x14:
         regs[reg_id] = value & 0x3FFFFFFF;

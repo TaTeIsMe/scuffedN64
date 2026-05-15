@@ -3,6 +3,12 @@
 
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
 
+void inline set_clear_reg_bit(uint8_t set, uint8_t clear,uint32_t& reg, uint32_t bit){
+    if(set && clear)return;
+    if(set) reg |= 1 << bit;
+    if(clear) reg &= ~(1 << bit);
+};
+
 void RSP::RSPRegs::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
     address &= 0x1F; // address mirroring
@@ -39,9 +45,49 @@ void RSP::RSPRegs::write_size(uint32_t address, uint64_t value, uint8_t size)
             rsp.start_dma();
         }
         break;
-    case 0x10:
-        rsp.status_input = value & 0x1FFFFFF;
+    case 0x10:{
+        uint8_t SET_SIG7 = (value >> 24) & 1;
+        uint8_t SET_SIG6 = (value >> 22) & 1;
+        uint8_t SET_SIG5 = (value >> 20) & 1;
+        uint8_t SET_SIG4 = (value >> 18) & 1;
+        uint8_t SET_SIG3 = (value >> 16) & 1;
+        uint8_t SET_SIG2 = (value >> 14) & 1;
+        uint8_t SET_SIG1 = (value >> 12) & 1;
+        uint8_t SET_SIG0 = (value >> 10) & 1;
+        uint8_t CLR_SIG7 = (value >> 23) & 1;
+        uint8_t CLR_SIG6 = (value >> 21) & 1;
+        uint8_t CLR_SIG5 = (value >> 19) & 1;
+        uint8_t CLR_SIG4 = (value >> 17) & 1;
+        uint8_t CLR_SIG3 = (value >> 15) & 1;
+        uint8_t CLR_SIG2 = (value >> 13) & 1;
+        uint8_t CLR_SIG1 = (value >> 11) & 1;
+        uint8_t CLR_SIG0 = (value >> 9) & 1;
+        uint8_t SET_INTBREAK = (value >> 8) & 1;
+        uint8_t CLR_INTBREAK = (value >> 7) & 1;
+        uint8_t SET_SSTEP = (value >> 6) & 1;
+        uint8_t CLR_SSTEP = (value >> 5) & 1;
+        uint8_t SET_INTR = (value >> 4) & 1;
+        uint8_t CLR_INTR = (value >> 3) & 1;
+        uint8_t CLR_BROKE = (value >> 2) & 1;
+        uint8_t SET_HALT = (value >> 1) & 1;
+        uint8_t CLR_HALT = (value >> 0) & 1;
+
+        set_clear_reg_bit(SET_SIG7, CLR_SIG7, SP_STATUS, 14);
+        set_clear_reg_bit(SET_SIG6, CLR_SIG6, SP_STATUS, 13);
+        set_clear_reg_bit(SET_SIG5, CLR_SIG5, SP_STATUS, 12);
+        set_clear_reg_bit(SET_SIG4, CLR_SIG4, SP_STATUS, 11);
+        set_clear_reg_bit(SET_SIG3, CLR_SIG3, SP_STATUS, 10);
+        set_clear_reg_bit(SET_SIG2, CLR_SIG2, SP_STATUS, 9);
+        set_clear_reg_bit(SET_SIG1, CLR_SIG1, SP_STATUS, 8);
+        set_clear_reg_bit(SET_SIG0, CLR_SIG0, SP_STATUS, 7);
+        set_clear_reg_bit(SET_INTBREAK, CLR_INTBREAK, SP_STATUS, 6);
+        set_clear_reg_bit(SET_SSTEP, CLR_SSTEP, SP_STATUS, 5);
+        if(SET_INTR)rsp.rcp.mi.route_interrupt(InterruptSource::SP);
+        if(CLR_INTR)rsp.rcp.mi.clear_interrupt(InterruptSource::SP);
+        set_clear_reg_bit(0, CLR_BROKE, SP_STATUS, 1);
+        set_clear_reg_bit(SET_HALT, CLR_HALT, SP_STATUS, 0);
         break;
+    }
     case 0x14:
     case 0x18:
         break;

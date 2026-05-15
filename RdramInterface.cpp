@@ -1,5 +1,6 @@
 #include "RdramInterface.h"
 
+RdramInterface::RdramInterface(RCP &rcp):rcp(rcp){}
 
 void RdramInterface::write_size(uint32_t address, uint64_t value, uint8_t size)
 {

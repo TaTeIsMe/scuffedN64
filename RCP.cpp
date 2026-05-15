@@ -1,10 +1,20 @@
 #include "RCP.h"
 #include<iostream>
 
+#include"Rdram.h"
+#include"Cartridge.h"
+#include"Pif.h"
+#include"VR4300.h"
 
-RCP::RCP(Rdram& rdram, Cartridge& cartridge, Pif& pif):
+RCP::RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif):
 rsp(*this, rdram), 
-pi(rdram, cartridge), 
+mi(*this),
+vi(*this),
+ai(*this),
+pi(*this),
+ri(*this),
+si(*this),
+vr4300(vr4300),
 rdram(rdram), 
 cartridge(cartridge), 
 pif(pif) {}

@@ -25,10 +25,9 @@ public:
     void write_size(uint32_t address, uint64_t value, uint8_t size) override;
     uint64_t read_size(uint32_t address, uint8_t size) override;
 
-    class Rdram& rdram;
-    class Cartridge& cartridge;
+    class RCP& rcp;
 
-    PeripheralInterface(Rdram& rdram, Cartridge& cartridge);
+    PeripheralInterface(RCP& rcp);
     
     uint8_t dma_completed;
     uint8_t dma_busy;

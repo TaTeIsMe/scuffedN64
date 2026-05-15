@@ -13,9 +13,15 @@
     //dmas
     //fpu
     //make rcp address range only output and accept 32 but values
+
+const uint32_t CPU_HERTZ = 93750000;
+const uint32_t FPS = 60;
+const uint32_t CYCLES_PER_FRAME = CPU_HERTZ / FPS;
+
 int main(){
     
-    std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
+    std::ifstream rom_file("ROMS/OOT.z64", std::ios::binary);
+    //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
         std::istreambuf_iterator<char>()
@@ -24,12 +30,13 @@ int main(){
     Pif pif;
     Rdram rdram;
     Cartridge cartridge(rom);
-    RCP rcp(rdram, cartridge, pif);
-    VR4300 vr4300(rcp);
+    VR4300 vr4300;
+    RCP rcp(vr4300, rdram, cartridge, pif);
+    vr4300.rcp = &rcp;
     
     //IPL2 skip
     vr4300.PC = 0xffffffffa4000040;
-    vr4300.cp0.config = 0x7006e463; 
+    vr4300.cp0.config = 0x7006e463;
     vr4300.cp0.status = 0x34000000;
 
     vr4300.GPR[19] = 0;
@@ -60,13 +67,28 @@ int main(){
     //ram init skip
     rcp.ri.RI_SELECT = 0x14;
     
+    uint32_t cycles = 0;
+    //will be 31 MHz hopefully
     while(true){
-        vr4300.on_pclock();
+        //cpu around 93 mhz
+        vr4300.on_clock();
+        vr4300.on_clock();
+        vr4300.on_clock();
+
+        //insert 2 RCP cycles here (62 mhz) (not really, rcp is replaced anyway)
+
+        //insert 60 hz interrupts here
+        if (cycles >= CYCLES_PER_FRAME) {
+            cycles = 0;
+            if(rcp.vi.VI_ORIGIN)
+                rcp.mi.route_interrupt(InterruptSource::VI);
+            if(!(rcp.rsp.regs.SP_STATUS & 1) && ((rcp.rsp.regs.SP_STATUS >> 6) & 1)){ // if not halted and intbreak
+                rcp.mi.route_interrupt(InterruptSource::SP);
+                rcp.rsp.regs.SP_STATUS |= 3;
+            }
+        }cycles++;
+
         if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
         if(rcp.pi.dma_busy)rcp.pi.continue_dma();
     }
 

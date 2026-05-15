@@ -48,7 +48,6 @@ public:
         uint32_t pending_dma[4];
     };
     bool pending_dma_direction;
-    uint32_t status_input;
     
     class RCP& rcp;
     class Rdram& rdram;

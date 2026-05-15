@@ -10,15 +10,14 @@
 #include"PeripheralInterface.h"
 #include"RdramInterface.h"
 #include"SerialInterface.h"
+#include"VR4300.h"
 #include"Rdram.h"
-#include"Cartridge.h"
 #include"Pif.h"
+#include"Cartridge.h"
 
 class RCP
 {
 public:
-    RCP(Rdram& rdram, Cartridge& cartridge, Pif& pif);
-
     RSP rsp;
     RDP rdp;
     MipsInterface mi;
@@ -27,9 +26,12 @@ public:
     PeripheralInterface pi;
     RdramInterface ri;
     SerialInterface si;
+    VR4300& vr4300;
     Rdram& rdram;
     Cartridge& cartridge;
     Pif& pif;
+    
+    RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif);
     
     //for all reads i am not sure if unalligned acces is allowed
     uint64_t read_size(uint64_t address, uint8_t size);

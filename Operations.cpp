@@ -686,6 +686,7 @@ void TLBP(VR4300& cpu){
     }
     cpu.cp0.entryHi = cpu.cp0.set_bits(cpu.cp0.entryHi,1<<31,0);
 }
+
 void ERET(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     cpu.discard_bd = true;
@@ -697,8 +698,8 @@ void ERET(VR4300& cpu){
         cpu.cp0.status = cpu.cp0.set_bits(cpu.cp0.status,STATUS_EXL_MASK,0);
     }
     cpu.LLBit = 0;
-
 }
+
 void CACHE(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.data_addr = (int16_t)op.immediate + op.rs_val;

@@ -2,7 +2,6 @@
 #include <cstdint>
 #include "CP0.h"
 #include "FPU.h"
-#include "RCP.h"
 #include<iostream>
 
 #define CACHE_OP_STALL_TIME 2
@@ -57,11 +56,11 @@ enum OpFlags:uint32_t{
 class VR4300
 {
 public:
-    VR4300(RCP& rcp);
+    VR4300();
     
     FPU fpu;
     CP0 cp0;
-    RCP& rcp;
+    class RCP* rcp;
     uint64_t PC;
     uint64_t cycle_count;
 
@@ -171,7 +170,7 @@ public:
 
     void handle_general_exception(const Operation op, ExceptionCode cause);
 
-    void hardware_interrupt(uint8_t enable, uint8_t value);
+    void update_hardware_interrupt(uint8_t enable, uint8_t value);
 
     void set_tlb_context(uint64_t addr);
 
@@ -205,6 +204,7 @@ public:
     };
 
     uint16_t stall;
+    void on_clock();
     void on_pclock();
 
     //Pipeline stages.
