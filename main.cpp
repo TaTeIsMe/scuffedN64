@@ -20,7 +20,7 @@ const uint32_t CYCLES_PER_FRAME = CPU_HERTZ / FPS;
 
 int main(){
     
-    std::ifstream rom_file("ROMS/OOT.z64", std::ios::binary);
+    std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
@@ -80,12 +80,13 @@ int main(){
         //insert 60 hz interrupts here
         if (cycles >= CYCLES_PER_FRAME) {
             cycles = 0;
-            if(rcp.vi.VI_ORIGIN)
-                rcp.mi.route_interrupt(InterruptSource::VI);
-            if(!(rcp.rsp.regs.SP_STATUS & 1) && ((rcp.rsp.regs.SP_STATUS >> 6) & 1)){ // if not halted and intbreak
-                rcp.mi.route_interrupt(InterruptSource::SP);
-                rcp.rsp.regs.SP_STATUS |= 3;
-            }
+            //if(rcp.vi.VI_ORIGIN)
+            //    rcp.mi.route_interrupt(InterruptSource::VI);
+            //if(!(rcp.rsp.regs.SP_STATUS & 1) && ((rcp.rsp.regs.SP_STATUS >> 6) & 1)){ // if not halted and intbreak
+            //    rcp.mi.route_interrupt(InterruptSource::SP);
+            //    rcp.rsp.regs.SP_STATUS |= 3;
+            //  //rcp.mi.route_interrupt(InterruptSource::DP);//???
+            //}
         }cycles++;
 
         if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();

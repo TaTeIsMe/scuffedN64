@@ -37,8 +37,6 @@ void VR4300::on_pclock()
         return;
     }
     
-    cp0.random--;
-    if(cp0.random == cp0.wired) cp0.random = 31;
     //writes back at the end to make sure cpu state doesn't get modified until submit pipeline
     if ( DC() || EX() || RF() || IC() || WB() ) return;
     PC += 4; //make sure it's ok for this to be here
@@ -49,17 +47,17 @@ void VR4300::on_pclock()
 bool VR4300::WB()
 {
     auto& in = WB_in;
-    bool enable_logging = 0;
+    static bool enable_logging = 0;
     static int logging_started = 0;
     static FILE* log_file = NULL;
     int log_count = 0;
 
     if(enable_logging){
     ////
-        if (log_count == 1000)
-        {
-            logging_started = 0;
-        }
+        //if (log_count == 1000)
+        //{
+        //    logging_started = 0;
+        //}
         if (!logging_started)
         {
             logging_started = 1;
@@ -113,9 +111,11 @@ bool VR4300::WB()
     if(in.op.flags & WRITES_REG){
         if(in.op.flags & WRITES_CP){
             if(in.op.CPz == 0){
+                cp0.regs[in.op.dest_reg] = (in.op.result & cp0.write_masks[in.op.dest_reg]);
                 if(in.op.dest_reg == 11)
                     cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
-                cp0.regs[in.op.dest_reg] = (in.op.result & cp0.write_masks[in.op.dest_reg]);
+                if(in.op.dest_reg == 6)
+                    cp0.random = (cp0.wired > 31)?63:31;
             }
             if(in.op.CPz == 1 && (in.op.flags & CPControl))
                 fpu.set_control(in.op.rd, in.op.result);
@@ -149,13 +149,10 @@ bool VR4300::WB()
     //if(in.op.instruction_type == OpType::DIVfmt)
     //    start_outing = 1;
     //if(start_outing)std::cout << in.op << "\n";
-    if(in.op.PC == 0xffffffff80002e8c)
-        std::cout<<std::hex<<cp0.EPC<<"\n";
-    if(in.op.PC == 0xffffffff80002de0) // few instructions before broken mtc1
-        std::cout<<"";
-    if(in.op.result == 0xffffffff80002e8c)
-        std::cout<<"";
-
+    if(in.op.PC == 0xffffffff80005078)
+    std::cout<<"";
+    if(cp0.wired > 63)
+    std::cerr<<"random broke";
     
     return false;
 }
@@ -213,6 +210,9 @@ bool VR4300::DC()
     if((IP & IM) && IE && !EXL && !ERL){
         if(in.op.instruction_type == OpType::ERET) handle_general_exception(RF_in.op,Int);
         else handle_general_exception(in.op,Int);
+
+        WB();
+        WB_in = {};
         return true;
     }
     
@@ -622,6 +622,8 @@ bool VR4300::RF()
     {
         if (!(stage_op.flags & WRITES_REG) )
         return;
+        if((stage_op.flags & WRITES_HI) || (stage_op.flags & WRITES_LO))
+        return;
 
         if (!(stage_op.flags & WRITES_CP))
             if (in.op.rs == stage_op.dest_reg) in.op.rs_val = stage_op.result;
@@ -629,8 +631,8 @@ bool VR4300::RF()
         if(stage_op.flags & WRITES_CP && in.op.flags & READS_CP){
             if(stage_op.flags & WRITES_CP && stage_op.CPz != in.op.CPz)
                 return;
-            if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
-            if (in.op.rd == stage_op.dest_reg) in.op.rd_val = stage_op.result;
+            if (in.op.rt == stage_op.dest_reg) in.op.rt_val = (in.op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
+            if (in.op.rd == stage_op.dest_reg) in.op.rd_val = (in.op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
             return;
         }else if(!(stage_op.flags & WRITES_CP) && !(in.op.flags & READS_CP) && !(stage_op.dest_reg == 0))
             if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
@@ -659,6 +661,14 @@ bool VR4300::IC()
 }
 
 void VR4300::submit_pipeline(){
+
+    if(cp0.random == cp0.wired && cp0.wired < 32)
+        cp0.random = (cp0.wired > 31)?63:31;
+    else{
+        cp0.random--;
+        if(!cp0.random) cp0.random = (cp0.wired > 31)?63:31;
+    }
+
     RF_in = IC_out;
     EX_in = RF_out;
     DC_in = EX_out;

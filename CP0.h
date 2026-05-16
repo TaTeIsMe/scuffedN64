@@ -162,7 +162,7 @@ public:
 
     uint64_t write_masks[32]={
         0xFFFFFFFF1000003FULL, //index
-        0xFFFFFFFF0000003FULL,//random
+        0x000000000000003FULL,//random
         0x0000000003FFFFFFULL,//entryLo0
         0x0000000003FFFFFFULL,//entryLo1
         0xFFFFFFFFFFFFFFF0ULL,//context
