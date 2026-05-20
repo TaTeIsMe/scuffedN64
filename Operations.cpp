@@ -401,6 +401,7 @@ void JALR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     if(op.rd)op.dest_reg = op.rd;
     op.result = op.PC + 8;
+    cpu.GPR[op.dest_reg] = op.result;
     cpu.PC = op.rs_val ;
 }
 void BEQ(VR4300& cpu){
@@ -615,7 +616,7 @@ void SDCz(VR4300& cpu){
     op.data_addr = (int16_t)op.immediate + op.rs_val;
     op.result = op.rt_val;
 }
-//this only does stuff for fpu so make later with fpu, hopefully
+
 void BCzTL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
@@ -623,7 +624,7 @@ void BCzTL(VR4300& cpu){
     if(cpu.fpu.COC)cpu.PC = target;
     else cpu.discard_bd = true;
 }
-//this only does stuff for fpu so make later with fpu, hopefully
+
 void BCzFL(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     op.result = op.PC + 8;
@@ -631,27 +632,11 @@ void BCzFL(VR4300& cpu){
     if(!cpu.fpu.COC)cpu.PC = target;
     else cpu.discard_bd = true;
 }
-/* These are sub categories of MTCz and such
-void MTC0(VR4300& cpu){
-    VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (uint32_t)op.rt_val;
-}
-void MFC0(VR4300& cpu){
-    VR4300::Operation& op = cpu.EX_in.op;
-    op.result = (int32_t)op.rd_val;
-}
-void DMTC0(VR4300& cpu){
-    VR4300::Operation& op = cpu.EX_in.op;
-    op.result = op.rt_val;
-}
-void DMFC0(VR4300& cpu){
-    VR4300::Operation& op = cpu.EX_in.op;
-    op.result = op.rd_val;
-}*/
+
 void TLBR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     uint8_t tlb_index = cpu.cp0.index & 0x3F;
-    uint8_t G = (cpu.cp0.TLB[tlb_index][1] >> 12) & 1;
+    uint64_t G = (cpu.cp0.TLB[tlb_index][1] >> 12) & 1;
     op.result_pagemask = cpu.cp0.TLB[tlb_index][0];
     op.result_entryHI = cpu.cp0.TLB[tlb_index][1] & ~(1 << 12);
     op.result_entryLO0 = cpu.cp0.TLB[tlb_index][2] + G;
@@ -659,32 +644,49 @@ void TLBR(VR4300& cpu){
 }
 void TLBWI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint8_t G = cpu.cp0.entryLo0 & 1;
-    op.result_pagemask = cpu.cp0.pageMask;
-    op.result_entryHI = cpu.cp0.entryHi;
-    op.result_entryLO0 = cpu.cp0.entryLo0 & (~1);
-    op.result_entryLO1 = cpu.cp0.entryLo1 & (~1);
+    uint64_t G = (cpu.cp0.entryLo0 & 1) && (cpu.cp0.entryLo1 & 1);
+    uint64_t pagemask_high_bits = cpu.cp0.pageMask & (0b101010101010ULL << 13);
+    op.result_pagemask = pagemask_high_bits | (pagemask_high_bits >> 1);
+    op.result_entryHI = cpu.cp0.entryHi & ~op.result_pagemask & ~(G << 12) | (G << 12);
+    op.result_entryLO0 = cpu.cp0.entryLo0 & (0x3fffffe);
+    op.result_entryLO1 = cpu.cp0.entryLo1 & (0x3fffffe);
 }
 void TLBWR(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    uint8_t G = cpu.cp0.entryLo0 & 1;
-    op.result_pagemask = cpu.cp0.pageMask;
-    op.result_entryHI = cpu.cp0.entryHi;
-    op.result_entryLO0 = cpu.cp0.entryLo0 & (~1);
-    op.result_entryLO1 = cpu.cp0.entryLo1 & (~1);
+    uint64_t G = (cpu.cp0.entryLo0 & 1) && (cpu.cp0.entryLo1 & 1);
+    uint64_t pagemask_high_bits = cpu.cp0.pageMask & (0b101010101010ULL << 13);
+    op.result_pagemask = pagemask_high_bits | (pagemask_high_bits >> 1);
+    op.result_entryHI = cpu.cp0.entryHi & ~op.result_pagemask & ~(G << 12) | (G << 12);
+    op.result_entryLO0 = cpu.cp0.entryLo0 & (0x3fffffe);
+    op.result_entryLO1 = cpu.cp0.entryLo1 & (0x3fffffe);
 }
 
 //thsi will need to write the index reg
 void TLBP(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
+
+    
     for (int i = 0; i < 32; i++)
     {
-        if((cpu.cp0.TLB[i][1] & ~(1 << 12)) == cpu.cp0.entryHi){
-            op.result = (int32_t)((1<<31) + i);
+        const uint64_t* tlb_entry = cpu.cp0.TLB[i];
+        uint8_t asid = tlb_entry[1] & 0xFF;
+        uint8_t current_asid =cpu.cp0.entryHi & 0xFF;
+        uint64_t VPN2 = tlb_entry[1] & 0xFFFFFFFE000;
+        uint64_t current_VPN2 = cpu.cp0.entryHi & 0xFFFFFFFE000;
+        uint64_t page_mask = tlb_entry[0];
+        uint64_t R = (cpu.cp0.entryHi >> 62) & 3;
+        uint8_t current_R = (tlb_entry[1] >> 62) & 3;
+        bool G = (tlb_entry[1] >> 12) & 1;
+        if(
+            (VPN2 & ~page_mask) == (current_VPN2 & ~page_mask) &&
+            (asid == current_asid || G) &&
+            (R == current_R)
+        ){
+            op.result = i;
             return;
         }
     }
-    cpu.cp0.entryHi = cpu.cp0.set_bits(cpu.cp0.entryHi,1<<31,0);
+    op.result = 1<<31;
 }
 
 void ERET(VR4300& cpu){
@@ -2292,11 +2294,11 @@ VR4300::OperationTemplate primary_op_lut[64]{
 
 /*20*/ {LB, IS_LOAD | ACCESSES_BYTE | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED ,0,OpType::LB},
 /*21*/ {LH, IS_LOAD | ACCESSES_HALF_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT | SIGN_EXTENDED ,0,OpType::LH},
-/*22*/ {LWL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | LEFT_ACCESS  ,0,OpType::LWL},
+/*22*/ {LWL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | LEFT_ACCESS | SIGN_EXTENDED  ,0,OpType::LWL},
 /*23*/ {LW, IS_LOAD | ACCESSES_WORD | SIGN_EXTENDED | WRITES_REG | STORES_IN_RT ,0,OpType::LW},
 /*24*/ {LBU, IS_LOAD | ACCESSES_BYTE | WRITES_REG | STORES_IN_RT ,0,OpType::LBU},
 /*25*/ {LHU, IS_LOAD | ACCESSES_HALF_WORD | WRITES_REG | STORES_IN_RT ,0,OpType::LHU},
-/*26*/ {LWR, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | RIGHT_ACCESS  ,0,OpType::LWR},
+/*26*/ {LWR, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | RIGHT_ACCESS | SIGN_EXTENDED,0,OpType::LWR},
 /*27*/ {LWU, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT ,0,OpType::LWU},
 
 /*28*/ {SB, IS_STORE | ACCESSES_BYTE  ,0,OpType::SB},
@@ -2308,7 +2310,7 @@ VR4300::OperationTemplate primary_op_lut[64]{
 /*2E*/ {SWR, IS_STORE | ACCESSES_WORD | RIGHT_ACCESS  ,0,OpType::SWR},
 /*2F*/ {CACHE, 0 , 0, OpType::CACHE},           // CACHE uses base (rs)
 
-/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC ,0, OpType::LL},
+/*30*/ {LL, IS_LOAD | ACCESSES_WORD | WRITES_REG | STORES_IN_RT | ATOMIC | SIGN_EXTENDED ,0, OpType::LL},
 /*31*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP ,0, OpType::LWCz},
 /*32*/ {LWCz, IS_LOAD | ACCESSES_WORD | WRITES_REG | SIGN_EXTENDED | STORES_IN_RT | WRITES_CP ,0, OpType::LWCz},
 /*33*/ {},
@@ -2499,7 +2501,7 @@ VR4300::OperationTemplate CP0_op_lut[32]{
 /*06*/ {TLBWR, CPZ,0,OpType::TLBWR},
 /*07*/ {},
 
-/*08*/ {TLBP, CPZ,0,OpType::TLBP},
+/*08*/ {TLBP, WRITES_REG | WRITES_CP | CPZ,0,OpType::TLBP},
 /*09*/ {},
 /*0A*/ {},
 /*0B*/ {},

@@ -20,7 +20,7 @@ const uint32_t CYCLES_PER_FRAME = CPU_HERTZ / FPS;
 
 int main(){
     
-    std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
+    std::ifstream rom_file("ROMS/ZELOOTD.z64", std::ios::binary);
     //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
@@ -90,6 +90,17 @@ int main(){
         }cycles++;
 
         if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+
+                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
+        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
         if(rcp.pi.dma_busy)rcp.pi.continue_dma();
     }
 

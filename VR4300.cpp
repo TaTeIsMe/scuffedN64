@@ -34,11 +34,11 @@ void VR4300::on_pclock()
     
     if(stall){
         stall--;
+        if(!stall) WB_in = {};// make sure WB only executes once
         return;
     }
     
-    //writes back at the end to make sure cpu state doesn't get modified until submit pipeline
-    if ( DC() || EX() || RF() || IC() || WB() ) return;
+    if (WB() || DC() || EX() || RF() || IC()) return;
     PC += 4; //make sure it's ok for this to be here
     submit_pipeline();
 }
@@ -47,50 +47,16 @@ void VR4300::on_pclock()
 bool VR4300::WB()
 {
     auto& in = WB_in;
-    static bool enable_logging = 0;
-    static int logging_started = 0;
-    static FILE* log_file = NULL;
-    int log_count = 0;
-
-    if(enable_logging){
-    ////
-        //if (log_count == 1000)
-        //{
-        //    logging_started = 0;
-        //}
-        if (!logging_started)
-        {
-            logging_started = 1;
-            log_file = fopen("opcode_log.txt", "w");
-        }
-    ////
-        if (logging_started && log_file && in.op.PC)
-        {
-            fprintf(log_file, "PC: %08X | ", in.op.PC);
-            
-            for (int i = 0; i < 32; i++)
-            {
-                fprintf(log_file, "R%02d: %016" PRIX64 " | ", i, (uint64_t)GPR[i]);
-            }
-            log_count += 1;
-    ////
-            fprintf(log_file, " %s | ", in.op.op_name());
-            fprintf(log_file, "\n");
-            fflush(log_file); 
-        }
-        ////
-    }
+    
     //what WB does is:
     // write back. just as the name suggests really
-
-    if(in.op.instruction_type == OpType::CTCz)
-    std::cout<<"";
 
     if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
     {
         //CP0I
-        stall = 1;
-        in.CP0I_triggered = true;
+        //stall = 1;
+        stall = 0;
+        in.CP0I_triggered = true; // This won't work as of right now since WB gets deleted when stalling
         return true;
     }
     if(in.op.flags & IS_STORE){
@@ -111,7 +77,7 @@ bool VR4300::WB()
     if(in.op.flags & WRITES_REG){
         if(in.op.flags & WRITES_CP){
             if(in.op.CPz == 0){
-                cp0.regs[in.op.dest_reg] = (in.op.result & cp0.write_masks[in.op.dest_reg]);
+                cp0.regs[in.op.dest_reg] = (cp0.regs[in.op.dest_reg] & ~cp0.write_masks[in.op.dest_reg]) | (in.op.result & cp0.write_masks[in.op.dest_reg]);
                 if(in.op.dest_reg == 11)
                     cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
                 if(in.op.dest_reg == 6)
@@ -131,10 +97,9 @@ bool VR4300::WB()
         cp0.entryHi = in.op.result_entryHI;
         cp0.entryLo0 = in.op.result_entryLO0;
         cp0.entryLo1 = in.op.result_entryLO1;
+        cp0.pageMask = in.op.result_pagemask;
     }
-    if(in.op.instruction_type == OpType::TLBP){
-        cp0.index = in.op.result;
-    }
+
     if(in.op.instruction_type == OpType::TLBWI || in.op.instruction_type == OpType::TLBWR){
         uint8_t tlb_index;
         if(in.op.instruction_type == OpType::TLBWI) tlb_index = cp0.index;
@@ -144,15 +109,6 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
-
-    static int start_outing = 0;
-    //if(in.op.instruction_type == OpType::DIVfmt)
-    //    start_outing = 1;
-    //if(start_outing)std::cout << in.op << "\n";
-    if(in.op.PC == 0xffffffff80005078)
-    std::cout<<"";
-    if(cp0.wired > 63)
-    std::cerr<<"random broke";
     
     return false;
 }
@@ -211,8 +167,8 @@ bool VR4300::DC()
         if(in.op.instruction_type == OpType::ERET) handle_general_exception(RF_in.op,Int);
         else handle_general_exception(in.op,Int);
 
-        WB();
-        WB_in = {};
+        //WB();
+        //WB_in = {};
         return true;
     }
     
@@ -248,15 +204,19 @@ bool VR4300::DC()
         CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.data_addr);
         if(tlb_result.miss){
             //tlb miss exception
-            if(in.op.flags & IS_STORE) handle_tlb_miss_exception(in.op.data_addr, in.op, TLBS);
-            else handle_tlb_miss_exception(in.op.data_addr, in.op, TLBL);
+            if(in.op.flags & IS_STORE)
+                handle_tlb_miss_exception(in.op.data_addr, in.op, TLBS);
+            else
+                handle_tlb_miss_exception(in.op.data_addr, in.op, TLBL);
             return true;
             
         }
         if(!tlb_result.valid){
             set_tlb_context(in.op.data_addr);
-            if(in.op.flags & IS_STORE) handle_general_exception(in.op, TLBS);
-            else handle_general_exception(in.op, TLBL);
+            if(in.op.flags & IS_STORE)
+                handle_general_exception(in.op, TLBS);
+            else
+                handle_general_exception(in.op, TLBL);
             return true;
         }
         if(!tlb_result.dirty && in.op.flags & IS_STORE){
@@ -266,7 +226,7 @@ bool VR4300::DC()
         }
         
         out.op.data_addr_p = tlb_result.p_addr;
-        out.cacheable = tlb_result.cache;
+        out.cacheable = tlb_result.cache != 2;
     }else out.op.data_addr_p = in.op.data_addr - segment.translation_offset;
     out.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
     
@@ -292,8 +252,8 @@ bool VR4300::DC()
                 in.DCB_triggered = true;
                 return true;
             }else{
-                WB();
-                WB_in = {};
+                //WB();
+                //WB_in = {};
             }
         }
 
@@ -335,16 +295,19 @@ bool VR4300::DC()
             uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
             uint8_t bits = access_size * 8;
+            bool sign_extended = in.op.flags & SIGN_EXTENDED;
 
             if (in.op.flags & LEFT_ACCESS){
                 uint64_t mask = ~0ULL << bit_offset;
                 out.op.result = (in.op.rt_val & ~mask) | ((mem << bit_offset) & mask);
+                out.op.result = (sign_extended) ?(int32_t)out.op.result:out.op.result; //there are only two options, LW and LD
             }
             else if (in.op.flags & RIGHT_ACCESS){
                 uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
+                if(access_size == 4) mask >>= 32;
                 out.op.result = (in.op.rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
+                out.op.result = (sign_extended) ?(int32_t)out.op.result:out.op.result; //there are only two options, LW and LD
             }else {
-                bool sign_extended = in.op.flags & SIGN_EXTENDED;
                 
                 out.op.result = dcache_read_size(line,offset_into_line,access_size);
                 if(access_size == 1) out.op.result = (sign_extended) ? (int64_t)(int8_t)out.op.result:(uint64_t)(uint8_t)out.op.result;
@@ -352,7 +315,6 @@ bool VR4300::DC()
                 else if(access_size == 4) out.op.result = (sign_extended) ? (int64_t)(int32_t)out.op.result:(uint64_t)(uint32_t)out.op.result;
                 else if(access_size == 8) out.op.result = (sign_extended) ? out.op.result:out.op.result;
             }
-
         }else if(in.op.flags & IS_STORE){
             uint32_t offset_into_line = out.op.data_addr_p & 0xF;
             uint64_t og_val = dcache_read_size(line, offset_into_line & ~(access_size - 1), access_size);
@@ -376,8 +338,8 @@ bool VR4300::DC()
                 return true;
             } 
             if(WB_in.op.flags & IS_STORE && out.op.data_addr_p == WB_in.op.data_addr_p && !WB_in.cacheable){
-                WB();
-                WB_in = {};
+                //WB();
+                //WB_in = {};
             }
             uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
             if(in.op.flags & IS_LOAD){
@@ -388,16 +350,19 @@ bool VR4300::DC()
                 uint8_t byte_offset = out.op.data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = access_size * 8;
+                bool sign_extended = in.op.flags & SIGN_EXTENDED;
 
                 if (in.op.flags & LEFT_ACCESS){
                     uint64_t mask = ~0ULL << bit_offset;
                     out.op.result = (in.op.rt_val & ~mask) | ((mem << bit_offset) & mask);
+                    out.op.result = (sign_extended) ?(int32_t)out.op.result:out.op.result; //there are only two options, LW and LD
                 }
                 else if (in.op.flags & RIGHT_ACCESS){
                     uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
+                    if(access_size == 4) mask >>= 32;
                     out.op.result = (in.op.rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
+                    out.op.result = (sign_extended) ?(int32_t)out.op.result:out.op.result; //there are only two options, LW and LD
                 }else {
-                    bool sign_extended = in.op.flags & SIGN_EXTENDED;
                     
                     out.op.result = rcp->read_size(out.op.data_addr_p, access_size);
                     if(access_size == 1) out.op.result = (sign_extended) ? (int64_t)(int8_t)out.op.result:(uint64_t)(uint8_t)out.op.result;
@@ -449,25 +414,31 @@ bool VR4300::EX()
         }
     }
 
-
-    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rt == dc.op.dest_reg && !(dc.op.flags & WRITES_CP)){
-        //LDI
-        stall = 1;
-        in.LDI_triggered = true;
-        return true;
-    }else if(in.LDI_triggered && in.op.rt == dc.op.dest_reg){
-        in.op.rt_val = dc.op.result;
+    if(!in.LDI_triggered && (dc.op.flags & IS_LOAD)){
+        if(!(dc.op.flags & WRITES_CP && dc.op.dest_reg != 0)){
+            if(in.op.rt == dc.op.dest_reg || in.op.rs == dc.op.dest_reg){
+                stall = 1;
+                in.LDI_triggered = true;
+                return true;
+            }
+        }
+        if(dc.op.flags & WRITES_CP){
+            if(in.op.rt == dc.op.dest_reg || in.op.rd == dc.op.dest_reg){
+                stall = 1;
+                in.LDI_triggered = true;
+                return true;
+            }
+        }
+    }else if(in.LDI_triggered && (dc.op.flags & IS_LOAD)){
+        if(!(dc.op.flags & WRITES_CP && dc.op.dest_reg != 0)){
+            if(in.op.rt == dc.op.dest_reg)in.op.rt_val = dc.op.result;
+            if(in.op.rs == dc.op.dest_reg)in.op.rs_val = dc.op.result;
+        }
+        if(dc.op.flags & WRITES_CP){
+            if(in.op.rt == dc.op.dest_reg)in.op.rt_val = dc.op.result;
+            if(in.op.rd == dc.op.dest_reg)in.op.rd_val = dc.op.result;
+        }
     }
-
-    if(dc.op.flags & IS_LOAD && !in.LDI_triggered && dc.op.dest_reg != 0 && in.op.rs == dc.op.dest_reg && !(dc.op.flags & WRITES_CP)){
-        //LDI
-        stall = 1;
-        in.LDI_triggered = true;
-        return true;
-    }else if(in.LDI_triggered && in.op.rs == dc.op.dest_reg){
-        in.op.rs_val = dc.op.result;
-    }
-
 
     if(in.op.multicycle && !in.MCI_triggered){
         //MCI
@@ -566,7 +537,7 @@ bool VR4300::RF()
             return true;
         }
         PC_p = tlb_result.p_addr;
-        cacheable = tlb_result.cache;
+        cacheable = tlb_result.cache != 2;
     }else PC_p = RF_in.op.PC - segment.translation_offset;
 
     uint32_t op_code;
@@ -657,6 +628,44 @@ bool VR4300::IC()
 
     IC_out.icache_index = (PC >> 5) & 0x1FF;
     IC_out.op.PC = PC;
+
+    static int start_outing = 0;
+    if(start_outing)std::cout << WB_in.op << "\n";
+
+    static bool enable_logging = 0;
+    static int logging_started = 0;
+    static FILE* log_file = NULL;
+    int log_count = 0;
+
+    if(enable_logging){
+    ////
+        //if (log_count == 1000)
+        //{
+        //    logging_started = 0;
+        //}
+        if (!logging_started)
+        {
+            logging_started = 1;
+            log_file = fopen("opcode_log.txt", "w");
+        }
+    ////
+        if (logging_started && log_file && WB_in.op.PC)
+        {
+            fprintf(log_file, "PC: %08X | ", WB_in.op.PC);
+            
+            for (int i = 0; i < 32; i++)
+            {
+                fprintf(log_file, "R%02d: %016" PRIX64 " | ", i, (uint64_t)GPR[i]);
+            }
+            log_count += 1;
+    ////
+            fprintf(log_file, " %s | ", WB_in.op.op_name());
+            fprintf(log_file, "\n");
+            fflush(log_file); 
+        }
+        ////
+    }
+
     return false;
 }
 
@@ -719,6 +728,7 @@ bool VR4300::decode_op(uint32_t word)
     if(op.flags & STORES_IN_RT) op.dest_reg = op.rt;
     if(op.flags & STORES_IN_SA) op.dest_reg = op.sa;
     if(op.flags & STORES_IN_31) op.dest_reg = 31;
+    if(op.instruction_type == OpType::TLBP) op.dest_reg = 0;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
     op.CPz = (word >> 26) & 0x3;

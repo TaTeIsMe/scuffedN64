@@ -112,7 +112,7 @@ public:
             uint64_t cause;
             uint64_t EPC;
             uint64_t PRId;
-            uint64_t config;
+            uint64_t config = 0x7006E463;
             uint64_t LLAddr;
             uint64_t watchLo;
             uint64_t watchHi;
@@ -161,23 +161,23 @@ public:
     };
 
     uint64_t write_masks[32]={
-        0xFFFFFFFF1000003FULL, //index
+        0xFFFFFFFF8000003FULL, //index
         0x000000000000003FULL,//random
-        0x0000000003FFFFFFULL,//entryLo0
-        0x0000000003FFFFFFULL,//entryLo1
+        0x000000003FFFFFFFULL,//entryLo0
+        0x000000003FFFFFFFULL,//entryLo1
         0xFFFFFFFFFFFFFFF0ULL,//context
         0x0000000001FFE000ULL,//pageMask
         0x000000000000003FULL,//wired
         0xFFFFFFFFFFFFFFFFULL,//r7
         0xFFFFFFFFFFFFFFFFULL,//badVAddr
         0xFFFFFFFFFFFFFFFFULL,//count
-        0xFFFFFFFFFFFFE0FFULL,//entryHi
+        0xC00000FFFFFFE0FFULL,//entryHi
         0xFFFFFFFFFFFFFFFFULL,//compare
         0xFF7FFFFFFFFFFFFFULL,//status
         0xFFFFFFFFB000037CULL,//cause
         0xFFFFFFFFFFFFFFFFULL,//EPC
         0xFFFFFFFF0000FFFFULL,//PRId
-        0xFFFFFFFF7F00800FULL,//config
+        0x000000000F00800FULL,//config
         0xFFFFFFFFFFFFFFFFULL,//LLAddr
         0xFFFFFFFFFFFFFFFBULL,//watchLo
         0x000000000000000FULL,//watchHi

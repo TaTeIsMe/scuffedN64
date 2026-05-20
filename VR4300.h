@@ -143,10 +143,10 @@ public:
         uint8_t cond = 0;
         uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
         uint32_t target = 0;//for jumps
-        uint32_t result_entryHI = 0;//for tlb instructions
-        uint32_t result_entryLO0 = 0;//for tlb instructions
-        uint32_t result_entryLO1 = 0;//for tlb instructions
-        uint32_t result_pagemask = 0;//for tlb instructions
+        uint64_t result_entryHI = 0;//for tlb instructions
+        uint64_t result_entryLO0 = 0;//for tlb instructions
+        uint64_t result_entryLO1 = 0;//for tlb instructions
+        uint64_t result_pagemask = 0;//for tlb instructions
         uint64_t data_addr = 0; //doubles as virtual address and reg written to
         uint64_t data_addr_p = 0; //write dest but physical
         uint64_t rs_val = 0;//needed during operation
