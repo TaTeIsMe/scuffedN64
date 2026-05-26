@@ -1,5 +1,6 @@
 #include "RSP.h"
 #include "RCP.h"
+#include <stack>
 
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
 
@@ -71,6 +72,8 @@ void RSP::RSPRegs::write_size(uint32_t address, uint64_t value, uint8_t size)
         uint8_t CLR_BROKE = (value >> 2) & 1;
         uint8_t SET_HALT = (value >> 1) & 1;
         uint8_t CLR_HALT = (value >> 0) & 1;
+
+        if(CLR_HALT)rsp.start_task();
 
         set_clear_reg_bit(SET_SIG7, CLR_SIG7, SP_STATUS, 14);
         set_clear_reg_bit(SET_SIG6, CLR_SIG6, SP_STATUS, 13);
@@ -211,5 +214,213 @@ void RSP::finish_dma()
     }else{
         regs.SP_DMA_BUSY = 0;
         regs.SP_STATUS &= ~(1 << 2);
+    }
+}
+
+void RSP::start_task()
+{
+    task_in_progress = true;
+    current_task_type = (RSPTaskType)dmem.mem[0xFC3];
+}
+
+void RSP::continue_task()
+{
+    task_timer++;
+    if(task_timer > TASK_LENGTH)
+        finish_task();
+}
+
+struct Vertex{
+    uint16_t x,y,z;
+};
+
+void RSP::process_gfx_task(OSTask task){
+
+    uint32_t segments[16]{};
+    std::stack<uint32_t> address_stack;
+    Vertex vertex_buffer[32];
+    
+    auto translate_address = [&](uint32_t address){
+        if(address >> 24 == 0x80)return address & 0xFFFFFF;
+        uint32_t seg_id = (address >> 24);
+        uint32_t offset = address & 0xFFFFFF;
+        uint32_t segment = segments[seg_id];
+        return (segment + offset) & 0xFFFFFF;
+    };
+    
+    uint32_t instr_ptr = translate_address(task.data_ptr);
+    
+    while(true){
+        uint64_t instr = rcp.rdram.read_size(instr_ptr, 8);
+
+        switch ((instr >> 56) & 0xFF)
+        {
+        case 0x00: // G_NOOP
+            break;
+        case 0x01: // G_VTX
+        {
+            uint8_t numv = (instr >> 44) & 0xFF;
+            uint8_t buf_id = (((instr >> 32) & 0xFF) >> 1) - numv;
+            uint32_t vaddr = translate_address(instr & 0xFFFFFFFF);
+            for (uint16_t i = 0; i < numv; i++)
+            {
+                uint16_t x = rcp.rdram.read_size(vaddr,2);
+                uint16_t y = rcp.rdram.read_size(vaddr + 2,2);
+                uint16_t z = rcp.rdram.read_size(vaddr + 4,2);
+                vertex_buffer[buf_id + i] = Vertex(x,y,z);
+                vaddr += 16;
+            }
+            
+            break;
+        }
+        case 0x02: // G_MODIFYVTX
+            break;
+        case 0x03: // G_CULLDL
+            break;
+        case 0x04: // G_BRANCH_Z
+            break;
+        case 0x05: // G_TRI1
+            break;
+        case 0x06: // G_TRI2
+            break;
+        case 0x07: // G_QUAD
+            break;
+        case 0xD3: // G_SPECIAL_3
+            break;
+        case 0xD4: // G_SPECIAL_2
+            break;
+        case 0xD5: // G_SPECIAL_1
+            break;
+        case 0xD6: // G_DMA_IO
+            break;
+        case 0xD7: // G_TEXTURE
+            break;
+        case 0xD8: // G_POPMTX
+            break;
+        case 0xD9: // G_GEOMETRYMODE
+            break;
+        case 0xDA: // G_MTX
+            break;
+        case 0xDB: // G_MOVEWORD
+        {
+            uint8_t index = ((instr >> 48) & 0xFF);
+            switch (index)
+            {
+            case G_MW_SEGMENT:
+            {
+                uint8_t segment_id = ((instr >> 32) & 0xFFFF) >> 2;
+                segments[segment_id] = instr & 0xFFFFFFFF;
+                break;
+            }
+            default:
+                break;
+            }
+            break;
+        }
+        case 0xDC: // G_MOVEMEM
+            break;
+        case 0xDD: // G_LOAD_UCODE
+            break;
+        case 0xDE: // G_DL
+            if(((instr >> 48) & 0xFF) == 0) address_stack.push(instr_ptr);
+            instr_ptr = translate_address(instr);
+            continue;
+            break;
+        case 0xDF: // G_ENDDL
+            if(address_stack.empty())
+                return;
+
+            instr_ptr = address_stack.top();
+            address_stack.pop();
+            break;
+        case 0xE0: // G_SPNOP
+            break;
+        case 0xE1: // G_RDPHALF_1
+            break;
+        case 0xE2: // G_SETOTHERMODE_L
+            break;
+        case 0xE3: // G_SETOTHERMODE_H
+            break;
+        case 0xE4: // G_TEXRECT
+            break;
+        case 0xE5: // G_TEXRECTFLIP
+            break;
+        case 0xE6: // G_RDPLOADSYNC
+            break;
+        case 0xE7: // G_RDPPIPESYNC
+            break;
+        case 0xE8: // G_RDPTILESYNC
+            break;
+        case 0xE9: // G_RDPFULLSYNC
+            break;
+        case 0xEA: // G_SETKEYGB
+            break;
+        case 0xEB: // G_SETKEYR
+            break;
+        case 0xEC: // G_SETCONVERT
+            break;
+        case 0xED: // G_SETSCISSOR
+            break;
+        case 0xEE: // G_SETPRIMDEPTH
+            break;
+        case 0xEF: // G_RDPSETOTHERMODE
+            break;
+        case 0xF0: // G_LOADTLUT
+            break;
+        case 0xF1: // G_RDPHALF_2
+            break;
+        case 0xF2: // G_SETTILESIZE
+            break;
+        case 0xF3: // G_LOADBLOCK
+            break;
+        case 0xF4: // G_LOADTILE
+            break;
+        case 0xF5: // G_SETTILE
+            break;
+        case 0xF6: // G_FILLRECT
+            break;
+        case 0xF7: // G_SETFILLCOLOR
+            break;
+        case 0xF8: // G_SETFOGCOLOR
+            break;
+        case 0xF9: // G_SETBLENDCOLOR
+            break;
+        case 0xFA: // G_SETPRIMCOLOR
+            break;
+        case 0xFB: // G_SETENVCOLOR
+            break;
+        case 0xFC: // G_SETCOMBINE
+            break;
+        case 0xFD: // G_SETTIMG
+            break;
+        case 0xFE: // G_SETZIMG
+            break;
+        case 0xFF: // G_SETCIMG
+            break;
+        default:
+            break;
+        }
+    instr_ptr += 8;
+    }
+};
+
+void RSP::finish_task()
+{
+    //also set PC in the future
+    task_in_progress = false;
+    regs.SP_STATUS |= 0x0203;
+
+    OSTask new_task;
+    for(size_t i = 0; i < sizeof(OSTask); i++)
+    {
+        reinterpret_cast<uint8_t*>(&new_task)[i] =
+            dmem.mem[(0xFC0 + i) ^ 3];
+    }
+
+    if(regs.SP_STATUS & 0x40)
+        rcp.mi.route_interrupt(InterruptSource::SP);
+    if(current_task_type == RSPTaskType::GFXTASK){
+        process_gfx_task(new_task);
+        rcp.mi.route_interrupt(InterruptSource::DP);
     }
 }

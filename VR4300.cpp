@@ -11,9 +11,9 @@ void VR4300::on_clock()
 {
     on_pclock();
     on_pclock();
+    if(cp0.count == cp0.compare )//>= cp0.compare)
+        cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
     cp0.count++;
-    if(cp0.count == cp0.compare)
-        cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
     if(cp0.count >= std::numeric_limits<uint32_t>::max())
         cp0.count = 0;
 
@@ -79,7 +79,7 @@ bool VR4300::WB()
             if(in.op.CPz == 0){
                 cp0.regs[in.op.dest_reg] = (cp0.regs[in.op.dest_reg] & ~cp0.write_masks[in.op.dest_reg]) | (in.op.result & cp0.write_masks[in.op.dest_reg]);
                 if(in.op.dest_reg == 11)
-                    cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
+                    cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
                 if(in.op.dest_reg == 6)
                     cp0.random = (cp0.wired > 31)?63:31;
             }
@@ -109,6 +109,10 @@ bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
     }
+    if(in.op.result == 0xffffffff800d6710)
+    std::cout<<"";
+    if(in.op.PC == 0xffffffff80000944)
+    std::cout<<"";
     
     return false;
 }
@@ -128,29 +132,21 @@ bool VR4300::DC()
     // if the data is read from the cache it fetches it
     //a lot of the code below is bloated by exception and interlock handling
 
-    //if(in.op.instruction_type == ICACHE){
-    //    stall = CACHE_OP_STALL_TIME;
-    //    return true;
-    //}
-    //if(in.op.instruction_type == DCACHE){
-    //    stall = 2;
-    //    return true;
+    //for now disabled
+    //if(in.fire_fpu_exception){
+    //    in.fire_fpu_exception = false;
+    //    EX_out.fire_fpu_exception = false;
+    //    uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
+    //    uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
+    //    //wooo magic numbers
+    //    fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
+    //    if( ((Enables | 0x20) & Cause) != 0){
+    //        cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
+    //        handle_general_exception(in.op,FPE);
+    //        return true;
+    //    }
     //}
 
-
-    if(in.fire_fpu_exception){
-        in.fire_fpu_exception = false;
-        EX_out.fire_fpu_exception = false;
-        uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
-        uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
-        //wooo magic numbers
-        fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
-        if( ((Enables | 0x20) & Cause) != 0){
-            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
-            handle_general_exception(in.op,FPE);
-            return true;
-        }
-    }
     if(in.update_conditional){
         fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.conditional_val << 23);
         fpu.COC = in.conditional_val;
@@ -415,14 +411,14 @@ bool VR4300::EX()
     }
 
     if(!in.LDI_triggered && (dc.op.flags & IS_LOAD)){
-        if(!(dc.op.flags & WRITES_CP && dc.op.dest_reg != 0)){
+        if(!(dc.op.flags & WRITES_CP) && dc.op.dest_reg != 0){
             if(in.op.rt == dc.op.dest_reg || in.op.rs == dc.op.dest_reg){
                 stall = 1;
                 in.LDI_triggered = true;
                 return true;
             }
         }
-        if(dc.op.flags & WRITES_CP){
+        if(dc.op.flags & WRITES_CP && in.op.flags & READS_CP){
             if(in.op.rt == dc.op.dest_reg || in.op.rd == dc.op.dest_reg){
                 stall = 1;
                 in.LDI_triggered = true;
@@ -430,14 +426,8 @@ bool VR4300::EX()
             }
         }
     }else if(in.LDI_triggered && (dc.op.flags & IS_LOAD)){
-        if(!(dc.op.flags & WRITES_CP && dc.op.dest_reg != 0)){
-            if(in.op.rt == dc.op.dest_reg)in.op.rt_val = dc.op.result;
-            if(in.op.rs == dc.op.dest_reg)in.op.rs_val = dc.op.result;
-        }
-        if(dc.op.flags & WRITES_CP){
-            if(in.op.rt == dc.op.dest_reg)in.op.rt_val = dc.op.result;
-            if(in.op.rd == dc.op.dest_reg)in.op.rd_val = dc.op.result;
-        }
+            // this might not be perfect forwaring logic
+        forward_write(dc.op, in.op);
     }
 
     if(in.op.multicycle && !in.MCI_triggered){
@@ -588,30 +578,9 @@ bool VR4300::RF()
         }
     }
 
-    //see if override is nessesarry
-    auto forward = [&](const Operation& stage_op)
-    {
-        if (!(stage_op.flags & WRITES_REG) )
-        return;
-        if((stage_op.flags & WRITES_HI) || (stage_op.flags & WRITES_LO))
-        return;
-
-        if (!(stage_op.flags & WRITES_CP))
-            if (in.op.rs == stage_op.dest_reg) in.op.rs_val = stage_op.result;
-
-        if(stage_op.flags & WRITES_CP && in.op.flags & READS_CP){
-            if(stage_op.flags & WRITES_CP && stage_op.CPz != in.op.CPz)
-                return;
-            if (in.op.rt == stage_op.dest_reg) in.op.rt_val = (in.op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
-            if (in.op.rd == stage_op.dest_reg) in.op.rd_val = (in.op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
-            return;
-        }else if(!(stage_op.flags & WRITES_CP) && !(in.op.flags & READS_CP) && !(stage_op.dest_reg == 0))
-            if (in.op.rt == stage_op.dest_reg) in.op.rt_val = stage_op.result;
-    };
-
-    forward(wb.op);
-    forward(dc.op);
-    forward(ex.op);
+    forward_write(wb.op, in.op);
+    forward_write(dc.op, in.op);
+    forward_write(ex.op, in.op);
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
@@ -627,10 +596,11 @@ bool VR4300::IC()
     //it's comical how little it does
 
     IC_out.icache_index = (PC >> 5) & 0x1FF;
+    IC_out.op = Operation();
     IC_out.op.PC = PC;
 
     static int start_outing = 0;
-    if(start_outing)std::cout << WB_in.op << "\n";
+    if(start_outing)std::cout << DC_out.op << "\n";
 
     static bool enable_logging = 0;
     static int logging_started = 0;
@@ -649,9 +619,9 @@ bool VR4300::IC()
             log_file = fopen("opcode_log.txt", "w");
         }
     ////
-        if (logging_started && log_file && WB_in.op.PC)
+        if (logging_started && log_file && DC_out.op.PC)
         {
-            fprintf(log_file, "PC: %08X | ", WB_in.op.PC);
+            fprintf(log_file, "PC: %08X | ", DC_out.op.PC);
             
             for (int i = 0; i < 32; i++)
             {
@@ -659,12 +629,15 @@ bool VR4300::IC()
             }
             log_count += 1;
     ////
-            fprintf(log_file, " %s | ", WB_in.op.op_name());
+            fprintf(log_file, " %s | ", DC_out.op.op_name());
             fprintf(log_file, "\n");
             fflush(log_file); 
         }
         ////
     }
+
+    if(PC == 0xffffffff800e8998)
+    std::cout<<"";
 
     return false;
 }
@@ -969,7 +942,7 @@ const char *VR4300::Operation::op_name() const
 
 std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
 {
-    os<<"PC: "<< std::left <<std::setw(4) << std::hex <<(((op.PC) & 0xFFFC))
+    os<<"PC: "<< std::left <<std::setw(8) << std::hex <<(((op.PC) & 0xFFFFFFFF))
     << " Operation: "<< std::left << std::setw(8) << op.op_name() 
     <<" Result: 0x" << std::left << std::setw(16) << std::hex << op.result
     << " Rs val: "<< std::left <<std::setw(8) << std::hex << (int)op.rs_val
@@ -980,3 +953,23 @@ std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
     << " Data addr phys: "<< std::left <<std::setw(7) << std::hex << (int)op.data_addr_p;
     return os;
 }
+
+void VR4300::forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op)
+{
+    if (!(stage_op.flags & WRITES_REG) )
+    return;
+    if((stage_op.flags & WRITES_HI) || (stage_op.flags & WRITES_LO))
+    return;
+
+    if (!(stage_op.flags & WRITES_CP))
+        if (in_op.rs == stage_op.dest_reg) in_op.rs_val = stage_op.result;
+
+    if(stage_op.flags & WRITES_CP && in_op.flags & READS_CP){
+        if(stage_op.flags & WRITES_CP && stage_op.CPz != in_op.CPz)
+            return;
+        if (in_op.rt == stage_op.dest_reg) in_op.rt_val = (in_op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
+        if (in_op.rd == stage_op.dest_reg) in_op.rd_val = (in_op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
+        return;
+    }else if(!(stage_op.flags & WRITES_CP) && !(in_op.flags & READS_CP) && !(stage_op.dest_reg == 0))
+        if (in_op.rt == stage_op.dest_reg) in_op.rt_val = stage_op.result;
+};

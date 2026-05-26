@@ -229,6 +229,8 @@ public:
     uint8_t handle_cache_op(const Operation& op);
     void dcache_write_back(Dcache_line& line, uint16_t index);
 
+    void forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op);
+
 private:
 };
 

@@ -8,16 +8,6 @@
 #include "Pif.h"
 #include <vector>
 
-//todo:
-    //interrupts
-    //dmas
-    //fpu
-    //make rcp address range only output and accept 32 but values
-
-const uint32_t CPU_HERTZ = 93750000;
-const uint32_t FPS = 60;
-const uint32_t CYCLES_PER_FRAME = CPU_HERTZ / FPS;
-
 int main(){
     
     std::ifstream rom_file("ROMS/ZELOOTD.z64", std::ios::binary);
@@ -78,30 +68,31 @@ int main(){
         //insert 2 RCP cycles here (62 mhz) (not really, rcp is replaced anyway)
 
         //insert 60 hz interrupts here
-        if (cycles >= CYCLES_PER_FRAME) {
+        if (cycles >= 400000){
+            rcp.mi.route_interrupt(InterruptSource::VI);
             cycles = 0;
-            //if(rcp.vi.VI_ORIGIN)
-            //    rcp.mi.route_interrupt(InterruptSource::VI);
-            //if(!(rcp.rsp.regs.SP_STATUS & 1) && ((rcp.rsp.regs.SP_STATUS >> 6) & 1)){ // if not halted and intbreak
-            //    rcp.mi.route_interrupt(InterruptSource::SP);
-            //    rcp.rsp.regs.SP_STATUS |= 3;
-            //  //rcp.mi.route_interrupt(InterruptSource::DP);//???
-            //}
         }cycles++;
 
+        bool dp_i = false;
+        bool pi_i = false;
+        bool vi_i = false;
+        bool ai_i = false;
+        bool si_i = false;
+        bool sp_i = false;
+
+        if(dp_i)rcp.mi.route_interrupt(InterruptSource::DP); // this
+        if(pi_i)rcp.mi.route_interrupt(InterruptSource::PI);
+        if(vi_i)rcp.mi.route_interrupt(InterruptSource::VI);
+        if(ai_i)rcp.mi.route_interrupt(InterruptSource::AI);
+        if(si_i)rcp.mi.route_interrupt(InterruptSource::SI);
+        if(sp_i)rcp.mi.route_interrupt(InterruptSource::SP);
+
+        //replace these later with scheduling events
         if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
         if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-
-                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-                if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
+        if(rcp.si.SI_STATUS & 1)rcp.si.continue_dma();
+        if(rcp.rsp.task_in_progress)rcp.rsp.continue_task();
     }
+    return 0;
 
 }
