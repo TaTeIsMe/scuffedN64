@@ -30,6 +30,7 @@ public:
     Rdram& rdram;
     Cartridge& cartridge;
     Pif& pif;
+    GFX& gfx;
     
     RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif, GFX& gfx);
     

@@ -69,8 +69,7 @@ int main(){
         //insert 2 RCP cycles here (62 mhz) (not really, rcp is replaced anyway)
 
         //insert 60 hz interrupts here
-        if (cycles >= 400000){
-            gfx.render_cycle();
+        if (cycles >= 500000){//figure out this number
             rcp.mi.route_interrupt(InterruptSource::VI);
             cycles = 0;
         }cycles++;

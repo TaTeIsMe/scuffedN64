@@ -17,7 +17,8 @@ si(*this),
 vr4300(vr4300),
 rdram(rdram), 
 cartridge(cartridge), 
-pif(pif) {}
+pif(pif),
+gfx(gfx) {}
 
 uint64_t RCP::read_size(uint64_t address, uint8_t size){
     uint64_t value = 0;

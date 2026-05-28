@@ -1,6 +1,6 @@
 #include "VideoInterface.h"
 #include"RCP.h"
-
+#include "GFX.h"
 VideoInterface::VideoInterface(RCP &rcp):rcp(rcp){}
 
 void VideoInterface::write_size(uint32_t address, uint64_t value, uint8_t size)

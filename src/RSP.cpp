@@ -251,7 +251,7 @@ Matrix parse_mtx_from_mem(std::vector<uint8_t> mem, uint32_t address)
             
             uint32_t raw_combined = ((uint32_t)intpart << 16) | fracpart;
             int32_t combined = (int32_t)raw_combined;
-            mtx[i][j] = (float)combined / 65536.0f;
+            mtx[j][i] = (float)combined / 65536.0f;
         }
     }
     return mtx;
@@ -263,7 +263,7 @@ void RSP::process_gfx_task(OSTask task){
     std::stack<uint32_t> address_stack;
     std::stack<Matrix> modelview_mtx_stack;
     modelview_mtx_stack.push(Matrix::identityMatrix(4));
-    Matrix projection_mtx(4,4);
+    Matrix projection_mtx(Matrix::identityMatrix(4));
     Matrix modelview_projection_mtx(4,4);
     Vertex vertex_buffer[32];
     
@@ -357,16 +357,6 @@ void RSP::process_gfx_task(OSTask task){
             bool G_MTX_PUSH = !((instr >> 32) & 0x1);
             bool G_MTX_MUL = !((instr >> 32) & 0x2);
             bool G_MTX_PROJECTION = ((instr >> 32) & 0x4);
-
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    std::cout << std::hex << (int)rdram.read_size( mtxaddr + i + j, 1) << " ";
-                }
-                std::cout<<"\n";
-            }
-            
 
             Matrix topmtx(4,4);
 
@@ -512,6 +502,7 @@ void RSP::finish_task()
         rcp.mi.route_interrupt(InterruptSource::SP);
     if(current_task_type == RSPTaskType::GFXTASK){
         process_gfx_task(new_task);
+        rcp.rsp.gfx.render_cycle();
         rcp.mi.route_interrupt(InterruptSource::DP);
     }
 }
