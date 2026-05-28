@@ -1,6 +1,9 @@
 #include "RSP.h"
 #include "RCP.h"
 #include <stack>
+#include "Matrix.h"
+#include "Vertex.h"
+#include "GFX.h"
 
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
 
@@ -155,7 +158,7 @@ uint64_t RSP::Dmem::read_size(uint32_t address, uint8_t size)
     return result;
 }
 
-RSP::RSP(RCP& rcp, Rdram& rdram): rcp(rcp), regs(*this), rdram(rdram){}
+RSP::RSP(RCP& rcp, GFX& gfx, Rdram& rdram): rcp(rcp),gfx(gfx), regs(*this), rdram(rdram){}
 
 void RSP::start_dma()
 {
@@ -230,14 +233,38 @@ void RSP::continue_task()
         finish_task();
 }
 
-struct Vertex{
-    uint16_t x,y,z;
-};
+Matrix parse_mtx_from_mem(std::vector<uint8_t> mem, uint32_t address)
+{
+    Matrix mtx(4,4);
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+
+            int16_t intpart = (int16_t)
+                ((mem[address + ((i * 4 + j) * 2)] << 8) |
+                mem[address + ((i * 4 + j) * 2)+ 1]);
+
+            uint16_t fracpart = (uint16_t)
+                ((mem[address + 32 + ((i * 4 + j) * 2)] << 8) | 
+                mem[address + 32 + ((i * 4 + j) * 2)+ 1]);
+            
+            uint32_t raw_combined = ((uint32_t)intpart << 16) | fracpart;
+            int32_t combined = (int32_t)raw_combined;
+            mtx[i][j] = (float)combined / 65536.0f;
+        }
+    }
+    return mtx;
+}
 
 void RSP::process_gfx_task(OSTask task){
 
     uint32_t segments[16]{};
     std::stack<uint32_t> address_stack;
+    std::stack<Matrix> modelview_mtx_stack;
+    modelview_mtx_stack.push(Matrix::identityMatrix(4));
+    Matrix projection_mtx(4,4);
+    Matrix modelview_projection_mtx(4,4);
     Vertex vertex_buffer[32];
     
     auto translate_address = [&](uint32_t address){
@@ -255,19 +282,19 @@ void RSP::process_gfx_task(OSTask task){
 
         switch ((instr >> 56) & 0xFF)
         {
-        case 0x00: // G_NOOP
+        case G_NOOP: // G_NOOP
             break;
-        case 0x01: // G_VTX
+        case G_VTX: // G_VTX
         {
             uint8_t numv = (instr >> 44) & 0xFF;
             uint8_t buf_id = (((instr >> 32) & 0xFF) >> 1) - numv;
             uint32_t vaddr = translate_address(instr & 0xFFFFFFFF);
             for (uint16_t i = 0; i < numv; i++)
             {
-                uint16_t x = rcp.rdram.read_size(vaddr,2);
-                uint16_t y = rcp.rdram.read_size(vaddr + 2,2);
-                uint16_t z = rcp.rdram.read_size(vaddr + 4,2);
-                vertex_buffer[buf_id + i] = Vertex(x,y,z);
+                int16_t x = rcp.rdram.read_size(vaddr,2);
+                int16_t y = rcp.rdram.read_size(vaddr + 2,2);
+                int16_t z = rcp.rdram.read_size(vaddr + 4,2);
+                vertex_buffer[buf_id + i] = Vertex(x,y,z) * modelview_projection_mtx;
                 vaddr += 16;
             }
             
@@ -279,10 +306,27 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0x04: // G_BRANCH_Z
             break;
-        case 0x05: // G_TRI1
+        case G_TRI1: // G_TRI1
+        {
+            uint8_t v0 = ((instr >> 48) & 0xFF) / 2;
+            uint8_t v1 = ((instr >> 40) & 0xFF) / 2;
+            uint8_t v2 = ((instr >> 32) & 0xFF) / 2;
+            gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2]});
             break;
+        }
         case 0x06: // G_TRI2
+        {
+            uint8_t v00 = ((instr >> 48) & 0xFF) / 2;
+            uint8_t v01 = ((instr >> 40) & 0xFF) / 2;
+            uint8_t v02 = ((instr >> 32) & 0xFF) / 2;
+            gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02]});
+
+            uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
+            uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
+            uint8_t v12 = ((instr) & 0xFF) / 2;
+            gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12]});
             break;
+        }
         case 0x07: // G_QUAD
             break;
         case 0xD3: // G_SPECIAL_3
@@ -295,13 +339,65 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xD7: // G_TEXTURE
             break;
-        case 0xD8: // G_POPMTX
+        case G_POPMTX: // G_POPMTX
+        {
+            uint16_t num = (instr & 0xFFFFFFFF) >> 6;
+            for (int i = 0; i < num; i++)
+                if(!modelview_mtx_stack.empty())
+                    modelview_mtx_stack.pop();
+            
             break;
+        }
         case 0xD9: // G_GEOMETRYMODE
             break;
-        case 0xDA: // G_MTX
+        case G_MTX: // G_MTX
+        {
+            uint32_t mtxaddr = translate_address(instr & 0xFFFFFFFF);
+            Matrix mtx = parse_mtx_from_mem(rdram.mem, mtxaddr);
+            bool G_MTX_PUSH = !((instr >> 32) & 0x1);
+            bool G_MTX_MUL = !((instr >> 32) & 0x2);
+            bool G_MTX_PROJECTION = ((instr >> 32) & 0x4);
+
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    std::cout << std::hex << (int)rdram.read_size( mtxaddr + i + j, 1) << " ";
+                }
+                std::cout<<"\n";
+            }
+            
+
+            Matrix topmtx(4,4);
+
+            if(G_MTX_PROJECTION)
+                topmtx = projection_mtx;
+            else if(!modelview_mtx_stack.empty())
+                topmtx = modelview_mtx_stack.top();
+            else
+                topmtx = Matrix::identityMatrix(4);
+
+            if(G_MTX_MUL)
+                mtx = topmtx * mtx;
+            if(!G_MTX_PROJECTION){
+                if(G_MTX_PUSH)
+                    modelview_mtx_stack.push(mtx);
+                else if(!G_MTX_PUSH){
+                    if(!modelview_mtx_stack.empty())
+                        modelview_mtx_stack.top() = mtx;
+                    else
+                        modelview_mtx_stack.push(mtx);
+                }
+            }
+            else if(G_MTX_PROJECTION){
+                projection_mtx = mtx;
+            }
+            if(!modelview_mtx_stack.empty())
+                modelview_projection_mtx = projection_mtx * modelview_mtx_stack.top();
+            
             break;
-        case 0xDB: // G_MOVEWORD
+        }
+        case G_MOVEWORD: // G_MOVEWORD
         {
             uint8_t index = ((instr >> 48) & 0xFF);
             switch (index)
@@ -321,12 +417,12 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xDD: // G_LOAD_UCODE
             break;
-        case 0xDE: // G_DL
+        case G_DL: // G_DL
             if(((instr >> 48) & 0xFF) == 0) address_stack.push(instr_ptr);
             instr_ptr = translate_address(instr);
             continue;
             break;
-        case 0xDF: // G_ENDDL
+        case G_ENDDL: // G_ENDDL
             if(address_stack.empty())
                 return;
 
@@ -410,12 +506,7 @@ void RSP::finish_task()
     task_in_progress = false;
     regs.SP_STATUS |= 0x0203;
 
-    OSTask new_task;
-    for(size_t i = 0; i < sizeof(OSTask); i++)
-    {
-        reinterpret_cast<uint8_t*>(&new_task)[i] =
-            dmem.mem[(0xFC0 + i) ^ 3];
-    }
+    OSTask new_task = OSTask::parse_from_mem(dmem.mem,0xFC0);
 
     if(regs.SP_STATUS & 0x40)
         rcp.mi.route_interrupt(InterruptSource::SP);
@@ -423,4 +514,16 @@ void RSP::finish_task()
         process_gfx_task(new_task);
         rcp.mi.route_interrupt(InterruptSource::DP);
     }
+}
+
+OSTask OSTask::parse_from_mem(std::vector<uint8_t> mem, uint32_t addr)
+{
+    OSTask new_task;
+    for(size_t i = 0; i < sizeof(OSTask); i++)
+    {
+        reinterpret_cast<uint8_t*>(&new_task)[i] =
+            mem[(addr + i) ^ 3];
+    }
+
+    return new_task;
 }

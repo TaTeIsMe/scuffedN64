@@ -5,6 +5,8 @@
 #include <iomanip>
 #include<inttypes.h>
 #include"RCP.h"
+#include <limits>
+
 VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){discard_bd = true;}
 
 void VR4300::on_clock()

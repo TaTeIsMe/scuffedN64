@@ -14,6 +14,64 @@
 #define G_MW_FORCEMTX 0x0C
 #define G_MW_PERSPNORM 0x0E
 
+
+
+enum GBI: uint32_t{
+G_NOOP = 0x00,
+G_VTX = 0x01,
+G_MODIFYVTX = 0x02,
+G_CULLDL = 0x03,
+G_BRANCH_Z = 0x04,
+G_TRI1 = 0x05,
+G_TRI2 = 0x06,
+G_QUAD = 0x07,
+G_SPECIAL3 = 0xD3,
+G_SPECIAL2 = 0xD4,
+G_SPECIAL1 = 0xD5,
+G_DMA_IO = 0xD6,
+G_TEXTURE = 0xD7,
+G_POPMTX = 0xD8,
+G_GEOMETRYMODE = 0xD9,
+G_MTX = 0xDA,
+G_MOVEWORD = 0xDB,
+G_MOVEMEM = 0xDC,
+G_LOAD_UCODE = 0xDD,
+G_DL = 0xDE,
+G_ENDDL = 0xDF,
+G_SPNOP = 0xE0,
+G_RDPHALF_1 = 0xE1,
+G_SETOTHERMODE_L = 0xE2,
+G_SETOTHERMODE_H = 0xE3,
+G_TEXRECT = 0xE4,
+G_TEXRECTFLIP = 0xE5,
+G_RDPLOADSYNC = 0xE6,
+G_RDPPIPESYNC = 0xE7,
+G_RDPTILESYNC = 0xE8,
+G_RDPFULLSYNC = 0xE9,
+G_SETKEYGB = 0xEA,
+G_SETKEYR = 0xEB,
+G_SETCONVERT = 0xEC,
+G_SETSCISSOR = 0xED,
+G_SETPRIMDEPTH = 0xEE,
+G_RDPSETOTHERMODE = 0xEF,
+G_LOADTLUT = 0xF0,
+G_RDPHALF_2 = 0xF1,
+G_SETTILESIZE = 0xF2,
+G_LOADBLOCK = 0xF3,
+G_LOADTILE = 0xF4,
+G_SETTILE = 0xF5,
+G_FILLRECT = 0xF6,
+G_SETFILLCOLOR = 0xF7,
+G_SETFOGCOLOR = 0xF8,
+G_SETBLENDCOLOR = 0xF9,
+G_SETPRIMCOLOR = 0xFA,
+G_SETENVCOLOR = 0xFB,
+G_SETCOMBINE = 0xFC,
+G_SETTIMG = 0xFD,
+G_SETZIMG = 0xFE,
+G_SETCIMG = 0xFF
+};
+
 enum class RSPTaskType : uint32_t{
     NULTASK = 0,
     GFXTASK = 1,
@@ -48,6 +106,8 @@ struct OSTask{
 
     uint32_t yield_data_ptr; //pointer
     uint32_t yield_data_size;
+
+    static OSTask parse_from_mem(std::vector<uint8_t> mem, uint32_t addr);
 };
 
 class RSP
@@ -97,8 +157,9 @@ public:
     bool pending_dma_direction;
     
     class RCP& rcp;
+    class GFX& gfx;
     class Rdram& rdram;
-    RSP(RCP& rcp, Rdram& rdram);
+    RSP(RCP& rcp,GFX& gfx, Rdram& rdram);
 
     uint32_t PC;
     Dmem dmem;

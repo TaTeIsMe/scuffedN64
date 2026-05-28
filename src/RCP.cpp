@@ -6,8 +6,8 @@
 #include"Pif.h"
 #include"VR4300.h"
 
-RCP::RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif):
-rsp(*this, rdram), 
+RCP::RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif, GFX& gfx):
+rsp(*this,gfx, rdram), 
 mi(*this),
 vi(*this),
 ai(*this),

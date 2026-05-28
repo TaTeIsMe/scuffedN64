@@ -31,7 +31,7 @@ public:
     Cartridge& cartridge;
     Pif& pif;
     
-    RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif);
+    RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif, GFX& gfx);
     
     //for all reads i am not sure if unalligned acces is allowed
     uint64_t read_size(uint64_t address, uint8_t size);

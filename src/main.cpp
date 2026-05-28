@@ -7,21 +7,23 @@
 #include "Rdram.h"
 #include "Pif.h"
 #include <vector>
+#include"GFX.h"
 
 int main(){
     
-    std::ifstream rom_file("ROMS/ZELOOTD.z64", std::ios::binary);
+    std::ifstream rom_file("./ROMS/ZELOOTD.z64", std::ios::binary);
     //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
         std::istreambuf_iterator<char>()
     );
     rom_file.close();
+    GFX gfx;
     Pif pif;
     Rdram rdram;
     Cartridge cartridge(rom);
     VR4300 vr4300;
-    RCP rcp(vr4300, rdram, cartridge, pif);
+    RCP rcp(vr4300, rdram, cartridge, pif, gfx);
     vr4300.rcp = &rcp;
     
     //IPL2 skip
@@ -34,7 +36,6 @@ int main(){
     vr4300.GPR[21] = 0;
     vr4300.GPR[22] = 0x91;
     vr4300.GPR[23] = 0;
-    
 
     for (int i = 0; i < 0xFC0; i++)
     {
@@ -69,6 +70,7 @@ int main(){
 
         //insert 60 hz interrupts here
         if (cycles >= 400000){
+            gfx.render_cycle();
             rcp.mi.route_interrupt(InterruptSource::VI);
             cycles = 0;
         }cycles++;
