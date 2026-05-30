@@ -3,7 +3,7 @@ CXX = g++
 COMMON_FLAGS = -Wall -std=c++20 -Iinclude
 
 DEBUG_FLAGS = -g -O0
-RELEASE_FLAGS = -O3 -DNDEBUG
+RELEASE_FLAGS = -O3 -DNDEBUG -march=native -flto
 
 TARGET_DIR = build
 TARGET = $(TARGET_DIR)/main

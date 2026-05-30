@@ -8,6 +8,8 @@
 #include "Pif.h"
 #include <vector>
 #include"GFX.h"
+#include <chrono>
+#include <iostream>
 
 int main(){
     
@@ -59,6 +61,10 @@ int main(){
     rcp.ri.RI_SELECT = 0x14;
     
     uint32_t cycles = 0;
+    
+    uint64_t loop_count = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     //will be 31 MHz hopefully
     while(true){
         //cpu around 93 mhz
@@ -81,18 +87,36 @@ int main(){
         bool si_i = false;
         bool sp_i = false;
 
-        if(dp_i)rcp.mi.route_interrupt(InterruptSource::DP); // this
-        if(pi_i)rcp.mi.route_interrupt(InterruptSource::PI);
-        if(vi_i)rcp.mi.route_interrupt(InterruptSource::VI);
-        if(ai_i)rcp.mi.route_interrupt(InterruptSource::AI);
-        if(si_i)rcp.mi.route_interrupt(InterruptSource::SI);
-        if(sp_i)rcp.mi.route_interrupt(InterruptSource::SP);
-
         //replace these later with scheduling events
-        if(rcp.rsp.regs.SP_DMA_BUSY)rcp.rsp.continue_dma();
-        if(rcp.pi.dma_busy)rcp.pi.continue_dma();
-        if(rcp.si.SI_STATUS & 1)rcp.si.continue_dma();
-        if(rcp.rsp.task_in_progress)rcp.rsp.continue_task();
+        if(rcp.rsp.regs.SP_DMA_BUSY){
+            rcp.rsp.continue_dma();
+        }
+        if(rcp.pi.dma_busy){
+            rcp.pi.continue_dma();
+        }
+        if(rcp.si.SI_STATUS & 1){
+            rcp.si.continue_dma();
+        }
+        if(rcp.rsp.task_in_progress){
+            rcp.rsp.continue_task();
+        }
+
+        // --- MEASURE PERFORMANCE ---
+        loop_count++;
+        if (loop_count >= 10'000'000) [[unlikely]] { 
+            auto end_time = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end_time - start_time;
+            
+            double hz = loop_count / elapsed.count();
+            double mhz = hz / 1'000'000.0;
+            
+            std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
+            
+            // Reset tracking window
+            loop_count = 0;
+            start_time = std::chrono::high_resolution_clock::now();
+        }
+
     }
     return 0;
 

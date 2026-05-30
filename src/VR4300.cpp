@@ -50,7 +50,7 @@ void VR4300::on_pclock()
 }
 
 //Pipeline writeback stage
-bool VR4300::WB()
+inline bool VR4300::WB()
 {
     if(stall_depth > 0)return false;
 
@@ -131,7 +131,7 @@ bool VR4300::WB()
 
 
 //Pipeline data cache stage
-bool VR4300::DC()
+inline bool VR4300::DC()
 {
     if(stall_depth > 1)return false;
     auto& in  = DC_in;
@@ -168,7 +168,7 @@ bool VR4300::DC()
     uint8_t IE = cp0.get_bits(cp0.status,STATUS_IE_MASK,STATUS_IE_SHIFT);
     uint8_t EXL = cp0.get_bits(cp0.status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint8_t ERL = cp0.get_bits(cp0.status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
-    if((IP & IM) && IE && !EXL && !ERL){
+    if((IP & IM) && IE && !EXL && !ERL)[[unlikely]]{
         if(in.op->instruction_type == OpType::ERET) handle_general_exception(*RF_in.op,Int);
         else handle_general_exception(*in.op,Int);
 
@@ -177,7 +177,7 @@ bool VR4300::DC()
         return true;
     }
     
-    if((in.op->flags & IS_TRAP) && in.op->result){
+    if((in.op->flags & IS_TRAP) && in.op->result)[[unlikely]]{
         handle_general_exception(*in.op, Tr);
         return true;
     }
@@ -198,14 +198,14 @@ bool VR4300::DC()
     (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
     (cp0.in_kernel_mode() && !segment.kernel_accesible);
     bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
-    if( !sided && (misalligned || wrong_mode)){
+    if( !sided && (misalligned || wrong_mode))[[unlikely]]{
         cp0.badVAddr = in.op->data_addr;
         if(in.op->flags & IS_STORE)handle_general_exception(*in.op,AdES);
         else handle_general_exception(*in.op,AdEL);
         return true;
     }
 
-    if(segment.tlb_mapped){
+    if(segment.tlb_mapped)[[unlikely]]{
         CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
         if(tlb_result.miss){
             //tlb miss exception
@@ -236,11 +236,11 @@ bool VR4300::DC()
     in.op->dcache_index = (in.op->data_addr & 0x1FF0) >> 4;
     
     
-    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_LOAD)){
+    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_LOAD))[[unlikely]]{
         handle_general_exception(*in.op,WATCH);
         return true;
     }
-    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_STORE)){
+    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_STORE))[[unlikely]]{
         handle_general_exception(*in.op,WATCH);
         return true;
     }
@@ -273,13 +273,13 @@ bool VR4300::DC()
             return false;
         }
 
-        if((!cache_hit || !line.valid)  && !in.DCB_triggered){
+        if((!cache_hit || !line.valid)  && !in.DCB_triggered)[[unlikely]]{
             //DCM + DCB
             stall = 1 + DCACHE_STALL_TIME;
             stall_depth = 1;
             in.DCB_triggered = true;
             return true;
-        }else if((!cache_hit || !line.valid)  && in.DCB_triggered){
+        }else if((!cache_hit || !line.valid)  && in.DCB_triggered)[[unlikely]]{
 
             if(line.dirty && line.valid){
                 //write back previous entry
@@ -401,7 +401,7 @@ bool VR4300::DC()
 }
 
 //Pipeline execute stage
-bool VR4300::EX()
+inline bool VR4300::EX()
 {
     if(stall_depth > 2)return false;
     auto& in  = EX_in;
@@ -415,7 +415,7 @@ bool VR4300::EX()
     if((in.op->flags & CPZ) && in.op->CPz == 2)
     std::cout << "";
 
-    if((in.op->flags & CPZ) && !((CU >> in.op->CPz) & 1)){
+    if((in.op->flags & CPZ) && !((CU >> in.op->CPz) & 1))[[unlikely]]{
         if(!(in.op->CPz == 0 && cp0.in_kernel_mode())){
             cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op->CPz << 28);
             handle_general_exception(*in.op,CpU);
@@ -453,12 +453,12 @@ bool VR4300::EX()
         return true;
     }
 
-    if(in.op->instruction_type == OpType::SYSCALL){
+    if(in.op->instruction_type == OpType::SYSCALL)[[unlikely]]{
         handle_general_exception(*in.op, Sys);
         return true;
     }
 
-    if(in.op->instruction_type == OpType::BREAK){
+    if(in.op->instruction_type == OpType::BREAK)[[unlikely]]{
         handle_general_exception(*in.op, Bp);
         return true;
     }
@@ -477,7 +477,7 @@ bool VR4300::EX()
 }
 
 //Pipeline register fetch stage
-bool VR4300::RF()
+inline bool VR4300::RF()
 {
     if(stall_depth > 3)return false;
     auto& in  = RF_in;
@@ -501,7 +501,8 @@ bool VR4300::RF()
     if(discard_bd){
         discard_bd = false;
         uint64_t prev_PC = in.op->PC;
-        *in.op = {};
+        in.op->execute = NOP;
+        in.op->flags=0;
         in.op->PC = prev_PC;
         return false;
     }
@@ -521,13 +522,13 @@ bool VR4300::RF()
         (cp0.in_user_mode() && !segment.user_accesible) ||
         (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
         (cp0.in_kernel_mode() && !segment.kernel_accesible)
-    ){
+    )[[unlikely]]{
         cp0.badVAddr = RF_in.op->PC;
         handle_general_exception(*in.op,AdEL);
         return true;
     }
 
-    if(segment.tlb_mapped){
+    if(segment.tlb_mapped)[[unlikely]]{
         CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op->PC);
         if(tlb_result.miss){
             //tlb miss exception
@@ -547,13 +548,13 @@ bool VR4300::RF()
     if(cacheable){
         uint8_t offset = (PC_p >> 2) & 0x7;
         Icache_line& line = Icache[in.op->icache_index];
-        if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered){
+        if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered)[[unlikely]]{
             //ICB
             stall = ICACHE_STALL_TIME;
             stall_depth = 3;
             in.ICB_triggered = true;
             return true; 
-        }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered){
+        }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered)[[unlikely]]{
             //update icache
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)
@@ -602,7 +603,7 @@ bool VR4300::RF()
 }
 
 //Pipeline instruction cache stage
-bool VR4300::IC()
+inline bool VR4300::IC()
 {
     //what IC does is:
     // address icache and microtlb
@@ -636,7 +637,7 @@ bool VR4300::decode_op(uint32_t word)
     
     
     Operation& op = *RF_in.op;
-    if (!tmplt->execute) {
+    if (!tmplt->execute)[[unlikely]]{
         // invalid instruction exception (RI)
         handle_general_exception(op,RI);
         return true;
@@ -690,7 +691,8 @@ void VR4300::submit_pipeline(){
     DC_in.op = EX_in.op;
     EX_in.op = RF_in.op;
     RF_in.op = temp;
-    *RF_in.op = {};
+    RF_in.op->execute = NOP;
+    RF_in.op->flags = 0;
 
     RF_in.op->icache_index = (PC >> 5) & 0x1FF;
     RF_in.op->PC = PC;

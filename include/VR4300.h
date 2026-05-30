@@ -210,15 +210,15 @@ public:
 
     Operation op_storage[4];
     //Pipeline stages.
-    bool WB(); // write back
+    inline bool WB(); // write back
     WB_DC WB_in{};
-    bool DC(); // data cache fetch
+    inline bool DC(); // data cache fetch
     EX_DC DC_in{};
-    bool EX(); // execute
+    inline bool EX(); // execute
     RF_EX EX_in{};
-    bool RF(); // register fetch
+    inline bool RF(); // register fetch
     IC_RF RF_in{};
-    bool IC(); // instruction cache fetch
+    inline bool IC(); // instruction cache fetch
 
     
     void submit_pipeline();
@@ -228,7 +228,7 @@ public:
     uint8_t handle_cache_op(const Operation& op);
     void dcache_write_back(Dcache_line& line, uint16_t index);
 
-    void forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op);
+    inline void forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op);
 
 private:
 };
