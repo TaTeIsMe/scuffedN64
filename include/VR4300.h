@@ -133,6 +133,8 @@ public:
     
     struct Operation : OperationTemplate{
         Operation();
+        bool cacheable = false;
+        bool fire_fpu_exception = false;
         uint8_t rs = 0;//reg numebr
         uint8_t rt = 0;//reg number
         uint8_t rd = 0;//reg number
@@ -141,6 +143,7 @@ public:
         uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
         uint8_t cond = 0;
+        uint8_t conditional_val = 0;
         uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
         uint32_t target = 0;//for jumps
         uint64_t result_entryHI = 0;//for tlb instructions
@@ -157,6 +160,7 @@ public:
         uint64_t result_LO = 0;//for multiplying and division
         uint64_t PC = 0;//virtual address of instruction
         uint64_t dcache_index = 0;//for cache writing
+        uint32_t icache_index = 0;
         inline uint8_t access_size();
         const char* op_name() const;
         friend std::ostream& operator<<(std::ostream& os, const Operation& op);
@@ -176,7 +180,6 @@ public:
 
     struct WB_DC{
         Operation op;
-        bool cacheable;
         bool CP0I_triggered;
     };
 
@@ -185,10 +188,8 @@ public:
         bool DCB_triggered;
         bool COp_triggered; // all these flags might have to be moved from ins to outs. That will also require them to be reset on submit pipeline
         bool uncacheable_stall_triggered;
-        bool fire_fpu_exception;
-        bool update_conditional;
-        uint8_t conditional_val;
     };
+    bool update_conditional;
     struct RF_EX{
         Operation op;
         bool MCI_triggered;
@@ -200,10 +201,10 @@ public:
         Operation op;
         bool uncacheable_stall_triggered;
         bool ICB_triggered;
-        uint32_t icache_index;
     };
 
     uint16_t stall;
+    uint8_t stall_depth;
     void on_clock();
     void on_pclock();
 
@@ -213,14 +214,12 @@ public:
     WB_DC DC_out{};
     bool DC(); // data cache fetch
     EX_DC DC_in{};
-    EX_DC EX_out{};
     bool EX(); // execute
     RF_EX EX_in{};
-    RF_EX RF_out{};
     bool RF(); // register fetch
     IC_RF RF_in{};
-    IC_RF IC_out{};
     bool IC(); // instruction cache fetch
+    
     
     void submit_pipeline();
     void dcache_write_size(Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);

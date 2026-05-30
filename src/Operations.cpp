@@ -314,15 +314,15 @@ void DIVU(VR4300& cpu){
 }
 void MFHI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-    if(cpu.EX_out.op.flags & WRITES_HI)op.result = cpu.EX_out.op.result_HI;
-    else if(cpu.DC_out.op.flags & WRITES_HI)op.result = cpu.DC_out.op.result_HI;
+    //if(cpu.EX_out.op.flags & WRITES_HI)op.result = cpu.EX_out.op.result_HI;
+    if(cpu.DC_out.op.flags & WRITES_HI)op.result = cpu.DC_out.op.result_HI;
     else if(cpu.WB_in.op.flags & WRITES_HI)op.result = cpu.WB_in.op.result_HI;
     else op.result = cpu.HI;
 }
 void MFLO(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
-     if(cpu.EX_out.op.flags & WRITES_LO)op.result = cpu.EX_out.op.result_LO;
-    else if(cpu.DC_out.op.flags & WRITES_LO)op.result = cpu.DC_out.op.result_LO;
+    //if(cpu.EX_out.op.flags & WRITES_LO)op.result = cpu.EX_out.op.result_LO;
+    if(cpu.DC_out.op.flags & WRITES_LO)op.result = cpu.DC_out.op.result_LO;
     else if(cpu.WB_in.op.flags & WRITES_LO)op.result = cpu.WB_in.op.result_LO;
     else op.result = cpu.LO;
 }
@@ -787,7 +787,7 @@ void CVTSfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 }
 
 void CVTDfmt(VR4300& cpu){
@@ -850,7 +850,7 @@ void CVTDfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 
@@ -907,7 +907,7 @@ void CVTLfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 void CVTWfmt(VR4300& cpu){
@@ -970,7 +970,7 @@ void CVTWfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 void ROUNDLfmt(VR4300& cpu){
@@ -1023,7 +1023,7 @@ void ROUNDLfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void ROUNDWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1084,7 +1084,7 @@ void ROUNDWfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void TRUNCLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1136,7 +1136,7 @@ void TRUNCLfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void TRUNCWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1197,7 +1197,7 @@ void TRUNCWfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void CEILLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1249,7 +1249,7 @@ void CEILLfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void CEILWfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1310,7 +1310,7 @@ void CEILWfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void FLOORLfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1362,7 +1362,7 @@ void FLOORLfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void FLOORWfmt(VR4300& cpu){
 
@@ -1424,7 +1424,7 @@ void FLOORWfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, 0, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 //fpu computational
@@ -1556,7 +1556,7 @@ void ADDfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void SUBfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1685,7 +1685,7 @@ void SUBfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void MULfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1817,7 +1817,7 @@ void MULfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, underflow, overflow, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void DIVfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -1960,7 +1960,7 @@ void DIVfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, underflow, overflow, zerodiv, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 void ABSfmt(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
@@ -2023,7 +2023,7 @@ void ABSfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(0, 0, 0, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 void MOVfmt(VR4300& cpu){
@@ -2092,7 +2092,7 @@ void NEGfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(0, 0, 0, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 void SQRTfmt(VR4300& cpu){
@@ -2167,7 +2167,7 @@ void SQRTfmt(VR4300& cpu){
         break;
     }
     cpu.fpu.set_cause(inexact, 0, 0, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 
 };
 
@@ -2247,10 +2247,10 @@ void Ccondfmt(VR4300& cpu){
         unimplemented = 1;
         break;
     }
-    cpu.EX_out.update_conditional = 1;
-    cpu.EX_out.conditional_val = condition;
+    cpu.update_conditional = 1;
+    cpu.EX_in.op.conditional_val = condition;
     cpu.fpu.set_cause(0, 0, 0, 0, invalid, unimplemented);
-    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_out.fire_fpu_exception = 1;
+    if((cpu.fpu.FCR31 >> 12) & 0x3F) cpu.EX_in.op.fire_fpu_exception = 1;
 };
 
 VR4300::OperationTemplate primary_op_lut[64]{

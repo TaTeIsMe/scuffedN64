@@ -36,35 +36,38 @@ void VR4300::on_pclock()
     
     if(stall){
         stall--;
-        if(!stall) WB_in = {};// make sure WB only executes once
         return;
     }
     
-    if (WB() || DC() || EX() || RF() || IC()) return;
-    PC += 4; //make sure it's ok for this to be here
+    if (WB() || DC() || EX() || RF() || IC()) return; 
     submit_pipeline();
 }
 
 //Pipeline writeback stage
 bool VR4300::WB()
 {
+    if(stall_depth > 0)return false;
+
     auto& in = WB_in;
     
     //what WB does is:
     // write back. just as the name suggests really
+
 
     if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
     {
         //CP0I
         //stall = 1;
         stall = 0;
+        stall_depth = 0;
         in.CP0I_triggered = true; // This won't work as of right now since WB gets deleted when stalling
         return true;
     }
+
     if(in.op.flags & IS_STORE){
         uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
         if(in.op.flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op.data_addr_p = in.op.data_addr_p & ~(access_size - 1);
-        if(in.cacheable){
+        if(in.op.cacheable){
             if((in.op.flags & ATOMIC) && !LLBit){
                 GPR[in.op.dest_reg] = 0;
                 return false;
@@ -124,6 +127,7 @@ bool VR4300::WB()
 //Pipeline data cache stage
 bool VR4300::DC()
 {
+    if(stall_depth > 1)return false;
     auto& in  = DC_in;
     auto& out = DC_out;
     out.op = in.op;
@@ -149,11 +153,10 @@ bool VR4300::DC()
     //    }
     //}
 
-    if(in.update_conditional){
-        fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.conditional_val << 23);
-        fpu.COC = in.conditional_val;
-        in.update_conditional = false;
-        EX_out.update_conditional = false;
+    if(update_conditional){
+        fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.op.conditional_val << 23);
+        fpu.COC = in.op.conditional_val;
+        update_conditional = false;
     }
 
     uint8_t IP = cp0.get_bits(cp0.cause,CAUSE_IP_MASK,CAUSE_IP_SHIFT);
@@ -181,7 +184,7 @@ bool VR4300::DC()
     }
     
     const CP0::Segment& segment = cp0.get_segment(in.op.data_addr);
-    out.cacheable = segment.cacheable;
+    out.op.cacheable = segment.cacheable;
     
     //DADE
     bool misalligned = (in.op.flags & ACCESSES_DOUBLE_WORD && out.op.data_addr % 8 != 0) ||
@@ -224,7 +227,7 @@ bool VR4300::DC()
         }
         
         out.op.data_addr_p = tlb_result.p_addr;
-        out.cacheable = tlb_result.cache != 2;
+        out.op.cacheable = tlb_result.cache != 2;
     }else out.op.data_addr_p = in.op.data_addr - segment.translation_offset;
     out.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
     
@@ -238,7 +241,7 @@ bool VR4300::DC()
         return true;
     }
     
-    if(out.cacheable){
+    if(out.op.cacheable){
         Dcache_line& line = Dcache[out.op.dcache_index];
         bool cache_hit = ((out.op.data_addr_p >> 12) == line.tag);
         
@@ -247,6 +250,7 @@ bool VR4300::DC()
             //DCB on hit
             if(!in.DCB_triggered){
                 stall = 1;
+                stall_depth = 1;
                 in.DCB_triggered = true;
                 return true;
             }else{
@@ -258,6 +262,7 @@ bool VR4300::DC()
         if(in.op.instruction_type == OpType::CACHE){
             if(!in.COp_triggered){
                 stall = handle_cache_op(out.op); // it might be smart to move this to after the stall
+                stall_depth = 1;
                 in.COp_triggered = true;
                 return true;
             }
@@ -267,6 +272,7 @@ bool VR4300::DC()
         if((!cache_hit || !line.valid)  && !in.DCB_triggered){
             //DCM + DCB
             stall = 1 + DCACHE_STALL_TIME;
+            stall_depth = 1;
             in.DCB_triggered = true;
             return true;
         }else if((!cache_hit || !line.valid)  && in.DCB_triggered){
@@ -332,10 +338,11 @@ bool VR4300::DC()
         if( in.op.flags & (IS_LOAD | IS_STORE)){
             if(!in.uncacheable_stall_triggered){
                 stall = DCACHE_STALL_TIME;
+                stall_depth = 1;
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
-            if(WB_in.op.flags & IS_STORE && out.op.data_addr_p == WB_in.op.data_addr_p && !WB_in.cacheable){
+            if(WB_in.op.flags & IS_STORE && out.op.data_addr_p == WB_in.op.data_addr_p && !WB_in.op.cacheable){
                 //WB();
                 //WB_in = {};
             }
@@ -392,8 +399,8 @@ bool VR4300::DC()
 //Pipeline execute stage
 bool VR4300::EX()
 {
+    if(stall_depth > 2)return false;
     auto& in  = EX_in;
-    auto& out = EX_out;
     auto& dc  = DC_out;
     //what EX does is:
     // 
@@ -416,6 +423,7 @@ bool VR4300::EX()
         if(!(dc.op.flags & WRITES_CP) && dc.op.dest_reg != 0){
             if(in.op.rt == dc.op.dest_reg || in.op.rs == dc.op.dest_reg){
                 stall = 1;
+                stall_depth = 2;
                 in.LDI_triggered = true;
                 return true;
             }
@@ -423,6 +431,7 @@ bool VR4300::EX()
         if(dc.op.flags & WRITES_CP && in.op.flags & READS_CP){
             if(in.op.rt == dc.op.dest_reg || in.op.rd == dc.op.dest_reg){
                 stall = 1;
+                stall_depth = 2;
                 in.LDI_triggered = true;
                 return true;
             }
@@ -435,6 +444,7 @@ bool VR4300::EX()
     if(in.op.multicycle && !in.MCI_triggered){
         //MCI
         stall = in.op.multicycle;
+        stall_depth = 2;
         in.MCI_triggered = true;
         return true;
     }
@@ -459,16 +469,14 @@ bool VR4300::EX()
     }
 
     in.op.execute(*this);
-    out.op = in.op;
     return false;
 }
 
 //Pipeline register fetch stage
 bool VR4300::RF()
 {
+    if(stall_depth > 3)return false;
     auto& in  = RF_in;
-    auto& out = RF_out;
-    auto& ex  = EX_out;
     auto& dc  = DC_out;
     auto& wb  = WB_in;
 
@@ -491,7 +499,6 @@ bool VR4300::RF()
         uint64_t prev_PC = in.op.PC;
         in.op = Operation();
         in.op.PC = prev_PC;
-        out.op = in.op;
         return false;
     }
 
@@ -535,10 +542,11 @@ bool VR4300::RF()
     uint32_t op_code;
     if(cacheable){
         uint8_t offset = (PC_p >> 2) & 0x7;
-        Icache_line& line = Icache[in.icache_index];
+        Icache_line& line = Icache[in.op.icache_index];
         if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered){
             //ICB
             stall = ICACHE_STALL_TIME;
+            stall_depth = 3;
             in.ICB_triggered = true;
             return true; 
         }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered){
@@ -556,6 +564,7 @@ bool VR4300::RF()
         if(!in.uncacheable_stall_triggered){
             //not cacheable so read diractly from memory
             stall = DCACHE_STALL_TIME; //probably takes as long as refilling dcache
+            stall_depth = 3;
             in.uncacheable_stall_triggered = 1;
             return true;
         }
@@ -580,13 +589,11 @@ bool VR4300::RF()
         }
     }
 
-    forward_write(wb.op, in.op);
     forward_write(dc.op, in.op);
-    forward_write(ex.op, in.op);
+    forward_write(EX_in.op, in.op);
 
     if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
-    out.op = in.op;
     return false;
 }
 
@@ -597,104 +604,46 @@ bool VR4300::IC()
     // address icache and microtlb
     //it's comical how little it does
 
-    IC_out.icache_index = (PC >> 5) & 0x1FF;
-    IC_out.op = Operation();
-    IC_out.op.PC = PC;
-
-    static int start_outing = 0;
-    if(start_outing)std::cout << DC_out.op << "\n";
-
-    static bool enable_logging = 0;
-    static int logging_started = 0;
-    static FILE* log_file = NULL;
-    int log_count = 0;
-
-    if(enable_logging){
-    ////
-        //if (log_count == 1000)
-        //{
-        //    logging_started = 0;
-        //}
-        if (!logging_started)
-        {
-            logging_started = 1;
-            log_file = fopen("opcode_log.txt", "w");
-        }
-    ////
-        if (logging_started && log_file && DC_out.op.PC)
-        {
-            fprintf(log_file, "PC: %08X | ", DC_out.op.PC);
-            
-            for (int i = 0; i < 32; i++)
-            {
-                fprintf(log_file, "R%02d: %016" PRIX64 " | ", i, (uint64_t)GPR[i]);
-            }
-            log_count += 1;
-    ////
-            fprintf(log_file, " %s | ", DC_out.op.op_name());
-            fprintf(log_file, "\n");
-            fflush(log_file); 
-        }
-        ////
-    }
-
-    if(PC == 0xffffffff800e8998)
-    std::cout<<"";
-
     return false;
 }
 
-void VR4300::submit_pipeline(){
-
-    if(cp0.random == cp0.wired && cp0.wired < 32)
-        cp0.random = (cp0.wired > 31)?63:31;
-    else{
-        cp0.random--;
-        if(!cp0.random) cp0.random = (cp0.wired > 31)?63:31;
-    }
-
-    RF_in = IC_out;
-    EX_in = RF_out;
-    DC_in = EX_out;
-    WB_in = DC_out;
-}
 
 bool VR4300::decode_op(uint32_t word)
 {
     uint8_t opcode = word >> 26;
     
     const OperationTemplate* tmplt;
-
+    
     if(opcode == 0)
-        tmplt = &special_op_lut[word & 0x3F];
+    tmplt = &special_op_lut[word & 0x3F];
     else if(opcode == 1)
-        tmplt = &regimm_op_lut[(word >> 16) & 0x1F];
+    tmplt = &regimm_op_lut[(word >> 16) & 0x1F];
     else if((opcode >> 2) == 4){
         if(((word >> 21) & 0x1F) == 8)
-            tmplt = &COPzrt_op_lut[(word >> 16) & 0x1F];
+        tmplt = &COPzrt_op_lut[(word >> 16) & 0x1F];
         else if((word >> 25) == 33)
-            tmplt = &CP0_op_lut[word & 0x3F];
+        tmplt = &CP0_op_lut[word & 0x3F];
         else if((word >> 25) == 35)
-            tmplt = &CP1_op_lut[word & 0x3F];
+        tmplt = &CP1_op_lut[word & 0x3F];
         else tmplt = &COPzrs_op_lut[(word >> 21) & 0x1F];
     }
     else
-        tmplt = &primary_op_lut[opcode];
-
-        
+    tmplt = &primary_op_lut[opcode];
+    
+    
     Operation& op = RF_in.op;
     if (!tmplt->execute) {
         // invalid instruction exception (RI)
         handle_general_exception(op,RI);
         return true;
     }
-
-
+    
+    
     op.execute = tmplt->execute;
     op.multicycle = tmplt->multicycle;
     op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
     op.instruction_type = tmplt->instruction_type;
-
+    
     op.rs = (word >> 21) & 0x1F;
     op.rt = (word >> 16) & 0x1F;
     op.rd = (word >> 11) & 0x1F;
@@ -709,27 +658,58 @@ bool VR4300::decode_op(uint32_t word)
     op.CPz = (word >> 26) & 0x3;
     op.cond = word & 0xF;
     return false;
+    
+}
 
+void VR4300::submit_pipeline(){
+
+    if(cp0.random == cp0.wired && cp0.wired < 32)
+        cp0.random = (cp0.wired > 31)?63:31;
+    else{
+        cp0.random--;
+        if(!cp0.random) cp0.random = (cp0.wired > 31)?63:31;
+    }
+
+    stall_depth = 0;
+
+    WB_in.CP0I_triggered = false;
+    DC_in.COp_triggered = false;
+    DC_in.DCB_triggered = false;
+    DC_in.uncacheable_stall_triggered = false;
+    EX_in.LDI_triggered = false;
+    EX_in.MCI_triggered = false;
+    RF_in.ICB_triggered = false;
+    RF_in.uncacheable_stall_triggered = false;
+
+    WB_in = DC_out;
+    DC_in.op = EX_in.op;
+    EX_in.op = RF_in.op;
+    RF_in.op = {};
+
+    RF_in.op.icache_index = (PC >> 5) & 0x1FF;
+    RF_in.op.PC = PC;
+    PC += 4;
 }
 
 void VR4300::abort_pipeline() {
-
-    //std::cout<<"aborting: \n" << 
-    //"WB: " << WB_in.op << "\n" <<
-    //"DC: " << DC_out.op << "\n" <<
-    //"EX: " << EX_in.op << "\n" <<
-    //"RF: " << RF_in.op << "\n";
+    
+    WB_in.CP0I_triggered = false;
+    DC_in.COp_triggered = false;
+    DC_in.DCB_triggered = false;
+    DC_in.uncacheable_stall_triggered = false;
+    EX_in.LDI_triggered = false;
+    EX_in.MCI_triggered = false;
+    RF_in.ICB_triggered = false;
+    RF_in.uncacheable_stall_triggered = false;
 
     RF_in = {};
     EX_in = {};
     DC_in = {};
     WB_in = {};
     
-    RF_out = {};
-    EX_out = {};
     DC_out = {};
-    IC_out = {};
     stall = 0; // maybe
+    stall_depth = 0;
     next_op_bd = false;
     discard_bd = true;
 }
