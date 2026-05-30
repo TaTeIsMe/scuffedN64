@@ -6,6 +6,7 @@
 #include<inttypes.h>
 #include"RCP.h"
 #include <limits>
+#include"CP0.h"
 
 VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){
     discard_bd = true;
@@ -70,7 +71,7 @@ inline bool VR4300::WB()
         return true;
     }
 
-    if(in.op->flags & IS_STORE){
+    if(in.op->is_store){
         if(in.op->flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op->data_addr_p = in.op->data_addr_p & ~(in.op->access_size - 1);
         if(in.op->cacheable){
             if((in.op->flags & ATOMIC) && !LLBit){
@@ -182,7 +183,6 @@ inline bool VR4300::DC()
     }
     
     if(!(in.op->flags & (IS_STORE | IS_LOAD)) && !(in.op->instruction_type == OpType::CACHE)){
-        in.op = in.op;
         return false;
     }
     
@@ -199,7 +199,7 @@ inline bool VR4300::DC()
     bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
     if( !sided && (misalligned || wrong_mode))[[unlikely]]{
         cp0.badVAddr = in.op->data_addr;
-        if(in.op->flags & IS_STORE)handle_general_exception(*in.op,AdES);
+        if(in.op->is_store)handle_general_exception(*in.op,AdES);
         else handle_general_exception(*in.op,AdEL);
         return true;
     }
@@ -208,7 +208,7 @@ inline bool VR4300::DC()
         CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
         if(tlb_result.miss){
             //tlb miss exception
-            if(in.op->flags & IS_STORE)
+            if(in.op->is_store)
                 handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBS);
             else
                 handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBL);
@@ -217,13 +217,13 @@ inline bool VR4300::DC()
         }
         if(!tlb_result.valid){
             set_tlb_context(in.op->data_addr);
-            if(in.op->flags & IS_STORE)
+            if(in.op->is_store)
                 handle_general_exception(*in.op, TLBS);
             else
                 handle_general_exception(*in.op, TLBL);
             return true;
         }
-        if(!tlb_result.dirty && in.op->flags & IS_STORE){
+        if(!tlb_result.dirty && in.op->is_store){
             set_tlb_context(in.op->data_addr);
             handle_general_exception(*in.op, Mod);
             return true;
@@ -235,21 +235,21 @@ inline bool VR4300::DC()
     in.op->dcache_index = (in.op->data_addr & 0x1FF0) >> 4;
     
     
-    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_LOAD))[[unlikely]]{
+    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->is_load))[[unlikely]]{
         handle_general_exception(*in.op,WATCH);
         return true;
     }
-    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_STORE))[[unlikely]]{
+    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->is_store))[[unlikely]]{
         handle_general_exception(*in.op,WATCH);
         return true;
     }
     
-    if(in.op->cacheable){
+    if(in.op->cacheable)[[likely]]{
         Dcache_line& line = Dcache[in.op->dcache_index];
         bool cache_hit = ((in.op->data_addr_p >> 12) == line.tag);
         
         //this interlock logic is messy in general and probably needs to be cleaned up for accuracy, but it works for now
-        if(WB_in.op->flags & IS_STORE /*&& cache_hit*/){// this will cause the interlock to happen too often, but it fixes a bug with two stores following each other 
+        if(WB_in.op->is_store /*&& cache_hit*/){// this will cause the interlock to happen too often, but it fixes a bug with two stores following each other 
             //DCB on hit
             if(!in.DCB_triggered){
                 stall = 1;
@@ -292,7 +292,7 @@ inline bool VR4300::DC()
             line.dirty = false;
         }
 
-        if(in.op->flags & IS_LOAD){
+        if(in.op->is_load){
             if(in.op->flags & ATOMIC) LLBit = 1;
             //fetch data from the cache to put in a reg
             uint32_t offset_into_line = in.op->data_addr_p & 0xF;
@@ -301,7 +301,7 @@ inline bool VR4300::DC()
             uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
             uint8_t bits = in.op->access_size * 8;
-            bool sign_extended = in.op->flags & SIGN_EXTENDED;
+            bool sign_extended = in.op->sign_extended;
 
             if (in.op->flags & LEFT_ACCESS){
                 uint64_t mask = ~0ULL << bit_offset;
@@ -321,7 +321,7 @@ inline bool VR4300::DC()
                 else if(in.op->access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
                 else if(in.op->access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
             }
-        }else if(in.op->flags & IS_STORE){
+        }else if(in.op->is_store){
             uint32_t offset_into_line = in.op->data_addr_p & 0xF;
             uint64_t og_val = dcache_read_size(line, offset_into_line & ~(in.op->access_size - 1), in.op->access_size);
             uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
@@ -344,11 +344,11 @@ inline bool VR4300::DC()
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
-            if(WB_in.op->flags & IS_STORE && in.op->data_addr_p == WB_in.op->data_addr_p && !WB_in.op->cacheable){
+            if(WB_in.op->is_store && in.op->data_addr_p == WB_in.op->data_addr_p && !WB_in.op->cacheable){
                 //WB();
                 //WB_in = {};
             }
-            if(in.op->flags & IS_LOAD){
+            if(in.op->is_load){
 
                 //this is the most consise i could get it...
                 uint64_t mem = rcp->read_size(in.op->data_addr_p & ~(in.op->access_size - 1), in.op->access_size);
@@ -356,7 +356,7 @@ inline bool VR4300::DC()
                 uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = in.op->access_size * 8;
-                bool sign_extended = in.op->flags & SIGN_EXTENDED;
+                bool sign_extended = in.op->sign_extended;
 
                 if (in.op->flags & LEFT_ACCESS){
                     uint64_t mask = ~0ULL << bit_offset;
@@ -377,7 +377,7 @@ inline bool VR4300::DC()
                     else if(in.op->access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
                 }
             }
-            if(in.op->flags & IS_STORE){
+            if(in.op->is_store){
                 //this won't work for 32 bits. reg  value needs to be masked correctly
                 uint64_t og_val;
                 og_val = rcp->read_size(in.op->data_addr_p & ~(in.op->access_size - 1), in.op->access_size);
@@ -420,7 +420,7 @@ inline bool VR4300::EX()
         }
     }
 
-    if(!in.LDI_triggered && (dc.op->flags & IS_LOAD)){
+    if(!in.LDI_triggered && (dc.op->is_load)){
         if(!(dc.op->flags & WRITES_CP) && dc.op->dest_reg != 0){
             if(in.op->rt == dc.op->dest_reg || in.op->rs == dc.op->dest_reg){
                 stall = 1;
@@ -437,7 +437,7 @@ inline bool VR4300::EX()
                 return true;
             }
         }
-    }else if(in.LDI_triggered && (dc.op->flags & IS_LOAD)){
+    }else if(in.LDI_triggered && (dc.op->is_load)){
             // this might not be perfect forwaring logic
         forward_write(*dc.op, *in.op);
     }
@@ -462,10 +462,10 @@ inline bool VR4300::EX()
 
     //this isn't perfect but i actually don't understand how sc would know during dc whether it succeded or not
     //even assuming it knows, with how the pipeline works here implementing that would be hell
-    if((DC_in.op->flags & ATOMIC) && (DC_in.op->flags & IS_STORE) && (in.op->rs == DC_in.op->dest_reg)){
+    if((DC_in.op->flags & ATOMIC) && (DC_in.op->is_store) && (in.op->rs == DC_in.op->dest_reg)){
         in.op->rs_val = LLBit;
     }
-    if((DC_in.op->flags & ATOMIC) && (DC_in.op->flags & IS_STORE) && (in.op->rt == DC_in.op->dest_reg)){
+    if((DC_in.op->flags & ATOMIC) && (DC_in.op->is_store) && (in.op->rt == DC_in.op->dest_reg)){
         in.op->rt_val = LLBit;
     }
 
@@ -646,6 +646,9 @@ bool VR4300::decode_op(uint32_t word)
     op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
     op.instruction_type = tmplt->instruction_type;
     op.access_size = tmplt->access_size;
+    op.is_load = tmplt->flags & IS_LOAD;
+    op.is_store = tmplt->flags & IS_STORE;
+    op.sign_extended = tmplt->flags & SIGN_EXTENDED;
     
     op.rs = (word >> 21) & 0x1F;
     op.rt = (word >> 16) & 0x1F;
@@ -691,6 +694,9 @@ void VR4300::submit_pipeline(){
     RF_in.op = temp;
     RF_in.op->execute = NOP;
     RF_in.op->flags = 0;
+    RF_in.op->is_load = false;
+    RF_in.op->is_store = false;
+    RF_in.op->sign_extended = false;
 
     RF_in.op->icache_index = (PC >> 5) & 0x1FF;
     RF_in.op->PC = PC;

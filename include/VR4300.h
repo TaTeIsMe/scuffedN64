@@ -132,6 +132,9 @@ public:
         Operation();
         bool cacheable = false;
         bool fire_fpu_exception = false;
+        bool is_load = false;
+        bool is_store = false;
+        bool sign_extended = false;
         uint8_t rs = 0;//reg numebr
         uint8_t rt = 0;//reg number
         uint8_t rd = 0;//reg number

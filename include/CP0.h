@@ -217,6 +217,4 @@ public:
     uint32_t set_bits(uint32_t reg, uint32_t mask, uint32_t value);
     uint32_t get_bits(uint32_t reg, uint32_t mask, int shift);
 
-private:
-
 };
