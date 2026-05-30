@@ -80,13 +80,6 @@ int main(){
             cycles = 0;
         }cycles++;
 
-        bool dp_i = false;
-        bool pi_i = false;
-        bool vi_i = false;
-        bool ai_i = false;
-        bool si_i = false;
-        bool sp_i = false;
-
         //replace these later with scheduling events
         if(rcp.rsp.regs.SP_DMA_BUSY){
             rcp.rsp.continue_dma();

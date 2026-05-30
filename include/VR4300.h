@@ -24,10 +24,6 @@ char const* const optype_str[] = {
 
 //these are a mess but it's fine...
 enum OpFlags:uint32_t{
-    ACCESSES_BYTE = 1<<0,
-    ACCESSES_HALF_WORD = 1<<1,
-    ACCESSES_WORD = 1<<2,
-    ACCESSES_DOUBLE_WORD = 1<<3, // first 4 ned to be there since they encode size written
     WRITES_REG = 1<<4,
     CAUSED_EXCEPTION = 1<<5,
     READS_CP0 = 1<<6,
@@ -128,6 +124,7 @@ public:
         void (*execute)(VR4300& cpu) = nullptr;
         uint32_t flags = 0;
         uint8_t multicycle = 0;
+        uint8_t access_size = 0;
         OpType instruction_type = OpType::NOP;
     };
     
@@ -161,7 +158,6 @@ public:
         uint64_t PC = 0;//virtual address of instruction
         uint64_t dcache_index = 0;//for cache writing
         uint32_t icache_index = 0;
-        inline uint8_t access_size();
         const char* op_name() const;
         friend std::ostream& operator<<(std::ostream& os, const Operation& op);
     };

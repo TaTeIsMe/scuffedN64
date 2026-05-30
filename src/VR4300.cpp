@@ -71,8 +71,7 @@ inline bool VR4300::WB()
     }
 
     if(in.op->flags & IS_STORE){
-        uint8_t access_size = in.op->flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
-        if(in.op->flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op->data_addr_p = in.op->data_addr_p & ~(access_size - 1);
+        if(in.op->flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op->data_addr_p = in.op->data_addr_p & ~(in.op->access_size - 1);
         if(in.op->cacheable){
             if((in.op->flags & ATOMIC) && !LLBit){
                 GPR[in.op->dest_reg] = 0;
@@ -80,9 +79,9 @@ inline bool VR4300::WB()
             }else if((in.op->flags & ATOMIC) && LLBit) GPR[in.op->dest_reg] = 1;
             uint8_t offset = in.op->data_addr_p & 0xF;
             Dcache_line &line = Dcache[in.op->dcache_index];
-            dcache_write_size(line, offset, in.op->result, access_size);
+            dcache_write_size(line, offset, in.op->result, in.op->access_size);
         }else{
-            rcp->write_size(in.op->data_addr_p, in.op->result, access_size);
+            rcp->write_size(in.op->data_addr_p, in.op->result, in.op->access_size);
         }
     }
     if(in.op->flags & WRITES_REG){
@@ -97,7 +96,7 @@ inline bool VR4300::WB()
             if(in.op->CPz == 1 && (in.op->flags & CPControl))
                 fpu.set_control(in.op->rd, in.op->result);
             else if(in.op->CPz == 1) 
-                fpu.write_fpr(in.op->dest_reg,in.op->result,in.op->access_size());
+                fpu.write_fpr(in.op->dest_reg,in.op->result,in.op->access_size);
         }else
         if(in.op->dest_reg != 0)
             GPR[in.op->dest_reg] = in.op->result;
@@ -191,9 +190,9 @@ inline bool VR4300::DC()
     in.op->cacheable = segment.cacheable;
     
     //DADE
-    bool misalligned = (in.op->flags & ACCESSES_DOUBLE_WORD && in.op->data_addr % 8 != 0) ||
-    (in.op->flags & ACCESSES_WORD && in.op->data_addr % 4 != 0) ||
-    (in.op->flags & ACCESSES_HALF_WORD && in.op->data_addr % 2 != 0);
+    bool misalligned = ((in.op->access_size == 8) && in.op->data_addr % 8 != 0) ||
+    ((in.op->access_size == 4) && in.op->data_addr % 4 != 0) ||
+    ((in.op->access_size == 2) && in.op->data_addr % 2 != 0);
     bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
     (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
     (cp0.in_kernel_mode() && !segment.kernel_accesible);
@@ -293,16 +292,15 @@ inline bool VR4300::DC()
             line.dirty = false;
         }
 
-        uint8_t access_size = in.op->flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);            
         if(in.op->flags & IS_LOAD){
             if(in.op->flags & ATOMIC) LLBit = 1;
             //fetch data from the cache to put in a reg
             uint32_t offset_into_line = in.op->data_addr_p & 0xF;
-            uint64_t mem = dcache_read_size(line,(offset_into_line & ~(access_size - 1)),access_size );
+            uint64_t mem = dcache_read_size(line,(offset_into_line & ~(in.op->access_size - 1)),in.op->access_size );
 
-            uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
+            uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
-            uint8_t bits = access_size * 8;
+            uint8_t bits = in.op->access_size * 8;
             bool sign_extended = in.op->flags & SIGN_EXTENDED;
 
             if (in.op->flags & LEFT_ACCESS){
@@ -312,23 +310,23 @@ inline bool VR4300::DC()
             }
             else if (in.op->flags & RIGHT_ACCESS){
                 uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
-                if(access_size == 4) mask >>= 32;
+                if(in.op->access_size == 4) mask >>= 32;
                 in.op->result = (in.op->rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
                 in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
             }else {
                 
-                in.op->result = dcache_read_size(line,offset_into_line,access_size);
-                if(access_size == 1) in.op->result = (sign_extended) ? (int64_t)(int8_t)in.op->result:(uint64_t)(uint8_t)in.op->result;
-                else if(access_size == 2) in.op->result = (sign_extended) ? (int64_t)(int16_t)in.op->result:(uint64_t)(uint16_t)in.op->result;
-                else if(access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
-                else if(access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
+                in.op->result = dcache_read_size(line,offset_into_line,in.op->access_size);
+                if(in.op->access_size == 1) in.op->result = (sign_extended) ? (int64_t)(int8_t)in.op->result:(uint64_t)(uint8_t)in.op->result;
+                else if(in.op->access_size == 2) in.op->result = (sign_extended) ? (int64_t)(int16_t)in.op->result:(uint64_t)(uint16_t)in.op->result;
+                else if(in.op->access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
+                else if(in.op->access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
             }
         }else if(in.op->flags & IS_STORE){
             uint32_t offset_into_line = in.op->data_addr_p & 0xF;
-            uint64_t og_val = dcache_read_size(line, offset_into_line & ~(access_size - 1), access_size);
-            uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
+            uint64_t og_val = dcache_read_size(line, offset_into_line & ~(in.op->access_size - 1), in.op->access_size);
+            uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
-            uint8_t bits = access_size * 8;
+            uint8_t bits = in.op->access_size * 8;
             if(in.op->flags & LEFT_ACCESS){
                 uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
                 in.op->result = (og_val & mask) | (in.op->result & ~mask);
@@ -350,15 +348,14 @@ inline bool VR4300::DC()
                 //WB();
                 //WB_in = {};
             }
-            uint8_t access_size = in.op->flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
             if(in.op->flags & IS_LOAD){
 
                 //this is the most consise i could get it...
-                uint64_t mem = rcp->read_size(in.op->data_addr_p & ~(access_size - 1), access_size);
+                uint64_t mem = rcp->read_size(in.op->data_addr_p & ~(in.op->access_size - 1), in.op->access_size);
 
-                uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
+                uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
-                uint8_t bits = access_size * 8;
+                uint8_t bits = in.op->access_size * 8;
                 bool sign_extended = in.op->flags & SIGN_EXTENDED;
 
                 if (in.op->flags & LEFT_ACCESS){
@@ -368,25 +365,25 @@ inline bool VR4300::DC()
                 }
                 else if (in.op->flags & RIGHT_ACCESS){
                     uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
-                    if(access_size == 4) mask >>= 32;
+                    if(in.op->access_size == 4) mask >>= 32;
                     in.op->result = (in.op->rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
                     in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
                 }else {
                     
-                    in.op->result = rcp->read_size(in.op->data_addr_p, access_size);
-                    if(access_size == 1) in.op->result = (sign_extended) ? (int64_t)(int8_t)in.op->result:(uint64_t)(uint8_t)in.op->result;
-                    else if(access_size == 2) in.op->result = (sign_extended) ? (int64_t)(int16_t)in.op->result:(uint64_t)(uint16_t)in.op->result;
-                    else if(access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
-                    else if(access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
+                    in.op->result = rcp->read_size(in.op->data_addr_p, in.op->access_size);
+                    if(in.op->access_size == 1) in.op->result = (sign_extended) ? (int64_t)(int8_t)in.op->result:(uint64_t)(uint8_t)in.op->result;
+                    else if(in.op->access_size == 2) in.op->result = (sign_extended) ? (int64_t)(int16_t)in.op->result:(uint64_t)(uint16_t)in.op->result;
+                    else if(in.op->access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
+                    else if(in.op->access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
                 }
             }
             if(in.op->flags & IS_STORE){
                 //this won't work for 32 bits. reg  value needs to be masked correctly
                 uint64_t og_val;
-                og_val = rcp->read_size(in.op->data_addr_p & ~(access_size - 1), access_size);
-                uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
+                og_val = rcp->read_size(in.op->data_addr_p & ~(in.op->access_size - 1), in.op->access_size);
+                uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
-                uint8_t bits = access_size * 8;
+                uint8_t bits = in.op->access_size * 8;
                 if(in.op->flags & LEFT_ACCESS){
                     uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
                     in.op->result = (og_val & mask) | (in.op->result & ~mask);
@@ -589,8 +586,8 @@ inline bool VR4300::RF()
             else if(in.op->rd == 31) in.op->rd_val = fpu.FCR31;
         }
         else {
-            in.op->rd_val = fpu.get_fpr(in.op->rd, in.op->access_size());
-            in.op->rt_val = fpu.get_fpr(in.op->rt, in.op->access_size());
+            in.op->rd_val = fpu.get_fpr(in.op->rd, in.op->access_size);
+            in.op->rt_val = fpu.get_fpr(in.op->rt, in.op->access_size);
         }
     }
 
@@ -648,6 +645,7 @@ bool VR4300::decode_op(uint32_t word)
     op.multicycle = tmplt->multicycle;
     op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
     op.instruction_type = tmplt->instruction_type;
+    op.access_size = tmplt->access_size;
     
     op.rs = (word >> 21) & 0x1F;
     op.rt = (word >> 16) & 0x1F;
@@ -917,11 +915,6 @@ void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
 VR4300::Operation::Operation()
 {
     execute = NOP;
-}
-
-inline uint8_t VR4300::Operation::access_size()
-{
-   return flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
 }
 
 const char *VR4300::Operation::op_name() const
