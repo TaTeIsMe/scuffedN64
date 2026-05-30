@@ -7,7 +7,13 @@
 #include"RCP.h"
 #include <limits>
 
-VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){discard_bd = true;}
+VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){
+    discard_bd = true;
+    WB_in.op = op_storage;
+    DC_in.op = op_storage + 1;
+    EX_in.op = op_storage + 2;
+    RF_in.op = op_storage + 3;
+}
 
 void VR4300::on_clock()
 {
@@ -54,7 +60,7 @@ bool VR4300::WB()
     // write back. just as the name suggests really
 
 
-    if (in.op.flags & CAUSED_EXCEPTION && DC_in.op.flags & READS_CP0 && !in.CP0I_triggered)
+    if (in.op->flags & CAUSED_EXCEPTION && DC_in.op->flags & READS_CP0 && !in.CP0I_triggered)
     {
         //CP0I
         //stall = 1;
@@ -64,59 +70,59 @@ bool VR4300::WB()
         return true;
     }
 
-    if(in.op.flags & IS_STORE){
-        uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
-        if(in.op.flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op.data_addr_p = in.op.data_addr_p & ~(access_size - 1);
-        if(in.op.cacheable){
-            if((in.op.flags & ATOMIC) && !LLBit){
-                GPR[in.op.dest_reg] = 0;
+    if(in.op->flags & IS_STORE){
+        uint8_t access_size = in.op->flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
+        if(in.op->flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op->data_addr_p = in.op->data_addr_p & ~(access_size - 1);
+        if(in.op->cacheable){
+            if((in.op->flags & ATOMIC) && !LLBit){
+                GPR[in.op->dest_reg] = 0;
                 return false;
-            }else if((in.op.flags & ATOMIC) && LLBit) GPR[in.op.dest_reg] = 1;
-            uint8_t offset = in.op.data_addr_p & 0xF;
-            Dcache_line &line = Dcache[in.op.dcache_index];
-            dcache_write_size(line, offset, in.op.result, access_size);
+            }else if((in.op->flags & ATOMIC) && LLBit) GPR[in.op->dest_reg] = 1;
+            uint8_t offset = in.op->data_addr_p & 0xF;
+            Dcache_line &line = Dcache[in.op->dcache_index];
+            dcache_write_size(line, offset, in.op->result, access_size);
         }else{
-            rcp->write_size(in.op.data_addr_p, in.op.result, access_size);
+            rcp->write_size(in.op->data_addr_p, in.op->result, access_size);
         }
     }
-    if(in.op.flags & WRITES_REG){
-        if(in.op.flags & WRITES_CP){
-            if(in.op.CPz == 0){
-                cp0.regs[in.op.dest_reg] = (cp0.regs[in.op.dest_reg] & ~cp0.write_masks[in.op.dest_reg]) | (in.op.result & cp0.write_masks[in.op.dest_reg]);
-                if(in.op.dest_reg == 11)
+    if(in.op->flags & WRITES_REG){
+        if(in.op->flags & WRITES_CP){
+            if(in.op->CPz == 0){
+                cp0.regs[in.op->dest_reg] = (cp0.regs[in.op->dest_reg] & ~cp0.write_masks[in.op->dest_reg]) | (in.op->result & cp0.write_masks[in.op->dest_reg]);
+                if(in.op->dest_reg == 11)
                     cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
-                if(in.op.dest_reg == 6)
+                if(in.op->dest_reg == 6)
                     cp0.random = (cp0.wired > 31)?63:31;
             }
-            if(in.op.CPz == 1 && (in.op.flags & CPControl))
-                fpu.set_control(in.op.rd, in.op.result);
-            else if(in.op.CPz == 1) 
-                fpu.write_fpr(in.op.dest_reg,in.op.result,in.op.access_size());
+            if(in.op->CPz == 1 && (in.op->flags & CPControl))
+                fpu.set_control(in.op->rd, in.op->result);
+            else if(in.op->CPz == 1) 
+                fpu.write_fpr(in.op->dest_reg,in.op->result,in.op->access_size());
         }else
-        if(in.op.dest_reg != 0)
-            GPR[in.op.dest_reg] = in.op.result;
+        if(in.op->dest_reg != 0)
+            GPR[in.op->dest_reg] = in.op->result;
     }
-    if(in.op.flags & WRITES_LO) LO = in.op.result_LO;
-    if(in.op.flags & WRITES_HI) HI = in.op.result_HI;
-    if(in.op.instruction_type == OpType::TLBR){
-        cp0.entryHi = in.op.result_entryHI;
-        cp0.entryLo0 = in.op.result_entryLO0;
-        cp0.entryLo1 = in.op.result_entryLO1;
-        cp0.pageMask = in.op.result_pagemask;
+    if(in.op->flags & WRITES_LO) LO = in.op->result_LO;
+    if(in.op->flags & WRITES_HI) HI = in.op->result_HI;
+    if(in.op->instruction_type == OpType::TLBR){
+        cp0.entryHi = in.op->result_entryHI;
+        cp0.entryLo0 = in.op->result_entryLO0;
+        cp0.entryLo1 = in.op->result_entryLO1;
+        cp0.pageMask = in.op->result_pagemask;
     }
 
-    if(in.op.instruction_type == OpType::TLBWI || in.op.instruction_type == OpType::TLBWR){
+    if(in.op->instruction_type == OpType::TLBWI || in.op->instruction_type == OpType::TLBWR){
         uint8_t tlb_index;
-        if(in.op.instruction_type == OpType::TLBWI) tlb_index = cp0.index;
+        if(in.op->instruction_type == OpType::TLBWI) tlb_index = cp0.index;
         else tlb_index = cp0.random;
-        cp0.TLB[tlb_index][0] = in.op.result_pagemask;
-        cp0.TLB[tlb_index][1] = in.op.result_entryHI;
-        cp0.TLB[tlb_index][2] = in.op.result_entryLO0;
-        cp0.TLB[tlb_index][3] = in.op.result_entryLO1;
+        cp0.TLB[tlb_index][0] = in.op->result_pagemask;
+        cp0.TLB[tlb_index][1] = in.op->result_entryHI;
+        cp0.TLB[tlb_index][2] = in.op->result_entryLO0;
+        cp0.TLB[tlb_index][3] = in.op->result_entryLO1;
     }
-    if(in.op.result == 0xffffffff800d6710)
+    if(in.op->result == 0xffffffff800d6710)
     std::cout<<"";
-    if(in.op.PC == 0xffffffff80000944)
+    if(in.op->PC == 0xffffffff80000944)
     std::cout<<"";
     
     return false;
@@ -152,8 +158,8 @@ bool VR4300::DC()
     //}
 
     if(update_conditional){
-        fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.op.conditional_val << 23);
-        fpu.COC = in.op.conditional_val;
+        fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.op->conditional_val << 23);
+        fpu.COC = in.op->conditional_val;
         update_conditional = false;
     }
 
@@ -163,88 +169,88 @@ bool VR4300::DC()
     uint8_t EXL = cp0.get_bits(cp0.status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint8_t ERL = cp0.get_bits(cp0.status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
     if((IP & IM) && IE && !EXL && !ERL){
-        if(in.op.instruction_type == OpType::ERET) handle_general_exception(RF_in.op,Int);
-        else handle_general_exception(in.op,Int);
+        if(in.op->instruction_type == OpType::ERET) handle_general_exception(*RF_in.op,Int);
+        else handle_general_exception(*in.op,Int);
 
         //WB();
         //WB_in = {};
         return true;
     }
     
-    if((in.op.flags & IS_TRAP) && in.op.result){
-        handle_general_exception(in.op, Tr);
+    if((in.op->flags & IS_TRAP) && in.op->result){
+        handle_general_exception(*in.op, Tr);
         return true;
     }
     
-    if(!(in.op.flags & (IS_STORE | IS_LOAD)) && !(in.op.instruction_type == OpType::CACHE)){
+    if(!(in.op->flags & (IS_STORE | IS_LOAD)) && !(in.op->instruction_type == OpType::CACHE)){
         in.op = in.op;
         return false;
     }
     
-    const CP0::Segment& segment = cp0.get_segment(in.op.data_addr);
-    in.op.cacheable = segment.cacheable;
+    const CP0::Segment& segment = cp0.get_segment(in.op->data_addr);
+    in.op->cacheable = segment.cacheable;
     
     //DADE
-    bool misalligned = (in.op.flags & ACCESSES_DOUBLE_WORD && in.op.data_addr % 8 != 0) ||
-    (in.op.flags & ACCESSES_WORD && in.op.data_addr % 4 != 0) ||
-    (in.op.flags & ACCESSES_HALF_WORD && in.op.data_addr % 2 != 0);
+    bool misalligned = (in.op->flags & ACCESSES_DOUBLE_WORD && in.op->data_addr % 8 != 0) ||
+    (in.op->flags & ACCESSES_WORD && in.op->data_addr % 4 != 0) ||
+    (in.op->flags & ACCESSES_HALF_WORD && in.op->data_addr % 2 != 0);
     bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
     (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
     (cp0.in_kernel_mode() && !segment.kernel_accesible);
-    bool sided = (in.op.flags & (RIGHT_ACCESS | LEFT_ACCESS));
+    bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
     if( !sided && (misalligned || wrong_mode)){
-        cp0.badVAddr = in.op.data_addr;
-        if(in.op.flags & IS_STORE)handle_general_exception(in.op,AdES);
-        else handle_general_exception(in.op,AdEL);
+        cp0.badVAddr = in.op->data_addr;
+        if(in.op->flags & IS_STORE)handle_general_exception(*in.op,AdES);
+        else handle_general_exception(*in.op,AdEL);
         return true;
     }
 
     if(segment.tlb_mapped){
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op.data_addr);
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
         if(tlb_result.miss){
             //tlb miss exception
-            if(in.op.flags & IS_STORE)
-                handle_tlb_miss_exception(in.op.data_addr, in.op, TLBS);
+            if(in.op->flags & IS_STORE)
+                handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBS);
             else
-                handle_tlb_miss_exception(in.op.data_addr, in.op, TLBL);
+                handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBL);
             return true;
             
         }
         if(!tlb_result.valid){
-            set_tlb_context(in.op.data_addr);
-            if(in.op.flags & IS_STORE)
-                handle_general_exception(in.op, TLBS);
+            set_tlb_context(in.op->data_addr);
+            if(in.op->flags & IS_STORE)
+                handle_general_exception(*in.op, TLBS);
             else
-                handle_general_exception(in.op, TLBL);
+                handle_general_exception(*in.op, TLBL);
             return true;
         }
-        if(!tlb_result.dirty && in.op.flags & IS_STORE){
-            set_tlb_context(in.op.data_addr);
-            handle_general_exception(in.op, Mod);
+        if(!tlb_result.dirty && in.op->flags & IS_STORE){
+            set_tlb_context(in.op->data_addr);
+            handle_general_exception(*in.op, Mod);
             return true;
         }
         
-        in.op.data_addr_p = tlb_result.p_addr;
-        in.op.cacheable = tlb_result.cache != 2;
-    }else in.op.data_addr_p = in.op.data_addr - segment.translation_offset;
-    in.op.dcache_index = (in.op.data_addr & 0x1FF0) >> 4;
+        in.op->data_addr_p = tlb_result.p_addr;
+        in.op->cacheable = tlb_result.cache != 2;
+    }else in.op->data_addr_p = in.op->data_addr - segment.translation_offset;
+    in.op->dcache_index = (in.op->data_addr & 0x1FF0) >> 4;
     
     
-    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_LOAD)){
-        handle_general_exception(in.op,WATCH);
+    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_LOAD)){
+        handle_general_exception(*in.op,WATCH);
         return true;
     }
-    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op.data_addr_p >> 3) == (cp0.watchLo>>3) && in.op.flags & IS_STORE)){
-        handle_general_exception(in.op,WATCH);
+    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->flags & IS_STORE)){
+        handle_general_exception(*in.op,WATCH);
         return true;
     }
     
-    if(in.op.cacheable){
-        Dcache_line& line = Dcache[in.op.dcache_index];
-        bool cache_hit = ((in.op.data_addr_p >> 12) == line.tag);
+    if(in.op->cacheable){
+        Dcache_line& line = Dcache[in.op->dcache_index];
+        bool cache_hit = ((in.op->data_addr_p >> 12) == line.tag);
         
         //this interlock logic is messy in general and probably needs to be cleaned up for accuracy, but it works for now
-        if(WB_in.op.flags & IS_STORE /*&& cache_hit*/){// this will cause the interlock to happen too often, but it fixes a bug with two stores following each other 
+        if(WB_in.op->flags & IS_STORE /*&& cache_hit*/){// this will cause the interlock to happen too often, but it fixes a bug with two stores following each other 
             //DCB on hit
             if(!in.DCB_triggered){
                 stall = 1;
@@ -257,9 +263,9 @@ bool VR4300::DC()
             }
         }
 
-        if(in.op.instruction_type == OpType::CACHE){
+        if(in.op->instruction_type == OpType::CACHE){
             if(!in.COp_triggered){
-                stall = handle_cache_op(in.op); // it might be smart to move this to after the stall
+                stall = handle_cache_op(*in.op); // it might be smart to move this to after the stall
                 stall_depth = 1;
                 in.COp_triggered = true;
                 return true;
@@ -277,116 +283,116 @@ bool VR4300::DC()
 
             if(line.dirty && line.valid){
                 //write back previous entry
-                dcache_write_back(line, in.op.dcache_index);
+                dcache_write_back(line, in.op->dcache_index);
             }
             //update dcache
-            uint64_t line_start_addr = in.op.data_addr_p & ~0xF;
+            uint64_t line_start_addr = in.op->data_addr_p & ~0xF;
             for (int i = 0; i < 16; i++) line.data[i] = rcp->read_size(line_start_addr + i, 1);
-            line.tag = in.op.data_addr_p >> 12;
+            line.tag = in.op->data_addr_p >> 12;
             line.valid = true;
             line.dirty = false;
         }
 
-        uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);            
-        if(in.op.flags & IS_LOAD){
-            if(in.op.flags & ATOMIC) LLBit = 1;
+        uint8_t access_size = in.op->flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);            
+        if(in.op->flags & IS_LOAD){
+            if(in.op->flags & ATOMIC) LLBit = 1;
             //fetch data from the cache to put in a reg
-            uint32_t offset_into_line = in.op.data_addr_p & 0xF;
+            uint32_t offset_into_line = in.op->data_addr_p & 0xF;
             uint64_t mem = dcache_read_size(line,(offset_into_line & ~(access_size - 1)),access_size );
 
-            uint8_t byte_offset = in.op.data_addr_p & (access_size - 1);
+            uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
             uint8_t bits = access_size * 8;
-            bool sign_extended = in.op.flags & SIGN_EXTENDED;
+            bool sign_extended = in.op->flags & SIGN_EXTENDED;
 
-            if (in.op.flags & LEFT_ACCESS){
+            if (in.op->flags & LEFT_ACCESS){
                 uint64_t mask = ~0ULL << bit_offset;
-                in.op.result = (in.op.rt_val & ~mask) | ((mem << bit_offset) & mask);
-                in.op.result = (sign_extended) ?(int32_t)in.op.result:in.op.result; //there are only two options, LW and LD
+                in.op->result = (in.op->rt_val & ~mask) | ((mem << bit_offset) & mask);
+                in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
             }
-            else if (in.op.flags & RIGHT_ACCESS){
+            else if (in.op->flags & RIGHT_ACCESS){
                 uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
                 if(access_size == 4) mask >>= 32;
-                in.op.result = (in.op.rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
-                in.op.result = (sign_extended) ?(int32_t)in.op.result:in.op.result; //there are only two options, LW and LD
+                in.op->result = (in.op->rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
+                in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
             }else {
                 
-                in.op.result = dcache_read_size(line,offset_into_line,access_size);
-                if(access_size == 1) in.op.result = (sign_extended) ? (int64_t)(int8_t)in.op.result:(uint64_t)(uint8_t)in.op.result;
-                else if(access_size == 2) in.op.result = (sign_extended) ? (int64_t)(int16_t)in.op.result:(uint64_t)(uint16_t)in.op.result;
-                else if(access_size == 4) in.op.result = (sign_extended) ? (int64_t)(int32_t)in.op.result:(uint64_t)(uint32_t)in.op.result;
-                else if(access_size == 8) in.op.result = (sign_extended) ? in.op.result:in.op.result;
+                in.op->result = dcache_read_size(line,offset_into_line,access_size);
+                if(access_size == 1) in.op->result = (sign_extended) ? (int64_t)(int8_t)in.op->result:(uint64_t)(uint8_t)in.op->result;
+                else if(access_size == 2) in.op->result = (sign_extended) ? (int64_t)(int16_t)in.op->result:(uint64_t)(uint16_t)in.op->result;
+                else if(access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
+                else if(access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
             }
-        }else if(in.op.flags & IS_STORE){
-            uint32_t offset_into_line = in.op.data_addr_p & 0xF;
+        }else if(in.op->flags & IS_STORE){
+            uint32_t offset_into_line = in.op->data_addr_p & 0xF;
             uint64_t og_val = dcache_read_size(line, offset_into_line & ~(access_size - 1), access_size);
-            uint8_t byte_offset = in.op.data_addr_p & (access_size - 1);
+            uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
             uint8_t bits = access_size * 8;
-            if(in.op.flags & LEFT_ACCESS){
+            if(in.op->flags & LEFT_ACCESS){
                 uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
-                in.op.result = (og_val & mask) | (in.op.result & ~mask);
-            }else if(in.op.flags & RIGHT_ACCESS){
+                in.op->result = (og_val & mask) | (in.op->result & ~mask);
+            }else if(in.op->flags & RIGHT_ACCESS){
                 uint64_t mask = ~0ULL << (bits - bit_offset - 8);
-                in.op.result = (og_val & ~mask) | (in.op.result & mask);
+                in.op->result = (og_val & ~mask) | (in.op->result & mask);
             }
             line.dirty = 1;
         }
     }else{//if not cacheable
-        if( in.op.flags & (IS_LOAD | IS_STORE)){
+        if( in.op->flags & (IS_LOAD | IS_STORE)){
             if(!in.uncacheable_stall_triggered){
                 stall = DCACHE_STALL_TIME;
                 stall_depth = 1;
                 in.uncacheable_stall_triggered = 1;
                 return true;
             } 
-            if(WB_in.op.flags & IS_STORE && in.op.data_addr_p == WB_in.op.data_addr_p && !WB_in.op.cacheable){
+            if(WB_in.op->flags & IS_STORE && in.op->data_addr_p == WB_in.op->data_addr_p && !WB_in.op->cacheable){
                 //WB();
                 //WB_in = {};
             }
-            uint8_t access_size = in.op.flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
-            if(in.op.flags & IS_LOAD){
+            uint8_t access_size = in.op->flags & (ACCESSES_BYTE | ACCESSES_DOUBLE_WORD | ACCESSES_HALF_WORD | ACCESSES_WORD);
+            if(in.op->flags & IS_LOAD){
 
                 //this is the most consise i could get it...
-                uint64_t mem = rcp->read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
+                uint64_t mem = rcp->read_size(in.op->data_addr_p & ~(access_size - 1), access_size);
 
-                uint8_t byte_offset = in.op.data_addr_p & (access_size - 1);
+                uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = access_size * 8;
-                bool sign_extended = in.op.flags & SIGN_EXTENDED;
+                bool sign_extended = in.op->flags & SIGN_EXTENDED;
 
-                if (in.op.flags & LEFT_ACCESS){
+                if (in.op->flags & LEFT_ACCESS){
                     uint64_t mask = ~0ULL << bit_offset;
-                    in.op.result = (in.op.rt_val & ~mask) | ((mem << bit_offset) & mask);
-                    in.op.result = (sign_extended) ?(int32_t)in.op.result:in.op.result; //there are only two options, LW and LD
+                    in.op->result = (in.op->rt_val & ~mask) | ((mem << bit_offset) & mask);
+                    in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
                 }
-                else if (in.op.flags & RIGHT_ACCESS){
+                else if (in.op->flags & RIGHT_ACCESS){
                     uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
                     if(access_size == 4) mask >>= 32;
-                    in.op.result = (in.op.rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
-                    in.op.result = (sign_extended) ?(int32_t)in.op.result:in.op.result; //there are only two options, LW and LD
+                    in.op->result = (in.op->rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
+                    in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
                 }else {
                     
-                    in.op.result = rcp->read_size(in.op.data_addr_p, access_size);
-                    if(access_size == 1) in.op.result = (sign_extended) ? (int64_t)(int8_t)in.op.result:(uint64_t)(uint8_t)in.op.result;
-                    else if(access_size == 2) in.op.result = (sign_extended) ? (int64_t)(int16_t)in.op.result:(uint64_t)(uint16_t)in.op.result;
-                    else if(access_size == 4) in.op.result = (sign_extended) ? (int64_t)(int32_t)in.op.result:(uint64_t)(uint32_t)in.op.result;
-                    else if(access_size == 8) in.op.result = (sign_extended) ? in.op.result:in.op.result;
+                    in.op->result = rcp->read_size(in.op->data_addr_p, access_size);
+                    if(access_size == 1) in.op->result = (sign_extended) ? (int64_t)(int8_t)in.op->result:(uint64_t)(uint8_t)in.op->result;
+                    else if(access_size == 2) in.op->result = (sign_extended) ? (int64_t)(int16_t)in.op->result:(uint64_t)(uint16_t)in.op->result;
+                    else if(access_size == 4) in.op->result = (sign_extended) ? (int64_t)(int32_t)in.op->result:(uint64_t)(uint32_t)in.op->result;
+                    else if(access_size == 8) in.op->result = (sign_extended) ? in.op->result:in.op->result;
                 }
             }
-            if(in.op.flags & IS_STORE){
+            if(in.op->flags & IS_STORE){
                 //this won't work for 32 bits. reg  value needs to be masked correctly
                 uint64_t og_val;
-                og_val = rcp->read_size(in.op.data_addr_p & ~(access_size - 1), access_size);
-                uint8_t byte_offset = in.op.data_addr_p & (access_size - 1);
+                og_val = rcp->read_size(in.op->data_addr_p & ~(access_size - 1), access_size);
+                uint8_t byte_offset = in.op->data_addr_p & (access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = access_size * 8;
-                if(in.op.flags & LEFT_ACCESS){
+                if(in.op->flags & LEFT_ACCESS){
                     uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
-                    in.op.result = (og_val & mask) | (in.op.result & ~mask);
-                }else if(in.op.flags & RIGHT_ACCESS){
+                    in.op->result = (og_val & mask) | (in.op->result & ~mask);
+                }else if(in.op->flags & RIGHT_ACCESS){
                     uint64_t mask = ~0ULL << (bits - bit_offset - 8);
-                    in.op.result = (og_val & ~mask) | (in.op.result & mask);
+                    in.op->result = (og_val & ~mask) | (in.op->result & mask);
                 }
             }
         }
@@ -406,67 +412,67 @@ bool VR4300::EX()
 
 
     uint8_t CU = (cp0.status >> 28) & 0xF;
-    if((in.op.flags & CPZ) && in.op.CPz == 2)
+    if((in.op->flags & CPZ) && in.op->CPz == 2)
     std::cout << "";
 
-    if((in.op.flags & CPZ) && !((CU >> in.op.CPz) & 1)){
-        if(!(in.op.CPz == 0 && cp0.in_kernel_mode())){
-            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op.CPz << 28);
-            handle_general_exception(in.op,CpU);
+    if((in.op->flags & CPZ) && !((CU >> in.op->CPz) & 1)){
+        if(!(in.op->CPz == 0 && cp0.in_kernel_mode())){
+            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op->CPz << 28);
+            handle_general_exception(*in.op,CpU);
             return true;
         }
     }
 
-    if(!in.LDI_triggered && (dc.op.flags & IS_LOAD)){
-        if(!(dc.op.flags & WRITES_CP) && dc.op.dest_reg != 0){
-            if(in.op.rt == dc.op.dest_reg || in.op.rs == dc.op.dest_reg){
+    if(!in.LDI_triggered && (dc.op->flags & IS_LOAD)){
+        if(!(dc.op->flags & WRITES_CP) && dc.op->dest_reg != 0){
+            if(in.op->rt == dc.op->dest_reg || in.op->rs == dc.op->dest_reg){
                 stall = 1;
                 stall_depth = 2;
                 in.LDI_triggered = true;
                 return true;
             }
         }
-        if(dc.op.flags & WRITES_CP && in.op.flags & READS_CP){
-            if(in.op.rt == dc.op.dest_reg || in.op.rd == dc.op.dest_reg){
+        if(dc.op->flags & WRITES_CP && in.op->flags & READS_CP){
+            if(in.op->rt == dc.op->dest_reg || in.op->rd == dc.op->dest_reg){
                 stall = 1;
                 stall_depth = 2;
                 in.LDI_triggered = true;
                 return true;
             }
         }
-    }else if(in.LDI_triggered && (dc.op.flags & IS_LOAD)){
+    }else if(in.LDI_triggered && (dc.op->flags & IS_LOAD)){
             // this might not be perfect forwaring logic
-        forward_write(dc.op, in.op);
+        forward_write(*dc.op, *in.op);
     }
 
-    if(in.op.multicycle && !in.MCI_triggered){
+    if(in.op->multicycle && !in.MCI_triggered){
         //MCI
-        stall = in.op.multicycle;
+        stall = in.op->multicycle;
         stall_depth = 2;
         in.MCI_triggered = true;
         return true;
     }
 
-    if(in.op.instruction_type == OpType::SYSCALL){
-        handle_general_exception(in.op, Sys);
+    if(in.op->instruction_type == OpType::SYSCALL){
+        handle_general_exception(*in.op, Sys);
         return true;
     }
 
-    if(in.op.instruction_type == OpType::BREAK){
-        handle_general_exception(in.op, Bp);
+    if(in.op->instruction_type == OpType::BREAK){
+        handle_general_exception(*in.op, Bp);
         return true;
     }
 
     //this isn't perfect but i actually don't understand how sc would know during dc whether it succeded or not
     //even assuming it knows, with how the pipeline works here implementing that would be hell
-    if((DC_in.op.flags & ATOMIC) && (DC_in.op.flags & IS_STORE) && (in.op.rs == DC_in.op.dest_reg)){
-        in.op.rs_val = LLBit;
+    if((DC_in.op->flags & ATOMIC) && (DC_in.op->flags & IS_STORE) && (in.op->rs == DC_in.op->dest_reg)){
+        in.op->rs_val = LLBit;
     }
-    if((DC_in.op.flags & ATOMIC) && (DC_in.op.flags & IS_STORE) && (in.op.rt == DC_in.op.dest_reg)){
-        in.op.rt_val = LLBit;
+    if((DC_in.op->flags & ATOMIC) && (DC_in.op->flags & IS_STORE) && (in.op->rt == DC_in.op->dest_reg)){
+        in.op->rt_val = LLBit;
     }
 
-    in.op.execute(*this);
+    in.op->execute(*this);
     return false;
 }
 
@@ -494,19 +500,19 @@ bool VR4300::RF()
 
     if(discard_bd){
         discard_bd = false;
-        uint64_t prev_PC = in.op.PC;
-        in.op = Operation();
-        in.op.PC = prev_PC;
+        uint64_t prev_PC = in.op->PC;
+        *in.op = {};
+        in.op->PC = prev_PC;
         return false;
     }
 
     if(next_op_bd){
-        in.op.flags = in.op.flags | IS_IN_BRANCH_DELAY;
+        in.op->flags = in.op->flags | IS_IN_BRANCH_DELAY;
         next_op_bd = false;
     }
 
     uint32_t PC_p;
-    CP0::Segment segment = cp0.get_segment(RF_in.op.PC);
+    CP0::Segment segment = cp0.get_segment(RF_in.op->PC);
     bool cacheable = segment.cacheable;
 
     //IADE
@@ -516,31 +522,31 @@ bool VR4300::RF()
         (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
         (cp0.in_kernel_mode() && !segment.kernel_accesible)
     ){
-        cp0.badVAddr = RF_in.op.PC;
-        handle_general_exception(in.op,AdEL);
+        cp0.badVAddr = RF_in.op->PC;
+        handle_general_exception(*in.op,AdEL);
         return true;
     }
 
     if(segment.tlb_mapped){
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op.PC);
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op->PC);
         if(tlb_result.miss){
             //tlb miss exception
-            handle_tlb_miss_exception(RF_in.op.PC, in.op, TLBL);
+            handle_tlb_miss_exception(RF_in.op->PC, *in.op, TLBL);
             return true;
         }
         if(!tlb_result.valid){
-            set_tlb_context(RF_in.op.PC);
-            handle_general_exception(in.op, TLBL);
+            set_tlb_context(RF_in.op->PC);
+            handle_general_exception(*in.op, TLBL);
             return true;
         }
         PC_p = tlb_result.p_addr;
         cacheable = tlb_result.cache != 2;
-    }else PC_p = RF_in.op.PC - segment.translation_offset;
+    }else PC_p = RF_in.op->PC - segment.translation_offset;
 
     uint32_t op_code;
     if(cacheable){
         uint8_t offset = (PC_p >> 2) & 0x7;
-        Icache_line& line = Icache[in.op.icache_index];
+        Icache_line& line = Icache[in.op->icache_index];
         if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered){
             //ICB
             stall = ICACHE_STALL_TIME;
@@ -572,25 +578,25 @@ bool VR4300::RF()
     if(decode_op(op_code))
     return true;
 
-    in.op.rs_val = GPR[in.op.rs];
-    in.op.rt_val = GPR[in.op.rt];
-    if(in.op.CPz == 0 && (in.op.flags & READS_CP))
-        in.op.rd_val = cp0.regs[in.op.rd];
-    if(in.op.CPz == 1 && (in.op.flags & READS_CP)){
-        if(in.op.flags & CPControl){
-            if(in.op.rd == 0) in.op.rd_val = fpu.FCR0;
-            else if(in.op.rd == 31) in.op.rd_val = fpu.FCR31;
+    in.op->rs_val = GPR[in.op->rs];
+    in.op->rt_val = GPR[in.op->rt];
+    if(in.op->CPz == 0 && (in.op->flags & READS_CP))
+        in.op->rd_val = cp0.regs[in.op->rd];
+    if(in.op->CPz == 1 && (in.op->flags & READS_CP)){
+        if(in.op->flags & CPControl){
+            if(in.op->rd == 0) in.op->rd_val = fpu.FCR0;
+            else if(in.op->rd == 31) in.op->rd_val = fpu.FCR31;
         }
         else {
-            in.op.rd_val = fpu.get_fpr(in.op.rd, in.op.access_size());
-            in.op.rt_val = fpu.get_fpr(in.op.rt, in.op.access_size());
+            in.op->rd_val = fpu.get_fpr(in.op->rd, in.op->access_size());
+            in.op->rt_val = fpu.get_fpr(in.op->rt, in.op->access_size());
         }
     }
 
-    forward_write(dc.op, in.op);
-    forward_write(EX_in.op, in.op);
+    forward_write(*dc.op, *in.op);
+    forward_write(*EX_in.op, *in.op);
 
-    if(in.op.flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
+    if(in.op->flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
 
     return false;
 }
@@ -629,7 +635,7 @@ bool VR4300::decode_op(uint32_t word)
     tmplt = &primary_op_lut[opcode];
     
     
-    Operation& op = RF_in.op;
+    Operation& op = *RF_in.op;
     if (!tmplt->execute) {
         // invalid instruction exception (RI)
         handle_general_exception(op,RI);
@@ -679,13 +685,15 @@ void VR4300::submit_pipeline(){
     RF_in.ICB_triggered = false;
     RF_in.uncacheable_stall_triggered = false;
 
+    Operation* temp = WB_in.op;
     WB_in.op = DC_in.op;
     DC_in.op = EX_in.op;
     EX_in.op = RF_in.op;
-    RF_in.op = {};
+    RF_in.op = temp;
+    *RF_in.op = {};
 
-    RF_in.op.icache_index = (PC >> 5) & 0x1FF;
-    RF_in.op.PC = PC;
+    RF_in.op->icache_index = (PC >> 5) & 0x1FF;
+    RF_in.op->PC = PC;
     PC += 4;
 }
 
@@ -700,10 +708,10 @@ void VR4300::abort_pipeline() {
     RF_in.ICB_triggered = false;
     RF_in.uncacheable_stall_triggered = false;
 
-    RF_in = {};
-    EX_in = {};
-    DC_in = {};
-    WB_in = {};
+    *RF_in.op = {};
+    *EX_in.op = {};
+    *DC_in.op = {};
+    *WB_in.op = {};
     
     stall = 0; // maybe
     stall_depth = 0;

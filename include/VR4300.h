@@ -179,26 +179,26 @@ public:
     void set_tlb_context(uint64_t addr);
 
     struct WB_DC{
-        Operation op;
+        Operation* op;
         bool CP0I_triggered;
     };
 
     struct EX_DC{
-        Operation op;
+        Operation* op;
         bool DCB_triggered;
         bool COp_triggered; // all these flags might have to be moved from ins to outs. That will also require them to be reset on submit pipeline
         bool uncacheable_stall_triggered;
     };
     bool update_conditional;
     struct RF_EX{
-        Operation op;
+        Operation* op;
         bool MCI_triggered;
         bool LDI_triggered;
     };
     bool next_op_bd;
     bool discard_bd;
     struct IC_RF{
-        Operation op;
+        Operation* op;
         bool uncacheable_stall_triggered;
         bool ICB_triggered;
     };
@@ -208,6 +208,7 @@ public:
     void on_clock();
     void on_pclock();
 
+    Operation op_storage[4];
     //Pipeline stages.
     bool WB(); // write back
     WB_DC WB_in{};
