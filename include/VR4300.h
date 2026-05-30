@@ -211,7 +211,6 @@ public:
     //Pipeline stages.
     bool WB(); // write back
     WB_DC WB_in{};
-    WB_DC DC_out{};
     bool DC(); // data cache fetch
     EX_DC DC_in{};
     bool EX(); // execute
@@ -219,7 +218,7 @@ public:
     bool RF(); // register fetch
     IC_RF RF_in{};
     bool IC(); // instruction cache fetch
-    
+
     
     void submit_pipeline();
     void dcache_write_size(Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);

@@ -315,14 +315,14 @@ void DIVU(VR4300& cpu){
 void MFHI(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     //if(cpu.EX_out.op.flags & WRITES_HI)op.result = cpu.EX_out.op.result_HI;
-    if(cpu.DC_out.op.flags & WRITES_HI)op.result = cpu.DC_out.op.result_HI;
+    if(cpu.DC_in.op.flags & WRITES_HI)op.result = cpu.DC_in.op.result_HI;
     else if(cpu.WB_in.op.flags & WRITES_HI)op.result = cpu.WB_in.op.result_HI;
     else op.result = cpu.HI;
 }
 void MFLO(VR4300& cpu){
     VR4300::Operation& op = cpu.EX_in.op;
     //if(cpu.EX_out.op.flags & WRITES_LO)op.result = cpu.EX_out.op.result_LO;
-    if(cpu.DC_out.op.flags & WRITES_LO)op.result = cpu.DC_out.op.result_LO;
+    if(cpu.DC_in.op.flags & WRITES_LO)op.result = cpu.DC_in.op.result_LO;
     else if(cpu.WB_in.op.flags & WRITES_LO)op.result = cpu.WB_in.op.result_LO;
     else op.result = cpu.LO;
 }
