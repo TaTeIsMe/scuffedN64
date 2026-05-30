@@ -79,11 +79,20 @@ void PeripheralInterface::start_dma()
     current_ram_addr = PI_DRAM_ADDR;
     //for now this only handles cartridge access
     current_cart_addr = PI_CART_ADDR - 0x10000000;
+    //timer = len * 4 / 8;
+    rcp.eventq.enqueue(rcp.cycles + len * 4 / 8, EventType::PI_DMA_DONE);
 }
 
 void PeripheralInterface::continue_dma()
 {
     //for now this only handles cartridge access
+    //timer-=16;
+    //if(timer < 0)
+    //finish_dma();
+}
+
+void PeripheralInterface::finish_dma()
+{
     while(len > 0){
         dma_direction?
         rcp.rdram.write_size(current_ram_addr, rcp.cartridge.read_size(current_cart_addr, 8), 8):
@@ -91,13 +100,8 @@ void PeripheralInterface::continue_dma()
         current_ram_addr += 8;
         current_cart_addr += 8;
         len -= 8;
-        return;
+        continue;
     }
-    finish_dma();
-}
-
-void PeripheralInterface::finish_dma()
-{
     PI_CART_ADDR = current_cart_addr + 0x10000000;
     PI_DRAM_ADDR = current_ram_addr;
     dma_busy = false;

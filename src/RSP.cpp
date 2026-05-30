@@ -170,39 +170,49 @@ void RSP::start_dma()
     skip = (regs.SP_DMA_RDLEN >> 20) & 0xFF8;
     current_ram_addr = ram_start;
     current_mem_addr = mem_start;
+    //timer = len * count / 8 * 3;
+    rcp.eventq.enqueue(rcp.cycles + len * count / 8 * 3,EventType::SP_DMA_DONE);
 }
 
 void RSP::continue_dma()
 {
-    bool mem_bank = regs.SP_DMA_SPADDR & 0x1000;
-    //this might end up copying too much memory
-    if(count > 0){
-        if(len >= 0){
-            len -= 8;
-            if(dma_direction){
-                mem_bank?
-                rdram.write_size(current_ram_addr,imem.read_size(current_mem_addr,8),8):
-                rdram.write_size(current_ram_addr,dmem.read_size(current_mem_addr,8),8);
-            }else{
-                mem_bank?
-                imem.write_size(current_mem_addr,rdram.read_size(current_ram_addr,8),8):
-                dmem.write_size(current_mem_addr,rdram.read_size(current_ram_addr,8),8);
-            }
-            current_ram_addr += 8;
-            current_mem_addr = (current_mem_addr + 8) & 0xFFF;
-            regs.SP_DMA_RDLEN = (skip << 20) | (count << 12) | (len & 0xFF8);
-            regs.SP_DMA_WRLEN = (skip << 20) | (count << 12) | (len & 0xFF8);
-            return;
-        }
-        count--;
-        len = start_len;
-        current_ram_addr += skip;
-    }
-    finish_dma();
+   //timer-=16;
+   //if(timer < 0)
+   //finish_dma();
 }
 
 void RSP::finish_dma()
 {
+
+    bool mem_bank = regs.SP_DMA_SPADDR & 0x1000;
+    //this might end up copying too much memory
+    while(true){
+        if(count > 0){
+            if(len >= 0){
+                len -= 8;
+                if(dma_direction){
+                    mem_bank?
+                    rdram.write_size(current_ram_addr,imem.read_size(current_mem_addr,8),8):
+                    rdram.write_size(current_ram_addr,dmem.read_size(current_mem_addr,8),8);
+                }else{
+                    mem_bank?
+                    imem.write_size(current_mem_addr,rdram.read_size(current_ram_addr,8),8):
+                    dmem.write_size(current_mem_addr,rdram.read_size(current_ram_addr,8),8);
+                }
+                current_ram_addr += 8;
+                current_mem_addr = (current_mem_addr + 8) & 0xFFF;
+                regs.SP_DMA_RDLEN = (skip << 20) | (count << 12) | (len & 0xFF8);
+                regs.SP_DMA_WRLEN = (skip << 20) | (count << 12) | (len & 0xFF8);
+                continue;
+            }
+            count--;
+            len = start_len;
+            current_ram_addr += skip;
+            continue;
+        }
+        break;
+    }
+
     if(regs.SP_DMA_FULL){
         dma_direction = pending_dma_direction;
         regs.regs[0] = pending_dma[0];
@@ -224,13 +234,14 @@ void RSP::start_task()
 {
     task_in_progress = true;
     current_task_type = (RSPTaskType)dmem.mem[0xFC3];
+    rcp.eventq.enqueue(rcp.cycles + 10000, EventType::SP_TASK_DONE);
 }
 
 void RSP::continue_task()
 {
-    task_timer++;
-    if(task_timer > TASK_LENGTH)
-        finish_task();
+    //task_timer+=16;
+    //if(task_timer > TASK_LENGTH * 3)
+    //    finish_task();
 }
 
 Matrix parse_mtx_from_mem(std::vector<uint8_t> mem, uint32_t address)

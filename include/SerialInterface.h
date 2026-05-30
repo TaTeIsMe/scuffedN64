@@ -27,7 +27,7 @@ public:
     void write_size(uint32_t address, uint64_t value, uint8_t size) override;
     uint64_t read_size(uint32_t address, uint8_t size) override;
 
-    uint8_t temp_i = 0; //replace later with real dma process
+    int temp_i = 0; //replace later with real dma process
     uint8_t dma_direction; //0 - from PIF to RAM 1 - from RAM to PIF
     void start_dma();
     void continue_dma();

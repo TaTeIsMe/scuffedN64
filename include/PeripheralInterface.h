@@ -37,6 +37,7 @@ public:
     uint32_t current_ram_addr;
     uint32_t current_cart_addr;
     int64_t len;
+    int timer;
     void start_dma();
     void continue_dma();
     void finish_dma();

@@ -6,7 +6,7 @@
 #include"Pif.h"
 #include"VR4300.h"
 
-RCP::RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif, GFX& gfx):
+RCP::RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif, GFX& gfx, EventQ& eventq):
 rsp(*this,gfx, rdram), 
 mi(*this),
 vi(*this),
@@ -18,7 +18,8 @@ vr4300(vr4300),
 rdram(rdram), 
 cartridge(cartridge), 
 pif(pif),
-gfx(gfx) {}
+gfx(gfx),
+eventq(eventq) {}
 
 uint64_t RCP::read_size(uint64_t address, uint8_t size){
     uint64_t value = 0;

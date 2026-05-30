@@ -173,6 +173,7 @@ public:
     uint16_t skip;
     uint32_t current_ram_addr;
     uint16_t current_mem_addr;
+    int timer;
     bool dma_direction; //1 when writing to ram
     void start_dma();
     void continue_dma();

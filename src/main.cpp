@@ -10,6 +10,7 @@
 #include"GFX.h"
 #include <chrono>
 #include <iostream>
+#include"EventQ.h"
 
 int main(){
     
@@ -25,7 +26,10 @@ int main(){
     Rdram rdram;
     Cartridge cartridge(rom);
     VR4300 vr4300;
-    RCP rcp(vr4300, rdram, cartridge, pif, gfx);
+    EventQ eventq;
+    RCP rcp(vr4300, rdram, cartridge, pif, gfx, eventq);
+    eventq.enqueue(rcp.cycles + 1500000,EventType::VI_DONE);
+    eventq.rcp = &rcp;
     vr4300.rcp = &rcp;
     
     //IPL2 skip
@@ -60,8 +64,6 @@ int main(){
     //ram init skip
     rcp.ri.RI_SELECT = 0x14;
     
-    uint32_t cycles = 0;
-    
     uint64_t loop_count = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -69,30 +71,19 @@ int main(){
     while(true){
         //cpu around 93 mhz
         vr4300.on_clock();
-        vr4300.on_clock();
-        vr4300.on_clock();
 
         //insert 2 RCP cycles here (62 mhz) (not really, rcp is replaced anyway)
 
         //insert 60 hz interrupts here
-        if (cycles >= 500000){//figure out this number
-            rcp.mi.route_interrupt(InterruptSource::VI);
-            cycles = 0;
-        }cycles++;
+        rcp.cycles++;
+        eventq.process_queue();
 
         //replace these later with scheduling events
-        if(rcp.rsp.regs.SP_DMA_BUSY){
-            rcp.rsp.continue_dma();
-        }
-        if(rcp.pi.dma_busy){
-            rcp.pi.continue_dma();
-        }
-        if(rcp.si.SI_STATUS & 1){
-            rcp.si.continue_dma();
-        }
-        if(rcp.rsp.task_in_progress){
-            rcp.rsp.continue_task();
-        }
+       //if(rcp.cycles & 0xF == 0xF){
+       //    if(rcp.rsp.task_in_progress){
+       //        rcp.rsp.continue_task();
+       //    }
+       //}
 
         // --- MEASURE PERFORMANCE ---
         loop_count++;

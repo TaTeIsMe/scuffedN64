@@ -45,15 +45,23 @@ uint64_t SerialInterface::read_size(uint32_t address, uint8_t size)
 void SerialInterface::start_dma()
 {
     SI_STATUS |= 1;
-    temp_i = 64;//completely random, change later
+    //completely random, change later
+    //temp_i = 64 * 3;
+    rcp.eventq.enqueue(rcp.cycles + 64 * 3, EventType::SI_DMA_DONE);
 }
 
 void SerialInterface::continue_dma()
 {
-    temp_i--;
-    if(! temp_i){
-        
-        for (int i = 0; i < 64; i++)
+    //temp_i-=16;
+    //if(temp_i < 0){
+    //    finish_dma();
+    //}
+}
+
+void SerialInterface::finish_dma()
+{
+
+    for (int i = 0; i < 64; i++)
         {
             if(dma_direction){
                 rcp.pif.ram[i] = rcp.rdram.mem[SI_DRAM_ADDR + i];
@@ -61,13 +69,7 @@ void SerialInterface::continue_dma()
             else rcp.rdram.mem[SI_DRAM_ADDR + i] = rcp.pif.ram[i];
         }
         if(rcp.pif.ram[63] && dma_direction)rcp.pif.handle_command();
-        
-        finish_dma();
-    }
-}
 
-void SerialInterface::finish_dma()
-{
     SI_STATUS &= ~1;
     SI_STATUS |= 0x1000;
     rcp.mi.route_interrupt(InterruptSource::SI);

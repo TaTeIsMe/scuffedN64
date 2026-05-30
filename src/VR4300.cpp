@@ -136,6 +136,9 @@ inline bool VR4300::DC()
     if(stall_depth > 1)return false;
     auto& in  = DC_in;
 
+    if(in.op->PC == 0xffffffff800e9e00)
+    std::cout<<"";
+
     //what DC does is:
     // gets the segment operated on
     // tlb ranslates the addr of the data to be written to/from
