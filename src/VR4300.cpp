@@ -120,10 +120,6 @@ inline bool VR4300::WB()
         cp0.TLB[tlb_index][2] = in.op->result_entryLO0;
         cp0.TLB[tlb_index][3] = in.op->result_entryLO1;
     }
-    if(in.op->result == 0xffffffff800d6710)
-    std::cout<<"";
-    if(in.op->PC == 0xffffffff80000944)
-    std::cout<<"";
     
     return false;
 }
@@ -397,6 +393,10 @@ inline bool VR4300::DC()
             }
         }
     }
+
+    if(GPR[4] == 0xffffffff801e00ae)
+    std::cout<<"";
+
     return false;
 }
 

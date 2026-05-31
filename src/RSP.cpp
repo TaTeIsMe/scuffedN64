@@ -234,13 +234,14 @@ void RSP::start_task()
 {
     task_in_progress = true;
     current_task_type = (RSPTaskType)dmem.mem[0xFC3];
-    rcp.eventq.enqueue(rcp.cycles + 10000, EventType::SP_TASK_DONE);
+    task_timer = 0; //this should break it
+    rcp.eventq.enqueue(rcp.cycles + 800, EventType::SP_TASK_DONE);
 }
 
 void RSP::continue_task()
 {
     //task_timer+=16;
-    //if(task_timer > TASK_LENGTH * 3)
+    //if(task_timer > 160000)
     //    finish_task();
 }
 

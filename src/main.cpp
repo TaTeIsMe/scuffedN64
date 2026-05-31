@@ -81,7 +81,7 @@ int main(){
         //replace these later with scheduling events
        //if(rcp.cycles & 0xF == 0xF){
        //    if(rcp.rsp.task_in_progress){
-       //        rcp.rsp.continue_task();
+       //        rcp.rsp.continue_task(); // for some reason it crashes if i replace this with an event, so it stays for now
        //    }
        //}
 
@@ -94,7 +94,7 @@ int main(){
             double hz = loop_count / elapsed.count();
             double mhz = hz / 1'000'000.0;
             
-            std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
+            //std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
             
             // Reset tracking window
             loop_count = 0;
