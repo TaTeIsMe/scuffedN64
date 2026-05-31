@@ -88,11 +88,20 @@ enum SegmentID{
     xkuseg = 15
 };
 
+enum class Mode{
+    USER,
+    KERNEL,
+    SUPERVISOR
+};
+
 class CP0
 {
 public:
     CP0();
     ~CP0();
+
+    Mode mode = Mode::KERNEL;
+    bool xmode = 0;
 
     union {
         struct {
@@ -209,6 +218,8 @@ public:
         uint32_t p_addr;
     };
 
+
+    void stash_mode();
     bool in_user_mode();
     bool in_supervisor_mode();
     bool in_kernel_mode();

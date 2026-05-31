@@ -879,11 +879,13 @@ void ERET(VR4300 &cpu)
     {
         cpu.PC = cpu.cp0.errorEPC;
         cpu.cp0.status = cpu.cp0.set_bits(cpu.cp0.status, STATUS_EXL_MASK, 0);
+        cpu.cp0.stash_mode();
     }
     else
     {
         cpu.PC = cpu.cp0.EPC;
         cpu.cp0.status = cpu.cp0.set_bits(cpu.cp0.status, STATUS_EXL_MASK, 0);
+        cpu.cp0.stash_mode();
     }
     cpu.LLBit = 0;
 }

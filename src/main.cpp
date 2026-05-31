@@ -36,6 +36,7 @@ int main(){
     vr4300.PC = 0xffffffffa4000040;
     vr4300.cp0.config = 0x7006e463;
     vr4300.cp0.status = 0x34000000;
+    vr4300.cp0.stash_mode();
 
     vr4300.GPR[19] = 0;
     vr4300.GPR[20] = 0;
@@ -94,7 +95,7 @@ int main(){
             double hz = loop_count / elapsed.count();
             double mhz = hz / 1'000'000.0;
             
-            //std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
+            std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
             
             // Reset tracking window
             loop_count = 0;

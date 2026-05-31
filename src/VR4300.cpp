@@ -93,6 +93,8 @@ inline bool VR4300::WB()
                     cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
                 if(in.op->dest_reg == 6)
                     cp0.random = (cp0.wired > 31)?63:31;
+                if(in.op->dest_reg == 12)
+                    cp0.stash_mode();
             }
             if(in.op->CPz == 1 && (in.op->flags & CPControl))
                 fpu.set_control(in.op->rd, in.op->result);
@@ -192,9 +194,9 @@ inline bool VR4300::DC()
     bool misalligned = ((in.op->access_size == 8) && in.op->data_addr % 8 != 0) ||
     ((in.op->access_size == 4) && in.op->data_addr % 4 != 0) ||
     ((in.op->access_size == 2) && in.op->data_addr % 2 != 0);
-    bool wrong_mode = (cp0.in_user_mode() && !segment.user_accesible) ||
-    (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
-    (cp0.in_kernel_mode() && !segment.kernel_accesible);
+    bool wrong_mode = ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
+    ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
+    ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible);
     bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
     if( !sided && (misalligned || wrong_mode))[[unlikely]]{
         cp0.badVAddr = in.op->data_addr;
@@ -416,7 +418,7 @@ inline bool VR4300::EX()
     std::cout << "";
 
     if((in.op->flags & CPZ) && !((CU >> in.op->CPz) & 1))[[unlikely]]{
-        if(!(in.op->CPz == 0 && cp0.in_kernel_mode())){
+        if(!(in.op->CPz == 0 && (cp0.mode == Mode::KERNEL))){
             cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op->CPz << 28);
             handle_general_exception(*in.op,CpU);
             return true;
@@ -519,9 +521,9 @@ inline bool VR4300::RF()
     //IADE
     if(
         // wrong mode (user, kernel, supervisor)
-        (cp0.in_user_mode() && !segment.user_accesible) ||
-        (cp0.in_supervisor_mode() && !segment.supervisor_accesible) ||
-        (cp0.in_kernel_mode() && !segment.kernel_accesible)
+        ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
+        ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
+        ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible)
     )[[unlikely]]{
         cp0.badVAddr = RF_in.op->PC;
         handle_general_exception(*in.op,AdEL);
@@ -751,6 +753,7 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, Except
         jump_offset=0x180; // says 80 in flow chart but 180 in description. 180 makes more sense prolly
     }
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
+    cp0.stash_mode();
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + jump_offset;
 }
@@ -775,6 +778,7 @@ void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
         }
     }
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
+    cp0.stash_mode();
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + 0x0180;
 }

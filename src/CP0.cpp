@@ -11,10 +11,11 @@ CP0::~CP0()
 
 }
 
+
 CP0::Segment CP0::get_segment(uint64_t v_addr)
 {
 
-    if(!is_xmode()){
+    if(!xmode){
         uint64_t sign_extension = (v_addr >> 31); //includes the sign bit
     
         if (sign_extension != 0 && sign_extension != 0x1FFFFFFFFULL)
@@ -65,6 +66,14 @@ CP0::Segment CP0::get_segment(uint64_t v_addr)
     return segment_lut[err];
 }
 
+void CP0::stash_mode()
+{
+    if(in_kernel_mode())mode = Mode::KERNEL;
+    else if(in_user_mode())mode=Mode::USER;
+    else if(in_supervisor_mode())mode=Mode::SUPERVISOR;
+    xmode = is_xmode();
+}
+
 bool CP0::in_user_mode()
 {
     uint8_t KSU = get_bits(status,STATUS_KSU_MASK, STATUS_KSU_SHIFT);
@@ -93,7 +102,7 @@ bool CP0::is_xmode(){
     uint8_t UX = get_bits(status,STATUS_UX_MASK, STATUS_UX_SHIFT);
     uint8_t SX = get_bits(status,STATUS_SX_MASK, STATUS_SX_SHIFT);
     uint8_t KX = get_bits(status,STATUS_KX_MASK, STATUS_KX_SHIFT);
-    return (in_user_mode() && UX)|| (in_supervisor_mode() && SX) || (in_kernel_mode() && KX);
+    return (mode == Mode::USER && UX)|| (mode == Mode::SUPERVISOR  && SX) || (mode == Mode::KERNEL && KX);
 }
 
 // figure out the c (cache) bit in entrylo register
