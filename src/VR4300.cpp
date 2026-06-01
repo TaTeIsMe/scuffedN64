@@ -61,15 +61,15 @@ inline bool VR4300::WB()
     // write back. just as the name suggests really
 
 
-    if (in.op->flags & CAUSED_EXCEPTION && DC_in.op->flags & READS_CP0 && !in.CP0I_triggered)
-    {
-        //CP0I
-        //stall = 1;
-        stall = 0;
-        stall_depth = 0;
-        in.CP0I_triggered = true; // This won't work as of right now since WB gets deleted when stalling
-        return true;
-    }
+    //if (in.op->flags & CAUSED_EXCEPTION && DC_in.op->flags & READS_CP0 && !in.CP0I_triggered)
+    //{
+    //    //CP0I
+    //    //stall = 1;
+    //    stall = 0;
+    //    stall_depth = 0;
+    //    in.CP0I_triggered = true; // This won't work as of right now since WB gets deleted when stalling
+    //    return true;
+    //}
 
     if(in.op->is_store){
         if(in.op->flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op->data_addr_p = in.op->data_addr_p & ~(in.op->access_size - 1);
@@ -134,8 +134,6 @@ inline bool VR4300::DC()
     if(stall_depth > 1)return false;
     auto& in  = DC_in;
 
-    if(in.op->PC == 0xffffffff800e9e00)
-    std::cout<<"";
 
     //what DC does is:
     // gets the segment operated on
@@ -178,10 +176,10 @@ inline bool VR4300::DC()
         return true;
     }
     
-    if((in.op->flags & IS_TRAP) && in.op->result)[[unlikely]]{
-        handle_general_exception(*in.op, Tr);
-        return true;
-    }
+    //if((in.op->flags & IS_TRAP) && in.op->result)[[unlikely]]{
+    //    handle_general_exception(*in.op, Tr);
+    //    return true;
+    //}
     
     if(!(in.op->flags & (IS_STORE | IS_LOAD)) && !(in.op->instruction_type == OpType::CACHE)){
         return false;
@@ -191,48 +189,49 @@ inline bool VR4300::DC()
     in.op->cacheable = segment.cacheable;
     
     //DADE
-    bool misalligned = ((in.op->access_size == 8) && in.op->data_addr % 8 != 0) ||
-    ((in.op->access_size == 4) && in.op->data_addr % 4 != 0) ||
-    ((in.op->access_size == 2) && in.op->data_addr % 2 != 0);
-    bool wrong_mode = ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
-    ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
-    ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible);
-    bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
-    if( !sided && (misalligned || wrong_mode))[[unlikely]]{
-        cp0.badVAddr = in.op->data_addr;
-        if(in.op->is_store)handle_general_exception(*in.op,AdES);
-        else handle_general_exception(*in.op,AdEL);
-        return true;
-    }
+    //bool misalligned = ((in.op->access_size == 8) && in.op->data_addr % 8 != 0) ||
+    //((in.op->access_size == 4) && in.op->data_addr % 4 != 0) ||
+    //((in.op->access_size == 2) && in.op->data_addr % 2 != 0);
+    //bool wrong_mode = ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
+    //((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
+    //((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible);
+    //bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
+    //if( !sided && (misalligned || wrong_mode))[[unlikely]]{
+    //    cp0.badVAddr = in.op->data_addr;
+    //    if(in.op->is_store)handle_general_exception(*in.op,AdES);
+    //    else handle_general_exception(*in.op,AdEL);
+    //    return true;
+    //}
 
-    if(segment.tlb_mapped)[[unlikely]]{
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
-        if(tlb_result.miss){
-            //tlb miss exception
-            if(in.op->is_store)
-                handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBS);
-            else
-                handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBL);
-            return true;
-            
-        }
-        if(!tlb_result.valid){
-            set_tlb_context(in.op->data_addr);
-            if(in.op->is_store)
-                handle_general_exception(*in.op, TLBS);
-            else
-                handle_general_exception(*in.op, TLBL);
-            return true;
-        }
-        if(!tlb_result.dirty && in.op->is_store){
-            set_tlb_context(in.op->data_addr);
-            handle_general_exception(*in.op, Mod);
-            return true;
-        }
-        
-        in.op->data_addr_p = tlb_result.p_addr;
-        in.op->cacheable = tlb_result.cache != 2;
-    }else in.op->data_addr_p = in.op->data_addr - segment.translation_offset;
+    //if(segment.tlb_mapped)[[unlikely]]{
+    //    CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
+    //    if(tlb_result.miss){
+    //        //tlb miss exception
+    //        if(in.op->is_store)
+    //            handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBS);
+    //        else
+    //            handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBL);
+    //        return true;
+    //        
+    //    }
+    //    if(!tlb_result.valid){
+    //        set_tlb_context(in.op->data_addr);
+    //        if(in.op->is_store)
+    //            handle_general_exception(*in.op, TLBS);
+    //        else
+    //            handle_general_exception(*in.op, TLBL);
+    //        return true;
+    //    }
+    //    if(!tlb_result.dirty && in.op->is_store){
+    //        set_tlb_context(in.op->data_addr);
+    //        handle_general_exception(*in.op, Mod);
+    //        return true;
+    //    }
+    //    
+    //    in.op->data_addr_p = tlb_result.p_addr;
+    //    in.op->cacheable = tlb_result.cache != 2;
+    //}else 
+    in.op->data_addr_p = in.op->data_addr - segment.translation_offset;
     in.op->dcache_index = (in.op->data_addr & 0x1FF0) >> 4;
     
     
@@ -396,9 +395,6 @@ inline bool VR4300::DC()
         }
     }
 
-    if(GPR[4] == 0xffffffff801e00ae)
-    std::cout<<"";
-
     return false;
 }
 
@@ -414,8 +410,6 @@ inline bool VR4300::EX()
 
 
     uint8_t CU = (cp0.status >> 28) & 0xF;
-    if((in.op->flags & CPZ) && in.op->CPz == 2)
-    std::cout << "";
 
     if((in.op->flags & CPZ) && !((CU >> in.op->CPz) & 1))[[unlikely]]{
         if(!(in.op->CPz == 0 && (cp0.mode == Mode::KERNEL))){
@@ -455,15 +449,15 @@ inline bool VR4300::EX()
         return true;
     }
 
-    if(in.op->instruction_type == OpType::SYSCALL)[[unlikely]]{
-        handle_general_exception(*in.op, Sys);
-        return true;
-    }
-
-    if(in.op->instruction_type == OpType::BREAK)[[unlikely]]{
-        handle_general_exception(*in.op, Bp);
-        return true;
-    }
+    //if(in.op->instruction_type == OpType::SYSCALL)[[unlikely]]{
+    //    handle_general_exception(*in.op, Sys);
+    //    return true;
+    //}
+//
+    //if(in.op->instruction_type == OpType::BREAK)[[unlikely]]{
+    //    handle_general_exception(*in.op, Bp);
+    //    return true;
+    //}
 
     //this isn't perfect but i actually don't understand how sc would know during dc whether it succeded or not
     //even assuming it knows, with how the pipeline works here implementing that would be hell
@@ -500,6 +494,7 @@ inline bool VR4300::RF()
 
     //this 100% could be done smarter
 
+    //replace this with removing the op in whatever causes bd
     if(discard_bd){
         discard_bd = false;
         uint64_t prev_PC = in.op->PC;
@@ -519,32 +514,33 @@ inline bool VR4300::RF()
     bool cacheable = segment.cacheable;
 
     //IADE
-    if(
-        // wrong mode (user, kernel, supervisor)
-        ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
-        ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
-        ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible)
-    )[[unlikely]]{
-        cp0.badVAddr = RF_in.op->PC;
-        handle_general_exception(*in.op,AdEL);
-        return true;
-    }
+    //if(
+    //    // wrong mode (user, kernel, supervisor)
+    //    ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
+    //    ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
+    //    ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible)
+    //)[[unlikely]]{
+    //    cp0.badVAddr = RF_in.op->PC;
+    //    handle_general_exception(*in.op,AdEL);
+    //    return true;
+    //}
 
-    if(segment.tlb_mapped)[[unlikely]]{
-        CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op->PC);
-        if(tlb_result.miss){
-            //tlb miss exception
-            handle_tlb_miss_exception(RF_in.op->PC, *in.op, TLBL);
-            return true;
-        }
-        if(!tlb_result.valid){
-            set_tlb_context(RF_in.op->PC);
-            handle_general_exception(*in.op, TLBL);
-            return true;
-        }
-        PC_p = tlb_result.p_addr;
-        cacheable = tlb_result.cache != 2;
-    }else PC_p = RF_in.op->PC - segment.translation_offset;
+    //if(segment.tlb_mapped)[[unlikely]]{
+    //    CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op->PC);
+    //    if(tlb_result.miss){
+    //        //tlb miss exception
+    //        handle_tlb_miss_exception(RF_in.op->PC, *in.op, TLBL);
+    //        return true;
+    //    }
+    //    if(!tlb_result.valid){
+    //        set_tlb_context(RF_in.op->PC);
+    //        handle_general_exception(*in.op, TLBL);
+    //        return true;
+    //    }
+    //    PC_p = tlb_result.p_addr;
+    //    cacheable = tlb_result.cache != 2;
+    //}else 
+    PC_p = RF_in.op->PC - segment.translation_offset;
 
     uint32_t op_code;
     if(cacheable){
@@ -731,7 +727,6 @@ void VR4300::abort_pipeline() {
 }
 
 void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, ExceptionCode cause){
-    std::cout<<"tlb_exception! \n";
     abort_pipeline();
     //this is literally just the flow chart from page 203 copied
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
