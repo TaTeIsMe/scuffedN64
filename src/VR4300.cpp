@@ -16,18 +16,6 @@ VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){
     RF_in.op = op_storage + 3;
 }
 
-void VR4300::on_clock()
-{
-    on_pclock();
-    on_pclock();
-    if(cp0.count == cp0.compare )//>= cp0.compare)
-        cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
-    cp0.count++;
-    if(cp0.count >= std::numeric_limits<uint32_t>::max())
-        cp0.count = 0;
-
-}
-
 // todo
 // fix asid
 // add exceptions.
@@ -48,6 +36,12 @@ void VR4300::on_pclock()
     
     if (WB() || DC() || EX() || RF() || IC()) return; 
     submit_pipeline();
+
+    if(cp0.count == cp0.compare )//>= cp0.compare)
+        cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
+    cp0.count++;
+    if(cp0.count >= std::numeric_limits<uint32_t>::max())
+        cp0.count = 0;
 }
 
 //Pipeline writeback stage
@@ -546,13 +540,13 @@ inline bool VR4300::RF()
     if(cacheable){
         uint8_t offset = (PC_p >> 2) & 0x7;
         Icache_line& line = Icache[in.op->icache_index];
-        if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered)[[unlikely]]{
+        if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered){
             //ICB
             stall = ICACHE_STALL_TIME;
             stall_depth = 3;
             in.ICB_triggered = true;
             return true; 
-        }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered)[[unlikely]]{
+        }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered){
             //update icache
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)

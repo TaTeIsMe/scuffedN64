@@ -204,7 +204,6 @@ public:
 
     uint16_t stall;
     uint8_t stall_depth;
-    void on_clock();
     void on_pclock();
 
     Operation op_storage[4];

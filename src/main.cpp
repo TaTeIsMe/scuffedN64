@@ -68,23 +68,13 @@ int main(){
     uint64_t loop_count = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    //will be 31 MHz hopefully
+    //will be 93 MHz hopefully
     while(true){
-        //cpu around 93 mhz
-        vr4300.on_clock();
+        vr4300.on_pclock();
 
-        //insert 2 RCP cycles here (62 mhz) (not really, rcp is replaced anyway)
 
-        //insert 60 hz interrupts here
         rcp.cycles++;
         eventq.process_queue();
-
-        //replace these later with scheduling events
-       //if(rcp.cycles & 0xF == 0xF){
-       //    if(rcp.rsp.task_in_progress){
-       //        rcp.rsp.continue_task(); // for some reason it crashes if i replace this with an event, so it stays for now
-       //    }
-       //}
 
         // --- MEASURE PERFORMANCE ---
         loop_count++;
