@@ -125,15 +125,30 @@ public:
         uint8_t multicycle = 0;
         uint8_t access_size = 0;
         OpType instruction_type = OpType::NOP;
+        bool reads_cp = false;
+        bool causes_bd = false;
+        bool cp_control = false;
+        bool writes_cp = false;
+        bool writes_hi = false;
+        bool writes_lo = false;
+        bool writes_reg = false;
+        bool right_access = false;
+        bool left_access = false;
+        bool stores_in_rt = false;
+        bool stores_in_rd = false;
+        bool stores_in_31 = false;
+        bool stores_in_sa = false;
+        bool atomic = false;
+        bool is_cpz = false;
+        bool is_load = false;
+        bool is_store = false;
+        bool sign_extended = false;
     };
     
     struct Operation : OperationTemplate{
         Operation();
         bool cacheable = false;
         bool fire_fpu_exception = false;
-        bool is_load = false;
-        bool is_store = false;
-        bool sign_extended = false;
         bool bd = false;
         uint8_t rs = 0;//reg numebr
         uint8_t rt = 0;//reg number

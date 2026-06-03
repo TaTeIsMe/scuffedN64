@@ -66,12 +66,12 @@ inline bool VR4300::WB()
     //}
 
     if(in.op->is_store){
-        if(in.op->flags & (LEFT_ACCESS | RIGHT_ACCESS)) in.op->data_addr_p = in.op->data_addr_p & ~(in.op->access_size - 1);
+        if(in.op->left_access || in.op->right_access) in.op->data_addr_p = in.op->data_addr_p & ~(in.op->access_size - 1);
         if(in.op->cacheable){
-            if((in.op->flags & ATOMIC) && !LLBit){
+            if((in.op->atomic) && !LLBit){
                 GPR[in.op->dest_reg] = 0;
                 return false;
-            }else if((in.op->flags & ATOMIC) && LLBit) GPR[in.op->dest_reg] = 1;
+            }else if((in.op->atomic) && LLBit) GPR[in.op->dest_reg] = 1;
             uint8_t offset = in.op->data_addr_p & 0xF;
             Dcache_line &line = Dcache[in.op->dcache_index];
             dcache_write_size(line, offset, in.op->result, in.op->access_size);
@@ -79,8 +79,8 @@ inline bool VR4300::WB()
             rcp->write_size(in.op->data_addr_p, in.op->result, in.op->access_size);
         }
     }
-    if(in.op->flags & WRITES_REG){
-        if(in.op->flags & WRITES_CP){
+    if(in.op->writes_reg){
+        if(in.op->writes_cp){
             if(in.op->CPz == 0){
                 cp0.regs[in.op->dest_reg] = (cp0.regs[in.op->dest_reg] & ~cp0.write_masks[in.op->dest_reg]) | (in.op->result & cp0.write_masks[in.op->dest_reg]);
                 if(in.op->dest_reg == 11)
@@ -90,7 +90,7 @@ inline bool VR4300::WB()
                 if(in.op->dest_reg == 12)
                     cp0.stash_mode();
             }
-            if(in.op->CPz == 1 && (in.op->flags & CPControl))
+            if(in.op->CPz == 1 && (in.op->cp_control))
                 fpu.set_control(in.op->rd, in.op->result);
             else if(in.op->CPz == 1) 
                 fpu.write_fpr(in.op->dest_reg,in.op->result,in.op->access_size);
@@ -98,8 +98,8 @@ inline bool VR4300::WB()
         if(in.op->dest_reg != 0)
             GPR[in.op->dest_reg] = in.op->result;
     }
-    if(in.op->flags & WRITES_LO) LO = in.op->result_LO;
-    if(in.op->flags & WRITES_HI) HI = in.op->result_HI;
+    if(in.op->writes_lo) LO = in.op->result_LO;
+    if(in.op->writes_hi) HI = in.op->result_HI;
     if(in.op->instruction_type == OpType::TLBR){
         cp0.entryHi = in.op->result_entryHI;
         cp0.entryLo0 = in.op->result_entryLO0;
@@ -175,7 +175,7 @@ inline bool VR4300::DC()
     //    return true;
     //}
     
-    if(!(in.op->flags & (IS_STORE | IS_LOAD)) && !(in.op->instruction_type == OpType::CACHE)){
+    if(!(in.op->is_store) && !in.op->is_load && !(in.op->instruction_type == OpType::CACHE)){
         return false;
     }
     
@@ -287,7 +287,7 @@ inline bool VR4300::DC()
         }
 
         if(in.op->is_load){
-            if(in.op->flags & ATOMIC) LLBit = 1;
+            if(in.op->atomic) LLBit = 1;
             //fetch data from the cache to put in a reg
             uint32_t offset_into_line = in.op->data_addr_p & 0xF;
             uint64_t mem = dcache_read_size(line,(offset_into_line & ~(in.op->access_size - 1)),in.op->access_size );
@@ -297,12 +297,12 @@ inline bool VR4300::DC()
             uint8_t bits = in.op->access_size * 8;
             bool sign_extended = in.op->sign_extended;
 
-            if (in.op->flags & LEFT_ACCESS){
+            if (in.op->left_access){
                 uint64_t mask = ~0ULL << bit_offset;
                 in.op->result = (in.op->rt_val & ~mask) | ((mem << bit_offset) & mask);
                 in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
             }
-            else if (in.op->flags & RIGHT_ACCESS){
+            else if (in.op->right_access){
                 uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
                 if(in.op->access_size == 4) mask >>= 32;
                 in.op->result = (in.op->rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
@@ -321,17 +321,17 @@ inline bool VR4300::DC()
             uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
             uint8_t bit_offset = byte_offset * 8;
             uint8_t bits = in.op->access_size * 8;
-            if(in.op->flags & LEFT_ACCESS){
+            if(in.op->left_access){
                 uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
                 in.op->result = (og_val & mask) | (in.op->result & ~mask);
-            }else if(in.op->flags & RIGHT_ACCESS){
+            }else if(in.op->right_access){
                 uint64_t mask = ~0ULL << (bits - bit_offset - 8);
                 in.op->result = (og_val & ~mask) | (in.op->result & mask);
             }
             line.dirty = 1;
         }
     }else{//if not cacheable
-        if( in.op->flags & (IS_LOAD | IS_STORE)){
+        if( in.op->is_load || in.op->is_store){
             if(!in.uncacheable_stall_triggered){
                 stall = DCACHE_STALL_TIME;
                 stall_depth = 1;
@@ -352,12 +352,12 @@ inline bool VR4300::DC()
                 uint8_t bits = in.op->access_size * 8;
                 bool sign_extended = in.op->sign_extended;
 
-                if (in.op->flags & LEFT_ACCESS){
+                if (in.op->left_access){
                     uint64_t mask = ~0ULL << bit_offset;
                     in.op->result = (in.op->rt_val & ~mask) | ((mem << bit_offset) & mask);
                     in.op->result = (sign_extended) ?(int32_t)in.op->result:in.op->result; //there are only two options, LW and LD
                 }
-                else if (in.op->flags & RIGHT_ACCESS){
+                else if (in.op->right_access){
                     uint64_t mask = ~0ULL >> (bits - bit_offset - 8);
                     if(in.op->access_size == 4) mask >>= 32;
                     in.op->result = (in.op->rt_val & ~mask) | ((mem >> (bits - bit_offset - 8)) & mask);
@@ -378,10 +378,10 @@ inline bool VR4300::DC()
                 uint8_t byte_offset = in.op->data_addr_p & (in.op->access_size - 1);
                 uint8_t bit_offset = byte_offset * 8;
                 uint8_t bits = in.op->access_size * 8;
-                if(in.op->flags & LEFT_ACCESS){
+                if(in.op->left_access){
                     uint64_t mask = ~0xFFULL << (bits - bit_offset - 8);
                     in.op->result = (og_val & mask) | (in.op->result & ~mask);
-                }else if(in.op->flags & RIGHT_ACCESS){
+                }else if(in.op->right_access){
                     uint64_t mask = ~0ULL << (bits - bit_offset - 8);
                     in.op->result = (og_val & ~mask) | (in.op->result & mask);
                 }
@@ -405,7 +405,7 @@ inline bool VR4300::EX()
 
     uint8_t CU = (cp0.status >> 28) & 0xF;
 
-    if((in.op->flags & CPZ) && !((CU >> in.op->CPz) & 1))[[unlikely]]{
+    if((in.op->is_cpz) && !((CU >> in.op->CPz) & 1))[[unlikely]]{
         if(!(in.op->CPz == 0 && (cp0.mode == Mode::KERNEL))){
             cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op->CPz << 28);
             handle_general_exception(*in.op,CpU);
@@ -414,7 +414,7 @@ inline bool VR4300::EX()
     }
 
     if(!in.LDI_triggered && (dc.op->is_load)){
-        if(!(dc.op->flags & WRITES_CP) && dc.op->dest_reg != 0){
+        if(!(dc.op->writes_cp) && dc.op->dest_reg != 0){
             if(in.op->rt == dc.op->dest_reg || in.op->rs == dc.op->dest_reg){
                 stall = 1;
                 stall_depth = 2;
@@ -422,7 +422,7 @@ inline bool VR4300::EX()
                 return true;
             }
         }
-        if(dc.op->flags & WRITES_CP && in.op->flags & READS_CP){
+        if(dc.op->writes_cp && in.op->reads_cp){
             if(in.op->rt == dc.op->dest_reg || in.op->rd == dc.op->dest_reg){
                 stall = 1;
                 stall_depth = 2;
@@ -455,10 +455,10 @@ inline bool VR4300::EX()
 
     //this isn't perfect but i actually don't understand how sc would know during dc whether it succeded or not
     //even assuming it knows, with how the pipeline works here implementing that would be hell
-    if((DC_in.op->flags & ATOMIC) && (DC_in.op->is_store) && (in.op->rs == DC_in.op->dest_reg)){
+    if((DC_in.op->atomic) && (DC_in.op->is_store) && (in.op->rs == DC_in.op->dest_reg)){
         in.op->rs_val = LLBit;
     }
-    if((DC_in.op->flags & ATOMIC) && (DC_in.op->is_store) && (in.op->rt == DC_in.op->dest_reg)){
+    if((DC_in.op->atomic) && (DC_in.op->is_store) && (in.op->rt == DC_in.op->dest_reg)){
         in.op->rt_val = LLBit;
     }
 
@@ -540,21 +540,25 @@ inline bool VR4300::RF()
     if(cacheable){
         uint8_t offset = (PC_p >> 2) & 0x7;
         Icache_line& line = Icache[in.op->icache_index];
-        if((!((PC_p >> 12) == line.tag) || !line.valid) && !in.ICB_triggered){
-            //ICB
-            stall = ICACHE_STALL_TIME;
-            stall_depth = 3;
-            in.ICB_triggered = true;
-            return true; 
-        }else if((!((PC_p >> 12) == line.tag) || !line.valid) && in.ICB_triggered){
-            //update icache
-            uint64_t line_start_addr = PC_p & ~ 0x1F;
-            for (int i = 0; i < 8; i++)
-            {
-                line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
+        bool hit = ((PC_p >> 12) == line.tag) && line.valid;
+
+        if(!hit){
+            if(!in.ICB_triggered){
+                stall = ICACHE_STALL_TIME;
+                stall_depth = 3;
+                in.ICB_triggered = true;
+                return true; 
+            }else if (in.ICB_triggered){
+                //update icache
+                uint64_t line_start_addr = PC_p & ~ 0x1F;
+                for (int i = 0; i < 8; i++)
+                {
+                    line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
+                }
+                line.tag = PC_p >> 12;
+                line.valid = true;
             }
-            line.tag = PC_p >> 12;
-            line.valid = true;
+            
         }
         op_code = line.data[offset];
     }else{//this logic of avoiding cache is a little scuffed, might need some review
@@ -573,10 +577,10 @@ inline bool VR4300::RF()
 
     in.op->rs_val = GPR[in.op->rs];
     in.op->rt_val = GPR[in.op->rt];
-    if(in.op->CPz == 0 && (in.op->flags & READS_CP))
+    if(in.op->CPz == 0 && (in.op->reads_cp))
         in.op->rd_val = cp0.regs[in.op->rd];
-    if(in.op->CPz == 1 && (in.op->flags & READS_CP)){
-        if(in.op->flags & CPControl){
+    if(in.op->CPz == 1 && (in.op->reads_cp)){
+        if(in.op->cp_control){
             if(in.op->rd == 0) in.op->rd_val = fpu.FCR0;
             else if(in.op->rd == 31) in.op->rd_val = fpu.FCR31;
         }
@@ -589,7 +593,7 @@ inline bool VR4300::RF()
     forward_write(*dc.op, *in.op);
     forward_write(*EX_in.op, *in.op);
 
-    if(in.op->flags & CAUSES_BRANCH_DELAY) next_op_bd = true;
+    if(in.op->causes_bd) next_op_bd = true;
 
     return false;
 }
@@ -644,6 +648,17 @@ bool VR4300::decode_op(uint32_t word)
     op.is_load = tmplt->flags & IS_LOAD;
     op.is_store = tmplt->flags & IS_STORE;
     op.sign_extended = tmplt->flags & SIGN_EXTENDED;
+    op.causes_bd = tmplt->flags & CAUSES_BRANCH_DELAY;
+    op.reads_cp = tmplt->flags & READS_CP;
+    op.cp_control = tmplt->flags & CPControl;
+    op.writes_cp =  tmplt->flags & WRITES_CP;
+    op.writes_hi =  tmplt->flags & WRITES_HI;
+    op.writes_lo =  tmplt->flags & WRITES_LO;
+    op.writes_reg = tmplt->flags & WRITES_REG;
+    op.right_access = tmplt->flags & RIGHT_ACCESS;
+    op.left_access = tmplt->flags & LEFT_ACCESS;
+    op.atomic = tmplt->flags & ATOMIC;
+    op.is_cpz = tmplt->flags & CPZ;
     
     op.rs = (word >> 21) & 0x1F;
     op.rt = (word >> 16) & 0x1F;
@@ -681,18 +696,26 @@ void VR4300::submit_pipeline(){
     EX_in.MCI_triggered = false;
     RF_in.ICB_triggered = false;
     RF_in.uncacheable_stall_triggered = false;
-
+    
     Operation* temp = WB_in.op;
     WB_in.op = DC_in.op;
     DC_in.op = EX_in.op;
     EX_in.op = RF_in.op;
     RF_in.op = temp;
-    RF_in.op->execute = NOP;
-    RF_in.op->flags = 0;
-    RF_in.op->bd = false;
-    RF_in.op->is_load = false;
-    RF_in.op->is_store = false;
-    RF_in.op->sign_extended = false;
+    *RF_in.op = {};
+    //RF_in.op->execute = NOP;
+    //RF_in.op->flags = 0;
+    //RF_in.op->bd = false;
+    //RF_in.op->is_load = false;
+    //RF_in.op->is_store = false;
+    //RF_in.op->sign_extended = false;
+    //RF_in.op->causes_bd = false;
+    //RF_in.op->reads_cp = false;
+    //RF_in.op->cp_control = false;
+    //RF_in.op->writes_cp = false;
+    //RF_in.op->writes_hi = false;
+    //RF_in.op->writes_lo = false;
+    //RF_in.op->writes_reg = false;
 
     RF_in.op->icache_index = (PC >> 5) & 0x1FF;
     RF_in.op->PC = PC;
@@ -941,20 +964,20 @@ std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
 
 void VR4300::forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op)
 {
-    if (!(stage_op.flags & WRITES_REG) )
+    if (!(stage_op.writes_reg) )
     return;
-    if((stage_op.flags & WRITES_HI) || (stage_op.flags & WRITES_LO))
+    if((stage_op.writes_hi) || (stage_op.writes_lo))
     return;
 
-    if (!(stage_op.flags & WRITES_CP))
+    if (!(stage_op.writes_cp))
         if (in_op.rs == stage_op.dest_reg) in_op.rs_val = stage_op.result;
 
-    if(stage_op.flags & WRITES_CP && in_op.flags & READS_CP){
-        if(stage_op.flags & WRITES_CP && stage_op.CPz != in_op.CPz)
+    if(stage_op.writes_cp && in_op.reads_cp){
+        if(stage_op.writes_cp && stage_op.CPz != in_op.CPz)
             return;
         if (in_op.rt == stage_op.dest_reg) in_op.rt_val = (in_op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
         if (in_op.rd == stage_op.dest_reg) in_op.rd_val = (in_op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
         return;
-    }else if(!(stage_op.flags & WRITES_CP) && !(in_op.flags & READS_CP) && !(stage_op.dest_reg == 0))
+    }else if(!(stage_op.writes_cp) && !(in_op.reads_cp) && !(stage_op.dest_reg == 0))
         if (in_op.rt == stage_op.dest_reg) in_op.rt_val = stage_op.result;
 };
