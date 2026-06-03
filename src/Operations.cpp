@@ -385,9 +385,9 @@ void MFHI(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     // if(cpu.EX_out.op.flags & WRITES_HI)op.result = cpu.EX_out.op.result_HI;
-    if (cpu.DC_in.op->writes_hi)
+    if (cpu.DC_in.op->tmplt->writes_hi)
         op.result = cpu.DC_in.op->result_HI;
-    else if (cpu.WB_in.op->writes_hi)
+    else if (cpu.WB_in.op->tmplt->writes_hi)
         op.result = cpu.WB_in.op->result_HI;
     else
         op.result = cpu.HI;
@@ -396,9 +396,9 @@ void MFLO(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     // if(cpu.EX_out.op.flags & WRITES_LO)op.result = cpu.EX_out.op.result_LO;
-    if (cpu.DC_in.op->writes_lo)
+    if (cpu.DC_in.op->tmplt->writes_lo)
         op.result = cpu.DC_in.op->result_LO;
-    else if (cpu.WB_in.op->writes_lo)
+    else if (cpu.WB_in.op->tmplt->writes_lo)
         op.result = cpu.WB_in.op->result_LO;
     else
         op.result = cpu.LO;
@@ -2606,6 +2606,7 @@ void Ccondfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
 
+VR4300::OperationTemplate noptmplt{NOP,0,0,0,OpType::NOP};
 VR4300::OperationTemplate primary_op_lut[64]{
     /*00*/ {nullptr, 0, 0,0, OpType::SPECIAL}, // SPECIAL
     /*01*/ {nullptr, 0, 0,0, OpType::REGIMM},  // REGIMM

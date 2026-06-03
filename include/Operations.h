@@ -181,6 +181,7 @@ void SQRTfmt(VR4300& cpu);
 //fpu compare
 void Ccondfmt(VR4300& cpu);
 
+extern const VR4300::OperationTemplate noptmplt;
 extern const VR4300::OperationTemplate primary_op_lut[64];
 extern const VR4300::OperationTemplate special_op_lut[64];
 extern const VR4300::OperationTemplate regimm_op_lut[32];

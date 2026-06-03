@@ -120,6 +120,8 @@ public:
     Icache_line Icache[512];
     
     struct OperationTemplate{
+        OperationTemplate();
+        OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size, OpType instruction_type);
         void (*execute)(VR4300& cpu) = nullptr;
         uint32_t flags = 0;
         uint8_t multicycle = 0;
@@ -145,7 +147,8 @@ public:
         bool sign_extended = false;
     };
     
-    struct Operation : OperationTemplate{
+    struct Operation{
+        const OperationTemplate* tmplt;
         Operation();
         bool cacheable = false;
         bool fire_fpu_exception = false;
