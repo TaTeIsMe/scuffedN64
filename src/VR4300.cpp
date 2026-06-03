@@ -499,7 +499,7 @@ inline bool VR4300::RF()
     }
 
     if(next_op_bd){
-        in.op->flags = in.op->flags | IS_IN_BRANCH_DELAY;
+        in.op->bd = true;
         next_op_bd = false;
     }
 
@@ -638,7 +638,7 @@ bool VR4300::decode_op(uint32_t word)
     
     op.execute = tmplt->execute;
     op.multicycle = tmplt->multicycle;
-    op.flags = tmplt->flags | (op.flags & IS_IN_BRANCH_DELAY);
+    op.flags = tmplt->flags;
     op.instruction_type = tmplt->instruction_type;
     op.access_size = tmplt->access_size;
     op.is_load = tmplt->flags & IS_LOAD;
@@ -689,6 +689,7 @@ void VR4300::submit_pipeline(){
     RF_in.op = temp;
     RF_in.op->execute = NOP;
     RF_in.op->flags = 0;
+    RF_in.op->bd = false;
     RF_in.op->is_load = false;
     RF_in.op->is_store = false;
     RF_in.op->sign_extended = false;
@@ -729,7 +730,7 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, Except
     uint16_t jump_offset;
     
     if(!EXL){
-        if(op.flags & IS_IN_BRANCH_DELAY){
+        if(op.bd){
             cp0.EPC = op.PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{
@@ -758,7 +759,7 @@ void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
     
     uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     if(!EXL){
-        if(op.flags & IS_IN_BRANCH_DELAY){
+        if(op.bd){
             cp0.EPC = op.PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{

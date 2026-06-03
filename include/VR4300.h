@@ -32,7 +32,6 @@ enum OpFlags:uint32_t{
     IS_LOAD = 1<<9,
     STORES_IN_RT = 1 << 10,
     STORES_IN_RD = 1 << 11,
-    IS_IN_BRANCH_DELAY = 1<<12,
     CAUSES_BRANCH_DELAY = 1<<13,
     SIGN_EXTENDED = 1 << 14,
     LEFT_ACCESS = 1 << 15,
@@ -135,6 +134,7 @@ public:
         bool is_load = false;
         bool is_store = false;
         bool sign_extended = false;
+        bool bd = false;
         uint8_t rs = 0;//reg numebr
         uint8_t rt = 0;//reg number
         uint8_t rd = 0;//reg number
