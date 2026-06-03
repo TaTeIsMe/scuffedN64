@@ -491,7 +491,7 @@ inline bool VR4300::RF()
     //replace this with removing the op in whatever causes bd
     if(discard_bd){
         discard_bd = false;
-        *RF_in.op = {};
+        RF_in.op->tmplt = &noptmplt;
         return false;
     }
 
@@ -680,20 +680,8 @@ void VR4300::submit_pipeline(){
     DC_in.op = EX_in.op;
     EX_in.op = RF_in.op;
     RF_in.op = temp;
-    *RF_in.op = {};
-    //RF_in.op->execute = NOP;
-    //RF_in.op->flags = 0;
-    //RF_in.op->bd = false;
-    //RF_in.op->tmplt->is_load = false;
-    //RF_in.op->tmplt->is_store = false;
-    //RF_in.op->tmplt->sign_extended = false;
-    //RF_in.op->causes_bd = false;
-    //RF_in.op->tmplt->reads_cp = false;
-    //RF_in.op->tmplt->cp_control = false;
-    //RF_in.op->tmplt->writes_cp = false;
-    //RF_in.op->writes_hi = false;
-    //RF_in.op->writes_lo = false;
-    //RF_in.op->writes_reg = false;
+    RF_in.op->tmplt = &noptmplt;
+    RF_in.op->bd = false;
 
     RF_in.op->icache_index = (PC >> 5) & 0x1FF;
     RF_in.op->PC = PC;
