@@ -642,10 +642,7 @@ bool VR4300::decode_op(uint32_t word)
     op.rt = (word >> 16) & 0x1F;
     op.rd = (word >> 11) & 0x1F;
     op.sa = (word >> 6) & 0x1F;
-    if(op.tmplt->stores_in_rd) op.dest_reg = op.rd;
-    if(op.tmplt->stores_in_rt) op.dest_reg = op.rt;
-    if(op.tmplt->stores_in_sa) op.dest_reg = op.sa;
-    if(op.tmplt->stores_in_31) op.dest_reg = 31;
+    op.dest_reg = op.dest_options[tmplt->dest_id];
     if(op.tmplt->instruction_type == OpType::TLBP) op.dest_reg = 0;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
@@ -974,4 +971,8 @@ VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint3
     stores_in_31 = flags & STORES_IN_31;
     stores_in_rt = flags & STORES_IN_RT;
     stores_in_sa = flags & STORES_IN_SA;
+    if(stores_in_rd)dest_id = DestId::RD;
+    if(stores_in_31)dest_id = DestId::REG31;
+    if(stores_in_rt)dest_id = DestId::RT;
+    if(stores_in_sa)dest_id = DestId::SA;
 }

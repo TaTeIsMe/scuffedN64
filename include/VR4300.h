@@ -48,6 +48,13 @@ enum OpFlags:uint32_t{
     CPZ = 1 << 26
 };
 
+enum DestId{
+    RT = 0,
+    RD = 1,
+    REG31 = 2,
+    SA = 3
+};
+
 class VR4300
 {
 public:
@@ -124,6 +131,7 @@ public:
         OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size, OpType instruction_type);
         void (*execute)(VR4300& cpu) = nullptr;
         uint32_t flags = 0;
+        uint8_t dest_id = 0;
         uint8_t multicycle = 0;
         uint8_t access_size = 0;
         OpType instruction_type = OpType::NOP;
@@ -153,10 +161,19 @@ public:
         bool cacheable = false;
         bool fire_fpu_exception = false;
         bool bd = false;
+
+        union{
+            uint8_t dest_options[4]{0,0,31,0};
+            struct{
+                uint8_t rt;
+                uint8_t rd;
+                uint8_t reg31;
+                uint8_t sa;
+            };
+        };
+
         uint8_t rs = 0;//reg numebr
-        uint8_t rt = 0;//reg number
-        uint8_t rd = 0;//reg number
-        uint8_t sa = 0;//
+
         uint8_t CPz = 0;//for cp instructions
         uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
