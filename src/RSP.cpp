@@ -1,8 +1,7 @@
 #include "RSP.h"
 #include "RCP.h"
 #include <stack>
-#include "Matrix.h"
-#include "Vertex.h"
+#include <Eigen/Dense>
 #include "GFX.h"
 
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
@@ -245,9 +244,9 @@ void RSP::continue_task()
     //    finish_task();
 }
 
-Matrix parse_mtx_from_mem(std::vector<uint8_t> mem, uint32_t address)
+inline Eigen::Matrix4f parse_mtx_from_mem(const std::vector<uint8_t>& mem, uint32_t address)
 {
-    Matrix mtx(4,4);
+    Eigen::Matrix4f mtx;
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 4; j++)
@@ -263,7 +262,7 @@ Matrix parse_mtx_from_mem(std::vector<uint8_t> mem, uint32_t address)
             
             uint32_t raw_combined = ((uint32_t)intpart << 16) | fracpart;
             int32_t combined = (int32_t)raw_combined;
-            mtx[j][i] = (float)combined / 65536.0f;
+            mtx(j,i) = (float)combined / 65536.0f;
         }
     }
     return mtx;
@@ -273,11 +272,11 @@ void RSP::process_gfx_task(OSTask task){
 
     uint32_t segments[16]{};
     std::stack<uint32_t> address_stack;
-    std::stack<Matrix> modelview_mtx_stack;
-    modelview_mtx_stack.push(Matrix::identityMatrix(4));
-    Matrix projection_mtx(Matrix::identityMatrix(4));
-    Matrix modelview_projection_mtx(4,4);
-    Vertex vertex_buffer[32];
+    std::stack<Eigen::Matrix4f> modelview_mtx_stack;
+    modelview_mtx_stack.push(Eigen::Matrix4f::Identity());
+    Eigen::Matrix4f projection_mtx(Eigen::Matrix4f::Identity());
+    Eigen::Matrix4f modelview_projection_mtx;
+    Eigen::Vector4f vertex_buffer[32];
     
     auto translate_address = [&](uint32_t address){
         if(address >> 24 == 0x80)return address & 0xFFFFFF;
@@ -306,7 +305,7 @@ void RSP::process_gfx_task(OSTask task){
                 int16_t x = rcp.rdram.read_size(vaddr,2);
                 int16_t y = rcp.rdram.read_size(vaddr + 2,2);
                 int16_t z = rcp.rdram.read_size(vaddr + 4,2);
-                vertex_buffer[buf_id + i] = Vertex(x,y,z) * modelview_projection_mtx;
+                vertex_buffer[buf_id + i] = modelview_projection_mtx * Eigen::Vector4f(x,y,z,1) ;
                 vaddr += 16;
             }
             
@@ -365,19 +364,19 @@ void RSP::process_gfx_task(OSTask task){
         case G_MTX: // G_MTX
         {
             uint32_t mtxaddr = translate_address(instr & 0xFFFFFFFF);
-            Matrix mtx = parse_mtx_from_mem(rdram.mem, mtxaddr);
+            Eigen::Matrix4f mtx = parse_mtx_from_mem(rdram.mem, mtxaddr);
             bool G_MTX_PUSH = !((instr >> 32) & 0x1);
             bool G_MTX_MUL = !((instr >> 32) & 0x2);
             bool G_MTX_PROJECTION = ((instr >> 32) & 0x4);
 
-            Matrix topmtx(4,4);
+            Eigen::Matrix4f topmtx;
 
             if(G_MTX_PROJECTION)
                 topmtx = projection_mtx;
             else if(!modelview_mtx_stack.empty())
                 topmtx = modelview_mtx_stack.top();
             else
-                topmtx = Matrix::identityMatrix(4);
+                topmtx = Eigen::Matrix4f::Identity();
 
             if(G_MTX_MUL)
                 mtx = topmtx * mtx;

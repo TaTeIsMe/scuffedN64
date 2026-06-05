@@ -12,8 +12,8 @@ SRCS = $(wildcard src/*.cpp)
 OBJS = $(patsubst src/%.cpp,$(TARGET_DIR)/%.o,$(SRCS))
 DEPENDS = $(OBJS:.o=.d)
 
-GLFW_CFLAGS := $(shell pkg-config --cflags glfw3 gl)
-GLFW_LIBS := $(shell pkg-config --libs glfw3 gl)
+GLFW_CFLAGS := $(shell pkg-config --cflags glfw3 gl eigen3)
+GLFW_LIBS := $(shell pkg-config --libs glfw3 gl eigen3)
 
 ifdef RELEASE
 	CXXFLAGS = $(COMMON_FLAGS) $(RELEASE_FLAGS)
