@@ -27,8 +27,6 @@ public:
     
     CP0 &cp0;
 
-    uint32_t FCR0 = 0xa00;
-    uint32_t FCR31;
     bool COC = false;
 
     union {
@@ -67,6 +65,44 @@ public:
             uint64_t FGR31;
         };
         uint64_t regs[32];
+    };
+
+    union {
+        struct {
+            uint32_t FCR0;
+            uint32_t empty;
+            uint32_t empty1;
+            uint32_t empty2;
+            uint32_t empty3;
+            uint32_t empty4;
+            uint32_t empty5;
+            uint32_t empty6;
+            uint32_t empty7;
+            uint32_t empty8;
+            uint32_t empty9;
+            uint32_t empty10;
+            uint32_t empty11;
+            uint32_t empty12;
+            uint32_t empty13;
+            uint32_t empty14;
+            uint32_t empty15;
+            uint32_t empty16;
+            uint32_t empty17;
+            uint32_t empty18;
+            uint32_t empty19;
+            uint32_t empty20;
+            uint32_t empty21;
+            uint32_t empty22;
+            uint32_t empty23;
+            uint32_t empty24;
+            uint32_t empty25;
+            uint32_t empty26;
+            uint32_t empty27;
+            uint32_t empty28;
+            uint32_t empty29;
+            uint32_t FCR31;
+        };
+        uint32_t control_regs[32]{0xa00,0};
     };
 
     uint64_t get_fpr(uint8_t fpr, uint8_t write_size);

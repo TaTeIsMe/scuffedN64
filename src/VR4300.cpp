@@ -535,28 +535,26 @@ inline bool VR4300::RF()
 
     uint32_t op_code;
     if(cacheable){
-        uint8_t offset = (PC_p >> 2) & 0x7;
         Icache_line& line = Icache[in.op->icache_index];
         bool hit = ((PC_p >> 12) == line.tag) && line.valid;
-
-        if(!hit){
-            if(!in.ICB_triggered){
-                stall = ICACHE_STALL_TIME;
-                stall_depth = 3;
-                in.ICB_triggered = true;
-                return true; 
-            }else if (in.ICB_triggered){
-                //update icache
-                uint64_t line_start_addr = PC_p & ~ 0x1F;
-                for (int i = 0; i < 8; i++)
-                {
-                    line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
-                }
-                line.tag = PC_p >> 12;
-                line.valid = true;
+        
+        if(!hit && !in.ICB_triggered){
+            //update icache
+            uint64_t line_start_addr = PC_p & ~ 0x1F;
+            for (int i = 0; i < 8; i++)
+            {
+                line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
             }
+            line.tag = PC_p >> 12;
+            line.valid = true;
+            
+            stall = ICACHE_STALL_TIME;
+            stall_depth = 3;
+            in.ICB_triggered = true;
+            return true; 
             
         }
+        uint8_t offset = (PC_p >> 2) & 0x7;
         op_code = line.data[offset];
     }else{//this logic of avoiding cache is a little scuffed, might need some review
         if(!in.uncacheable_stall_triggered){
@@ -569,8 +567,9 @@ inline bool VR4300::RF()
         op_code = rcp->read_size(PC_p, 4);
     }
 
-    if(decode_op(op_code))
-    return true;
+    //if(decode_op(op_code))
+    //return true;
+    decode_op(op_code);
 
     in.op->rs_val = GPR[in.op->rs];
     in.op->rt_val = GPR[in.op->rt];
@@ -630,11 +629,11 @@ bool VR4300::decode_op(uint32_t word)
     
     
     Operation& op = *RF_in.op;
-    if (!tmplt->execute)[[unlikely]]{
-        // invalid instruction exception (RI)
-        handle_general_exception(op,RI);
-        return true;
-    }
+    //if (!tmplt->execute)[[unlikely]]{
+    //    // invalid instruction exception (RI)
+    //    handle_general_exception(op,RI);
+    //    return true;
+    //}
     
     op.tmplt = tmplt;
     
