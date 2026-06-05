@@ -223,14 +223,14 @@ inline bool VR4300::DC()
     in.op->dcache_index = (in.op->data_addr & 0x1FF0) >> 4;
     
     
-    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_load))[[unlikely]]{
-        handle_general_exception(*in.op,WATCH);
-        return true;
-    }
-    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_store))[[unlikely]]{
-        handle_general_exception(*in.op,WATCH);
-        return true;
-    }
+    //if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_load))[[unlikely]]{
+    //    handle_general_exception(*in.op,WATCH);
+    //    return true;
+    //}
+    //if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_store))[[unlikely]]{
+    //    handle_general_exception(*in.op,WATCH);
+    //    return true;
+    //}
     
     if(in.op->cacheable)[[likely]]{
         Dcache_line& line = Dcache[in.op->dcache_index];
@@ -244,9 +244,6 @@ inline bool VR4300::DC()
                 stall_depth = 1;
                 in.DCB_triggered = true;
                 return true;
-            }else{
-                //WB();
-                //WB_in = {};
             }
         }
 
