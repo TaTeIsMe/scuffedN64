@@ -27,8 +27,11 @@ VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){
 // fpu
 void VR4300::on_pclock()
 {
-    //on interlock the ENTIRE pipeline is stalled
+    if(cp0.count == cp0.compare )//>= cp0.compare)
+        cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
+    cp0.count = (uint32_t)(cp0.count + 1);
     
+    //on interlock the ENTIRE pipeline is stalled
     if(stall){
         stall--;
         return;
@@ -37,11 +40,6 @@ void VR4300::on_pclock()
     if (WB() || DC() || EX() || RF() || IC()) return; 
     submit_pipeline();
 
-    if(cp0.count == cp0.compare )//>= cp0.compare)
-        cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
-    cp0.count++;
-    if(cp0.count >= std::numeric_limits<uint32_t>::max())
-        cp0.count = 0;
 }
 
 //Pipeline writeback stage
@@ -501,7 +499,7 @@ inline bool VR4300::RF()
     }
 
     uint32_t PC_p;
-    CP0::Segment segment = cp0.get_segment(RF_in.op->PC);
+    const CP0::Segment& segment = cp0.get_segment(RF_in.op->PC);
     bool cacheable = segment.cacheable;
 
     //IADE
@@ -706,7 +704,9 @@ void VR4300::abort_pipeline() {
     discard_bd = true;
 }
 
-void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, ExceptionCode cause){
+void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause){
+    bool op_bd = op.bd;
+    uint64_t op_PC = op.PC;
     abort_pipeline();
     //this is literally just the flow chart from page 203 copied
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
@@ -715,12 +715,12 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, Except
     uint16_t jump_offset;
     
     if(!EXL){
-        if(op.bd){
-            cp0.EPC = op.PC - 4;
+        if(op_bd){
+            cp0.EPC = op_PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_SHIFT);
-            cp0.EPC = op.PC;
+            cp0.EPC = op_PC;
         }
         if(cp0.is_xmode()) jump_offset=0x0080;
         else jump_offset=0x0000;
@@ -738,18 +738,20 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation op, Except
 //set fp status registers
 //set tlb related registers 
 //set badvaddr
-void VR4300::handle_general_exception(const Operation op, ExceptionCode cause){
+void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
+    bool op_bd = op.bd;
+    uint64_t op_PC = op.PC;
     abort_pipeline();
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     
     uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     if(!EXL){
-        if(op.bd){
-            cp0.EPC = op.PC - 4;
+        if(op_bd){
+            cp0.EPC = op_PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
         } else{
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 0 << CAUSE_BD_SHIFT);
-            cp0.EPC = op.PC;
+            cp0.EPC = op_PC;
         }
     }
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);

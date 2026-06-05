@@ -204,9 +204,9 @@ public:
 
     void abort_pipeline();
 
-    void handle_tlb_miss_exception(uint64_t addr, const Operation op, ExceptionCode cause);
+    void handle_tlb_miss_exception(uint64_t addr, const Operation& op, ExceptionCode cause);
 
-    void handle_general_exception(const Operation op, ExceptionCode cause);
+    void handle_general_exception(const Operation& op, ExceptionCode cause);
 
     void update_hardware_interrupt(uint8_t enable, uint8_t value);
 

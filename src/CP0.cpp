@@ -12,7 +12,7 @@ CP0::~CP0()
 }
 
 
-CP0::Segment CP0::get_segment(uint64_t v_addr)
+const CP0::Segment& CP0::get_segment(uint64_t v_addr)
 {
 
     if(!xmode){

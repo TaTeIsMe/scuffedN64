@@ -204,7 +204,7 @@ public:
         0xFFFFFFFFFFFFFFFFULL,//r31
     };
 
-    Segment get_segment(uint64_t v_addr);
+    const Segment& get_segment(uint64_t v_addr);
     
     uint64_t TLB[32][4];
 
