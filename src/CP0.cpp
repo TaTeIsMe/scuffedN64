@@ -66,8 +66,12 @@ const CP0::Segment& CP0::get_segment(uint64_t v_addr)
     return segment_lut[err];
 }
 
-void CP0::stash_mode()
+void CP0::stash_status()
 {
+    IM = get_bits(status,STATUS_IM_MASK,STATUS_IM_SHIFT);
+    IE = get_bits(status,STATUS_IE_MASK,STATUS_IE_SHIFT);
+    EXL = get_bits(status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
+    ERL = get_bits(status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
     if(in_kernel_mode())mode = Mode::KERNEL;
     else if(in_user_mode())mode=Mode::USER;
     else if(in_supervisor_mode())mode=Mode::SUPERVISOR;

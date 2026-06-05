@@ -86,7 +86,7 @@ inline bool VR4300::WB()
                 if(in.op->dest_reg == 6)
                     cp0.random = (cp0.wired > 31)?63:31;
                 if(in.op->dest_reg == 12)
-                    cp0.stash_mode();
+                    cp0.stash_status();
             }
             if(in.op->CPz == 1 && (in.op->tmplt->cp_control))
                 fpu.set_control(in.op->rd, in.op->result);
@@ -155,11 +155,7 @@ inline bool VR4300::DC()
     }
 
     uint8_t IP = cp0.get_bits(cp0.cause,CAUSE_IP_MASK,CAUSE_IP_SHIFT);
-    uint8_t IM = cp0.get_bits(cp0.status,STATUS_IM_MASK,STATUS_IM_SHIFT);
-    uint8_t IE = cp0.get_bits(cp0.status,STATUS_IE_MASK,STATUS_IE_SHIFT);
-    uint8_t EXL = cp0.get_bits(cp0.status,STATUS_EXL_MASK, STATUS_EXL_SHIFT);
-    uint8_t ERL = cp0.get_bits(cp0.status,STATUS_ERL_MASK, STATUS_ERL_SHIFT);
-    if((IP & IM) && IE && !EXL && !ERL)[[unlikely]]{
+    if((IP & cp0.IM) && cp0.IE && !cp0.EXL && !cp0.ERL)[[unlikely]]{
         if(in.op->tmplt->instruction_type == OpType::ERET) handle_general_exception(*RF_in.op,Int);
         else handle_general_exception(*in.op,Int);
 
@@ -264,13 +260,13 @@ inline bool VR4300::DC()
             return false;
         }
 
-        if((!cache_hit || !line.valid)  && !in.DCB_triggered)[[unlikely]]{
+        if((!cache_hit || !line.valid)  && !in.DCB_triggered){
             //DCM + DCB
             stall = 1 + DCACHE_STALL_TIME;
             stall_depth = 1;
             in.DCB_triggered = true;
             return true;
-        }else if((!cache_hit || !line.valid)  && in.DCB_triggered)[[unlikely]]{
+        }else if((!cache_hit || !line.valid)  && in.DCB_triggered){
 
             if(line.dirty && line.valid){
                 //write back previous entry
@@ -370,7 +366,6 @@ inline bool VR4300::DC()
                 }
             }
             if(in.op->tmplt->is_store){
-                //this won't work for 32 bits. reg  value needs to be masked correctly
                 uint64_t og_val;
                 og_val = rcp->read_size(in.op->data_addr_p & ~(in.op->tmplt->access_size - 1), in.op->tmplt->access_size);
                 uint8_t byte_offset = in.op->data_addr_p & (in.op->tmplt->access_size - 1);
@@ -711,10 +706,9 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, Excep
     //this is literally just the flow chart from page 203 copied
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     set_tlb_context(addr);
-    uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
     uint16_t jump_offset;
     
-    if(!EXL){
+    if(!cp0.EXL){
         if(op_bd){
             cp0.EPC = op_PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
@@ -728,7 +722,7 @@ void VR4300::handle_tlb_miss_exception(uint64_t addr, const Operation& op, Excep
         jump_offset=0x180; // says 80 in flow chart but 180 in description. 180 makes more sense prolly
     }
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
-    cp0.stash_mode();
+    cp0.stash_status();
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + jump_offset;
 }
@@ -744,8 +738,7 @@ void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
     abort_pipeline();
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     
-    uint32_t EXL = cp0.get_bits(cp0.status, STATUS_EXL_MASK, STATUS_EXL_SHIFT);
-    if(!EXL){
+    if(!cp0.EXL){
         if(op_bd){
             cp0.EPC = op_PC - 4;
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_BD_MASK, 1 << CAUSE_BD_SHIFT);
@@ -755,7 +748,7 @@ void VR4300::handle_general_exception(const Operation& op, ExceptionCode cause){
         }
     }
     cp0.status = cp0.set_bits(cp0.status, STATUS_EXL_MASK, 1 << STATUS_EXL_SHIFT);
-    cp0.stash_mode();
+    cp0.stash_status();
     uint64_t jump_base = (cp0.status & STATUS_BEV_MASK)? BOOTSTRAP_EXCEPTION_VEC_64 : EXCEPTION_VEC_64;
     PC = jump_base + 0x0180;
 }

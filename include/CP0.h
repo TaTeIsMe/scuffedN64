@@ -100,6 +100,10 @@ public:
     CP0();
     ~CP0();
 
+    uint8_t IM  = 0;
+    uint8_t IE  = 0;
+    uint8_t EXL = 0;
+    uint8_t ERL = 0;
     Mode mode = Mode::KERNEL;
     bool xmode = 0;
 
@@ -219,7 +223,7 @@ public:
     };
 
 
-    void stash_mode();
+    void stash_status();
     bool in_user_mode();
     bool in_supervisor_mode();
     bool in_kernel_mode();
