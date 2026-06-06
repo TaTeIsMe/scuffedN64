@@ -554,20 +554,10 @@ inline bool VR4300::RF()
     //return true;
     decode_op(op_code);
 
+    //remember that this ignores fpu mode
     in.op->rs_val = GPR[in.op->rs];
-    in.op->rt_val = GPR[in.op->rt];
-    if(in.op->tmplt->CPz == 0 && (in.op->tmplt->reads_cp))
-        in.op->rd_val = cp0.regs[in.op->rd];
-    if(in.op->tmplt->CPz == 1 && (in.op->tmplt->reads_cp)){
-        if(in.op->tmplt->cp_control){
-            if(in.op->rd == 0) in.op->rd_val = fpu.FCR0;
-            else if(in.op->rd == 31) in.op->rd_val = fpu.FCR31;
-        }
-        else {
-            in.op->rd_val = fpu.get_fpr(in.op->rd, in.op->tmplt->access_size);
-            in.op->rt_val = fpu.get_fpr(in.op->rt, in.op->tmplt->access_size);
-        }
-    }
+    in.op->rd_val = *(in.op->tmplt->rd_source_reg_file + in.op->rd);
+    in.op->rt_val = *(in.op->tmplt->rt_source_reg_file + in.op->rt);
 
     forward_write(*dc.op, *in.op);
     forward_write(*EX_in.op, *in.op);
@@ -978,6 +968,7 @@ VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint3
 
     rs_source_reg_file = cpu.GPR;
     rt_source_reg_file = cpu.GPR;
+    rd_source_reg_file = cpu.fpu.regs;
     if(CPz == 0 && (reads_cp))
         rd_source_reg_file = cpu.cp0.regs;
     if(CPz == 1 && (reads_cp)){
