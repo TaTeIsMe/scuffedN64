@@ -128,9 +128,14 @@ public:
     
     struct OperationTemplate{
         OperationTemplate();
-        OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size, OpType instruction_type);
+        OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type, VR4300& cpu);
         void (*execute)(VR4300& cpu) = nullptr;
+        uint64_t* rs_source_reg_file;
+        uint64_t* rt_source_reg_file;
+        uint64_t* rd_source_reg_file;
+        uint64_t* dest_reg_file;
         uint32_t flags = 0;
+        uint8_t CPz = 0;
         uint8_t dest_id = 0;
         uint8_t multicycle = 0;
         uint8_t access_size = 0;
@@ -157,7 +162,7 @@ public:
     
     struct Operation{
         const OperationTemplate* tmplt;
-        Operation();
+        Operation(VR4300& cpu);
         bool cacheable = false;
         bool fire_fpu_exception = false;
         bool bd = false;
@@ -174,7 +179,6 @@ public:
 
         uint8_t rs = 0;//reg numebr
 
-        uint8_t CPz = 0;//for cp instructions
         uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
         uint8_t cond = 0;
@@ -262,6 +266,17 @@ public:
     void dcache_write_back(Dcache_line& line, uint16_t index);
 
     inline void forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op);
+
+    const VR4300::OperationTemplate noptmplt;
+    const VR4300::OperationTemplate primary_op_lut[64];
+    const VR4300::OperationTemplate special_op_lut[64];
+    const VR4300::OperationTemplate regimm_op_lut[32];
+    const VR4300::OperationTemplate COP0rs_op_lut[32];
+    const VR4300::OperationTemplate COP0rt_op_lut[32];
+    const VR4300::OperationTemplate COP1rs_op_lut[32];
+    const VR4300::OperationTemplate COP1rt_op_lut[32];
+    const VR4300::OperationTemplate CP0_op_lut[32];
+    const VR4300::OperationTemplate CP1_op_lut[64];
 
 private:
 };

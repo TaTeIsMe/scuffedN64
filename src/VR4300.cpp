@@ -8,13 +8,6 @@
 #include <limits>
 #include"CP0.h"
 
-VR4300::VR4300():cp0(),rcp(rcp),fpu(cp0){
-    discard_bd = true;
-    WB_in.op = op_storage;
-    DC_in.op = op_storage + 1;
-    EX_in.op = op_storage + 2;
-    RF_in.op = op_storage + 3;
-}
 
 // todo
 // fix asid
@@ -79,7 +72,7 @@ inline bool VR4300::WB()
     }
     if(in.op->tmplt->writes_reg){
         if(in.op->tmplt->writes_cp){
-            if(in.op->CPz == 0){
+            if(in.op->tmplt->CPz == 0){
                 cp0.regs[in.op->dest_reg] = (cp0.regs[in.op->dest_reg] & ~cp0.write_masks[in.op->dest_reg]) | (in.op->result & cp0.write_masks[in.op->dest_reg]);
                 if(in.op->dest_reg == 11)
                     cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
@@ -88,9 +81,9 @@ inline bool VR4300::WB()
                 if(in.op->dest_reg == 12)
                     cp0.stash_status();
             }
-            if(in.op->CPz == 1 && (in.op->tmplt->cp_control))
+            if(in.op->tmplt->CPz== 1 && (in.op->tmplt->cp_control))
                 fpu.set_control(in.op->rd, in.op->result);
-            else if(in.op->CPz == 1) 
+            else if(in.op->tmplt->CPz == 1) 
                 fpu.write_fpr(in.op->dest_reg,in.op->result,in.op->tmplt->access_size);
         }else
         if(in.op->dest_reg != 0)
@@ -395,9 +388,9 @@ inline bool VR4300::EX()
 
     uint8_t CU = (cp0.status >> 28) & 0xF;
 
-    if((in.op->tmplt->is_cpz) && !((CU >> in.op->CPz) & 1))[[unlikely]]{
-        if(!(in.op->CPz == 0 && (cp0.mode == Mode::KERNEL))){
-            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op->CPz << 28);
+    if((in.op->tmplt->is_cpz) && !((CU >> in.op->tmplt->CPz) & 1))[[unlikely]]{
+        if(!(in.op->tmplt->CPz == 0 && (cp0.mode == Mode::KERNEL))){
+            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,in.op->tmplt->CPz << 28);
             handle_general_exception(*in.op,CpU);
             return true;
         }
@@ -563,9 +556,9 @@ inline bool VR4300::RF()
 
     in.op->rs_val = GPR[in.op->rs];
     in.op->rt_val = GPR[in.op->rt];
-    if(in.op->CPz == 0 && (in.op->tmplt->reads_cp))
+    if(in.op->tmplt->CPz == 0 && (in.op->tmplt->reads_cp))
         in.op->rd_val = cp0.regs[in.op->rd];
-    if(in.op->CPz == 1 && (in.op->tmplt->reads_cp)){
+    if(in.op->tmplt->CPz == 1 && (in.op->tmplt->reads_cp)){
         if(in.op->tmplt->cp_control){
             if(in.op->rd == 0) in.op->rd_val = fpu.FCR0;
             else if(in.op->rd == 31) in.op->rd_val = fpu.FCR31;
@@ -606,13 +599,23 @@ bool VR4300::decode_op(uint32_t word)
     else if(opcode == 1)
     tmplt = &regimm_op_lut[(word >> 16) & 0x1F];
     else if((opcode >> 2) == 4){
-        if(((word >> 21) & 0x1F) == 8)
-        tmplt = &COPzrt_op_lut[(word >> 16) & 0x1F];
+        if(((word >> 21) & 0x1F) == 8){
+            if(((word >> 26) & 0x3) == 0)
+                tmplt = &COP0rt_op_lut[(word >> 16) & 0x1F];
+            else
+                tmplt = &COP1rt_op_lut[(word >> 16) & 0x1F];
+
+        }
         else if((word >> 25) == 33)
         tmplt = &CP0_op_lut[word & 0x3F];
         else if((word >> 25) == 35)
         tmplt = &CP1_op_lut[word & 0x3F];
-        else tmplt = &COPzrs_op_lut[(word >> 21) & 0x1F];
+        else{
+            if(((word >> 26) & 0x3) == 0)
+                tmplt = &COP0rs_op_lut[(word >> 21) & 0x1F];
+            else
+                tmplt = &COP1rs_op_lut[(word >> 21) & 0x1F];
+        }
     }
     else
     tmplt = &primary_op_lut[opcode];
@@ -626,6 +629,7 @@ bool VR4300::decode_op(uint32_t word)
     //}
     
     op.tmplt = tmplt;
+
     
     op.rs = (word >> 21) & 0x1F;
     op.rt = (word >> 16) & 0x1F;
@@ -635,7 +639,6 @@ bool VR4300::decode_op(uint32_t word)
     if(op.tmplt->instruction_type == OpType::TLBP) op.dest_reg = 0;
     op.immediate = (word & 0xFFFF);
     op.target = (word & 0x3FFFFFF);
-    op.CPz = (word >> 26) & 0x3;
     op.cond = word & 0xF;
     return false;
     
@@ -685,10 +688,10 @@ void VR4300::abort_pipeline() {
     RF_in.ICB_triggered = false;
     RF_in.uncacheable_stall_triggered = false;
 
-    *RF_in.op = {};
-    *EX_in.op = {};
-    *DC_in.op = {};
-    *WB_in.op = {};
+    *RF_in.op = {*this};
+    *EX_in.op = {*this};
+    *DC_in.op = {*this};
+    *WB_in.op = {*this};
     
     stall = 0; // maybe
     stall_depth = 0;
@@ -892,9 +895,9 @@ void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
     line.dirty = 0;
 }
 
-VR4300::Operation::Operation()
+VR4300::Operation::Operation(VR4300& cpu)
 {
-    tmplt = &noptmplt;
+    tmplt = &cpu.noptmplt;
 }
 
 const char *VR4300::Operation::op_name() const
@@ -916,24 +919,30 @@ std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
     return os;
 }
 
-void VR4300::forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op)
+inline void VR4300::forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op)
 {
     if (!(stage_op.tmplt->writes_reg) )
     return;
     if((stage_op.tmplt->writes_hi) || (stage_op.tmplt->writes_lo))
     return;
-
-    if (!(stage_op.tmplt->writes_cp))
-        if (in_op.rs == stage_op.dest_reg) in_op.rs_val = stage_op.result;
-
-    if(stage_op.tmplt->writes_cp && in_op.tmplt->reads_cp){
-        if(stage_op.tmplt->writes_cp && stage_op.CPz != in_op.CPz)
-            return;
-        if (in_op.rt == stage_op.dest_reg) in_op.rt_val = (in_op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
-        if (in_op.rd == stage_op.dest_reg) in_op.rd_val = (in_op.CPz == 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
-        return;
-    }else if(!(stage_op.tmplt->writes_cp) && !(in_op.tmplt->reads_cp) && !(stage_op.dest_reg == 0))
-        if (in_op.rt == stage_op.dest_reg) in_op.rt_val = stage_op.result;
+    //
+    //if (!(stage_op.tmplt->writes_cp))
+    //    if (in_op.rs == stage_op.dest_reg) in_op.rs_val = stage_op.result;
+    //
+    //if(stage_op.tmplt->writes_cp && in_op.tmplt->reads_cp){
+        //    if(stage_op.tmplt->writes_cp && stage_op.tmplt->CPz != in_op.tmplt->CPz)
+        //        return;
+        //    if (in_op.rt == stage_op.dest_reg) in_op.rt_val = (in_op.tmplt->CPz== 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
+        //    if (in_op.rd == stage_op.dest_reg) in_op.rd_val = (in_op.tmplt->CPz== 0)? (stage_op.result & cp0.write_masks[stage_op.dest_reg]): stage_op.result;
+        //    return;
+        //}else if(!(stage_op.tmplt->writes_cp) && !(in_op.tmplt->reads_cp) && !(stage_op.dest_reg == 0))
+        //    if (in_op.rt == stage_op.dest_reg) in_op.rt_val = stage_op.result;
+        
+    uint64_t* dest = stage_op.tmplt->dest_reg_file + stage_op.dest_reg;
+    if(dest == this->GPR)return; // if dest is 0
+    if((in_op.tmplt->rs_source_reg_file + in_op.rs) == dest) in_op.rs_val = stage_op.result;
+    if((in_op.tmplt->rt_source_reg_file + in_op.rt) == dest) in_op.rt_val = stage_op.result;
+    if((in_op.tmplt->rd_source_reg_file + in_op.rd) == dest) in_op.rd_val = stage_op.result;
 };
 
 VR4300::OperationTemplate::OperationTemplate()
@@ -941,8 +950,8 @@ VR4300::OperationTemplate::OperationTemplate()
 {
 }
 
-VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size, OpType instruction_type)
-    : execute(execute), flags(flags), multicycle(multicycle), access_size(access_size), instruction_type(instruction_type)
+VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type, VR4300& cpu)
+    : execute(execute), flags(flags), multicycle(multicycle), access_size(access_size), instruction_type(instruction_type), CPz(CPz)
 {
     is_load = flags & IS_LOAD;
     is_store = flags & IS_STORE;
@@ -966,4 +975,31 @@ VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint3
     if(stores_in_31)dest_id = DestId::REG31;
     if(stores_in_rt)dest_id = DestId::RT;
     if(stores_in_sa)dest_id = DestId::SA;
+
+    rs_source_reg_file = cpu.GPR;
+    rt_source_reg_file = cpu.GPR;
+    if(CPz == 0 && (reads_cp))
+        rd_source_reg_file = cpu.cp0.regs;
+    if(CPz == 1 && (reads_cp)){
+        if(cp_control){
+            rd_source_reg_file = cpu.fpu.control_regs;
+        }
+        else {
+            rd_source_reg_file = cpu.fpu.regs;
+            rt_source_reg_file = cpu.fpu.regs;
+        }
+    }
+
+    if(writes_reg){
+        if(writes_cp){
+            if(CPz == 0){
+                dest_reg_file = cpu.cp0.regs;
+            }
+            if(CPz== 1 && cp_control)
+                dest_reg_file = cpu.fpu.control_regs;
+            else if(CPz == 1) 
+                dest_reg_file = cpu.fpu.regs;
+        }else
+            dest_reg_file = cpu.GPR;
+    }
 }
