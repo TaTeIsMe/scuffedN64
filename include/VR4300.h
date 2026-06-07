@@ -55,6 +55,13 @@ enum DestId{
     SA = 3
 };
 
+enum class RegFile{
+    CPU_GPR,
+    CP0_REGS,
+    FPU_REGS,
+    FPU_CONTROL_REGS
+};
+
 class VR4300
 {
 public:
@@ -130,10 +137,14 @@ public:
         OperationTemplate();
         OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type, VR4300& cpu);
         void (*execute)(VR4300& cpu) = nullptr;
-        uint64_t* rs_source_reg_file;
-        uint64_t* rt_source_reg_file;
-        uint64_t* rd_source_reg_file;
-        uint64_t* dest_reg_file;
+        RegFile rs_source_reg_file;
+        RegFile rt_source_reg_file;
+        RegFile rd_source_reg_file;
+        RegFile dest_reg_file;
+        uint64_t* rs_source_reg_file_ptr;
+        uint64_t* rt_source_reg_file_ptr;
+        uint64_t* rd_source_reg_file_ptr;
+        uint64_t* dest_reg_file_ptr;
         uint32_t flags = 0;
         uint8_t CPz = 0;
         uint8_t dest_id = 0;
@@ -178,13 +189,10 @@ public:
         };
 
         uint8_t rs = 0;//reg numebr
-
+        uint32_t opcode = 0;
         uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
-        uint8_t cond = 0;
         uint8_t conditional_val = 0;
-        uint16_t immediate = 0;//needed during operation, also doubles as offset during operation
-        uint32_t target = 0;//for jumps
         uint64_t result_entryHI = 0;//for tlb instructions
         uint64_t result_entryLO0 = 0;//for tlb instructions
         uint64_t result_entryLO1 = 0;//for tlb instructions
@@ -203,8 +211,8 @@ public:
         const char* op_name() const;
         friend std::ostream& operator<<(std::ostream& os, const Operation& op);
     };
-    
-    bool decode_op(uint32_t word);
+
+    inline bool decode_op(uint32_t word);
 
     void abort_pipeline();
 
@@ -258,13 +266,14 @@ public:
     inline bool IC(); // instruction cache fetch
 
     
-    void submit_pipeline();
+    inline void submit_pipeline();
     void dcache_write_size(Dcache_line &line, uint8_t offset, uint64_t value, uint8_t size);
     uint64_t dcache_read_size(const Dcache_line &line, uint8_t offset, uint8_t size);
 
     uint8_t handle_cache_op(const Operation& op);
     void dcache_write_back(Dcache_line& line, uint16_t index);
 
+    inline uint64_t fetch_reg(RegFile reg_file, uint8_t reg_num);
     inline void forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op);
 
     const VR4300::OperationTemplate noptmplt;

@@ -2,7 +2,7 @@ CXX = g++
 
 COMMON_FLAGS = -Wall -std=c++20 -Iinclude
 
-DEBUG_FLAGS = -g -O0
+DEBUG_FLAGS = -g -O2 -march=native 
 RELEASE_FLAGS = -O3 -DNDEBUG -march=native -flto
 
 TARGET_DIR = build
