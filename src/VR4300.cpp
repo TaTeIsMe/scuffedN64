@@ -459,9 +459,6 @@ inline bool VR4300::EX()
 //Pipeline register fetch stage
 inline bool VR4300::RF()
 {
-    if(stall_depth > 3)return false;
-
-
     //what RF does is:
     // gets data from earlier stages if needed registers were operated on
     // get physical PC from TLB

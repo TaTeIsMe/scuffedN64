@@ -4,9 +4,9 @@
 #include "FPU.h"
 #include<iostream>
 
-#define CACHE_OP_STALL_TIME 2
-#define DCACHE_STALL_TIME 2
-#define ICACHE_STALL_TIME 2
+#define CACHE_OP_STALL_TIME 32
+#define DCACHE_STALL_TIME 40
+#define ICACHE_STALL_TIME 40
 
 enum class OpType : uint32_t {
 #   define X(a) a,
