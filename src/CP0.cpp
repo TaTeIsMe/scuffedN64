@@ -15,17 +15,17 @@ CP0::~CP0()
 const CP0::Segment& CP0::get_segment(uint64_t v_addr)
 {
 
-    if(!xmode){
-        uint64_t sign_extension = (v_addr >> 31); //includes the sign bit
-    
-        if (sign_extension != 0 && sign_extension != 0x1FFFFFFFFULL)
-            return segment_lut[err];
-    }else{
-        uint32_t sign_extension = (v_addr >> 39) & 0x7FFFFF; //includes the sign bit
-    
-        if (sign_extension != 0 && sign_extension != 0x7FFFFF)
-            return segment_lut[err];
-    }
+    //if(!xmode){
+    //    uint64_t sign_extension = (v_addr >> 31); //includes the sign bit
+    //
+    //    if (sign_extension != 0 && sign_extension != 0x1FFFFFFFFULL)
+    //        return segment_lut[err];
+    //}else{
+    //    uint32_t sign_extension = (v_addr >> 39) & 0x7FFFFF; //includes the sign bit
+    //
+    //    if (sign_extension != 0 && sign_extension != 0x7FFFFF)
+    //        return segment_lut[err];
+    //}
 
 
     uint8_t region = (v_addr >> 62) & 0x3;

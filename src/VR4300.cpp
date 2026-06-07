@@ -8,6 +8,13 @@
 #include <limits>
 #include"CP0.h"
 
+VR4300::VR4300() : cp0(), rcp(rcp), fpu(cp0){
+    discard_bd = true;
+    WB_in.op = op_storage;
+    DC_in.op = op_storage + 1;
+    EX_in.op = op_storage + 2;
+    RF_in.op = op_storage + 3;
+}
 
 // todo
 // fix asid
@@ -523,7 +530,7 @@ inline bool VR4300::RF()
             uint64_t line_start_addr = PC_p & ~ 0x1F;
             for (int i = 0; i < 8; i++)
             {
-                line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
+                decode_op(rcp->read_size(line_start_addr + i * 4, 4),line.data[i] );
             }
             line.tag = PC_p >> 12;
             line.valid = true;
@@ -535,7 +542,24 @@ inline bool VR4300::RF()
             
         }
         uint8_t offset = (PC_p >> 2) & 0x7;
-        op_code = line.data[offset];
+
+        RF_in.op->tmplt = line.data[offset].tmplt;
+
+        RF_in.op->rs = line.data[offset].rs;
+        RF_in.op->rt = line.data[offset].rt;
+        RF_in.op->rd = line.data[offset].rd;
+        RF_in.op->sa = line.data[offset].sa;
+        RF_in.op->dest_reg = line.data[offset].dest_options[line.data[offset].tmplt->dest_id];
+        RF_in.op->opcode = line.data[offset].opcode;
+
+        fetch_regs();
+
+        if (RF_in.op->tmplt->causes_bd)
+            next_op_bd = true;
+
+        return false;
+
+        //return false;
     }else{//this logic of avoiding cache is a little scuffed, might need some review
         if(!RF_in.uncacheable_stall_triggered){
             //not cacheable so read diractly from memory
@@ -549,19 +573,12 @@ inline bool VR4300::RF()
 
     //if(decode_op(op_code))
     //return true;
-    decode_op(op_code);
+    decode_op(op_code,*RF_in.op);
 
-    //remember that this ignores fpu mode
-    RF_in.op->rs_val = GPR[RF_in.op->rs];
-    //RF_in.op->rd_val = *(RF_in.op->tmplt->rd_source_reg_file + RF_in.op->rd);
-    //RF_in.op->rt_val = *(RF_in.op->tmplt->rt_source_reg_file + RF_in.op->rt);
-    RF_in.op->rd_val = fetch_reg(RF_in.op->tmplt->rd_source_reg_file, RF_in.op->rd);
-    RF_in.op->rt_val = fetch_reg(RF_in.op->tmplt->rt_source_reg_file, RF_in.op->rt);
+    fetch_regs();
 
-    forward_write(*DC_in.op, *RF_in.op);
-    forward_write(*EX_in.op, *RF_in.op);
-
-    if(RF_in.op->tmplt->causes_bd) next_op_bd = true;
+    if (RF_in.op->tmplt->causes_bd)
+        next_op_bd = true;
 
     return false;
 }
@@ -577,9 +594,8 @@ inline bool VR4300::IC()
 }
 
 
-inline bool VR4300::decode_op(uint32_t word)
+inline bool VR4300::decode_op(uint32_t word, Operation& op)
 {
-    Operation& op = *RF_in.op;
     uint8_t opcode = word >> 26;
     
     const OperationTemplate* tmplt;
@@ -673,10 +689,10 @@ void VR4300::abort_pipeline() {
     RF_in.ICB_triggered = false;
     RF_in.uncacheable_stall_triggered = false;
 
-    *RF_in.op = {*this};
-    *EX_in.op = {*this};
-    *DC_in.op = {*this};
-    *WB_in.op = {*this};
+    *RF_in.op = {};
+    *EX_in.op = {};
+    *DC_in.op = {};
+    *WB_in.op = {};
     
     stall = 0; // maybe
     stall_depth = 0;
@@ -846,7 +862,7 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
         }else if(accessed_cache == 0){
             //Fill
             uint64_t line_start_addr = op.data_addr_p & ~0xF;
-            for (int i = 0; i < 8; i++) i_line.data[i] = rcp->read_size(line_start_addr + i * 4, 4);
+            for (int i = 0; i < 8; i++) decode_op(rcp->read_size(line_start_addr + i * 4, 4),i_line.data[i]) ;
             i_line.tag = icalculated_tag;
             i_line.valid = true;
         }
@@ -862,7 +878,7 @@ uint8_t VR4300::handle_cache_op(const VR4300::Operation& op){
         }else if(accessed_cache == 0){
             if(i_hit && i_line.valid){
                 uint64_t line_start_addr = op.data_addr_p & ~0xF;
-                for (int i = 0; i < 8; i++) rcp->write_size(line_start_addr + i * 4, i_line.data[i], 4);
+                for (int i = 0; i < 8; i++) rcp->write_size(line_start_addr + i * 4, i_line.data[i].opcode, 4);
             }
         }
         break;
@@ -880,9 +896,9 @@ void VR4300::dcache_write_back(VR4300::Dcache_line& line, uint16_t index){
     line.dirty = 0;
 }
 
-VR4300::Operation::Operation(VR4300& cpu)
+VR4300::Operation::Operation()
 {
-    tmplt = &cpu.noptmplt;
+    tmplt = &noptmplt;
 }
 
 const char *VR4300::Operation::op_name() const
@@ -902,6 +918,18 @@ std::ostream &operator<<(std::ostream &os, const VR4300::Operation &op)
     << " Dest reg: "<< std::left <<std::setw(3) << std::dec << (int)op.dest_reg
     << " Data addr phys: "<< std::left <<std::setw(7) << std::hex << (int)op.data_addr_p;
     return os;
+}
+
+inline void VR4300::fetch_regs()
+{
+    RF_in.op->rs_val = GPR[RF_in.op->rs];
+    // RF_in.op->rd_val = *(RF_in.op->tmplt->rd_source_reg_file + RF_in.op->rd);
+    // RF_in.op->rt_val = *(RF_in.op->tmplt->rt_source_reg_file + RF_in.op->rt);
+    RF_in.op->rd_val = fetch_reg(RF_in.op->tmplt->rd_source_reg_file, RF_in.op->rd);
+    RF_in.op->rt_val = fetch_reg(RF_in.op->tmplt->rt_source_reg_file, RF_in.op->rt);
+
+    forward_write(*DC_in.op, *RF_in.op);
+    forward_write(*EX_in.op, *RF_in.op);
 }
 
 inline uint64_t VR4300::fetch_reg(RegFile reg_file, uint8_t reg_num)
@@ -946,14 +974,14 @@ inline void VR4300::forward_write(const VR4300::Operation &stage_op, VR4300::Ope
         //}else if(!(stage_op.tmplt->writes_cp) && !(in_op.tmplt->reads_cp) && !(stage_op.dest_reg == 0))
         //    if (in_op.rt == stage_op.dest_reg) in_op.rt_val = stage_op.result;
         
-    uint64_t* dest = stage_op.tmplt->dest_reg_file_ptr + stage_op.dest_reg;
-    //if(dest == this->GPR)return; // if dest is 0
-    if((in_op.tmplt->rs_source_reg_file_ptr + in_op.rs) == dest) in_op.rs_val = stage_op.result;
-    if((in_op.tmplt->rt_source_reg_file_ptr + in_op.rt) == dest) in_op.rt_val = stage_op.result;
-    if((in_op.tmplt->rd_source_reg_file_ptr + in_op.rd) == dest) in_op.rd_val = stage_op.result;
-    //if(in_op.tmplt->rs_source_reg_file == stage_op.tmplt->dest_reg_file && in_op.rs == stage_op.dest_reg)in_op.rs_val = stage_op.result;
-    //if(in_op.tmplt->rt_source_reg_file == stage_op.tmplt->dest_reg_file && in_op.rt == stage_op.dest_reg)in_op.rt_val = stage_op.result;
-    //if(in_op.tmplt->rd_source_reg_file == stage_op.tmplt->dest_reg_file && in_op.rd == stage_op.dest_reg)in_op.rd_val = stage_op.result;
+    //uint64_t* dest = stage_op.tmplt->dest_reg_file_ptr + stage_op.dest_reg;
+    ////if(dest == this->GPR)return; // if dest is 0
+    //if((in_op.tmplt->rs_source_reg_file_ptr + in_op.rs) == dest) in_op.rs_val = stage_op.result;
+    //if((in_op.tmplt->rt_source_reg_file_ptr + in_op.rt) == dest) in_op.rt_val = stage_op.result;
+    //if((in_op.tmplt->rd_source_reg_file_ptr + in_op.rd) == dest) in_op.rd_val = stage_op.result;
+    if(RegFile::CPU_GPR == stage_op.tmplt->dest_reg_file && in_op.rs == stage_op.dest_reg)in_op.rs_val = stage_op.result;
+    if(in_op.tmplt->rt_source_reg_file == stage_op.tmplt->dest_reg_file && in_op.rt == stage_op.dest_reg)in_op.rt_val = stage_op.result;
+    if(in_op.tmplt->rd_source_reg_file == stage_op.tmplt->dest_reg_file && in_op.rd == stage_op.dest_reg)in_op.rd_val = stage_op.result;
 };
 
 VR4300::OperationTemplate::OperationTemplate()
@@ -961,7 +989,7 @@ VR4300::OperationTemplate::OperationTemplate()
 {
 }
 
-VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type, VR4300& cpu)
+VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type)
     : execute(execute), flags(flags), multicycle(multicycle), access_size(access_size), instruction_type(instruction_type), CPz(CPz)
 {
     is_load = flags & IS_LOAD;
@@ -987,7 +1015,6 @@ VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint3
     if(stores_in_rt)dest_id = DestId::RT;
     if(stores_in_sa)dest_id = DestId::SA;
 
-    rs_source_reg_file = RegFile::CPU_GPR;
     rt_source_reg_file = RegFile::CPU_GPR;
     rd_source_reg_file = RegFile::FPU_REGS;
     if(CPz == 0 && (reads_cp))
@@ -1013,33 +1040,5 @@ VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint3
                 dest_reg_file = RegFile::FPU_REGS;
         }else
             dest_reg_file = RegFile::CPU_GPR;
-    }
-
-    rs_source_reg_file_ptr = cpu.GPR;
-    rt_source_reg_file_ptr = cpu.GPR;
-    rd_source_reg_file_ptr = cpu.fpu.regs;
-    if(CPz == 0 && (reads_cp))
-        rd_source_reg_file_ptr = cpu.cp0.regs;
-    if(CPz == 1 && (reads_cp)){
-        if(cp_control){
-            rd_source_reg_file_ptr = cpu.fpu.control_regs;
-        }
-        else {
-            rd_source_reg_file_ptr = cpu.fpu.regs;
-            rt_source_reg_file_ptr = cpu.fpu.regs;
-        }
-    }
-
-    if(writes_reg){
-        if(writes_cp){
-            if(CPz == 0){
-                dest_reg_file_ptr = cpu.cp0.regs;
-            }
-            if(CPz== 1 && cp_control)
-                dest_reg_file_ptr = cpu.fpu.control_regs;
-            else if(CPz == 1) 
-                dest_reg_file_ptr = cpu.fpu.regs;
-        }else
-            dest_reg_file_ptr = cpu.GPR;
     }
 }

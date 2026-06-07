@@ -116,35 +116,14 @@ public:
         };
         uint64_t GPR[34];
     };
-
-    struct Dcache_line{
-        bool valid = false;
-        bool dirty = false;
-        uint32_t tag;
-        uint8_t data[16];
-    };
-
-    struct Icache_line{
-        bool valid = false;
-        uint32_t tag;
-        uint32_t data[8];
-    };
-
-    Dcache_line Dcache[512]; 
-    Icache_line Icache[512];
     
     struct OperationTemplate{
         OperationTemplate();
-        OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type, VR4300& cpu);
+        OperationTemplate(void (*execute)(VR4300& cpu), uint32_t flags, uint8_t multicycle, uint8_t access_size,uint8_t CPz, OpType instruction_type);
         void (*execute)(VR4300& cpu) = nullptr;
-        RegFile rs_source_reg_file;
         RegFile rt_source_reg_file;
         RegFile rd_source_reg_file;
         RegFile dest_reg_file;
-        uint64_t* rs_source_reg_file_ptr;
-        uint64_t* rt_source_reg_file_ptr;
-        uint64_t* rd_source_reg_file_ptr;
-        uint64_t* dest_reg_file_ptr;
         uint32_t flags = 0;
         uint8_t CPz = 0;
         uint8_t dest_id = 0;
@@ -173,11 +152,37 @@ public:
     
     struct Operation{
         const OperationTemplate* tmplt;
-        Operation(VR4300& cpu);
-        bool cacheable = false;
-        bool fire_fpu_exception = false;
-        bool bd = false;
+        Operation();
+        uint64_t rs_val = 0;//needed during operation
+        uint64_t rt_val = 0;//needed during operation
+        uint64_t PC = 0;//virtual address of instruction
 
+        
+        union {
+            // TLB instructions
+            struct {
+                uint64_t result_entryHI;
+                uint64_t result_entryLO0;
+                uint64_t result_entryLO1;
+                uint64_t result_pagemask;
+            };
+            // Multiply and division
+            struct {
+                uint64_t result_HI;
+                uint64_t result_LO;
+            };
+            // Standard ALU & Memory operations (Load/Store)
+            struct {
+                uint64_t result;
+                uint64_t data_addr;
+                uint64_t data_addr_p;
+                uint64_t rd_val;
+            };
+        };
+        uint64_t dcache_index = 0;
+        uint32_t opcode = 0;
+        uint32_t icache_index = 0;
+        
         union{
             uint8_t dest_options[4]{0,0,31,0};
             struct{
@@ -187,32 +192,34 @@ public:
                 uint8_t sa;
             };
         };
-
+        bool cacheable = false;
+        bool fire_fpu_exception = false;
+        bool bd = false;
         uint8_t rs = 0;//reg numebr
-        uint32_t opcode = 0;
         uint8_t source_reg = 0;
         uint8_t dest_reg = 0;
         uint8_t conditional_val = 0;
-        uint64_t result_entryHI = 0;//for tlb instructions
-        uint64_t result_entryLO0 = 0;//for tlb instructions
-        uint64_t result_entryLO1 = 0;//for tlb instructions
-        uint64_t result_pagemask = 0;//for tlb instructions
-        uint64_t data_addr = 0; //doubles as virtual address and reg written to
-        uint64_t data_addr_p = 0; //write dest but physical
-        uint64_t rs_val = 0;//needed during operation
-        uint64_t rt_val = 0;//needed during operation
-        uint64_t rd_val = 0;//for all the cp operations
-        uint64_t result = 0; //what is stored
-        uint64_t result_HI = 0;//for multiplying and division
-        uint64_t result_LO = 0;//for multiplying and division
-        uint64_t PC = 0;//virtual address of instruction
-        uint64_t dcache_index = 0;//for cache writing
-        uint32_t icache_index = 0;
         const char* op_name() const;
         friend std::ostream& operator<<(std::ostream& os, const Operation& op);
     };
 
-    inline bool decode_op(uint32_t word);
+    struct Dcache_line{
+        bool valid = false;
+        bool dirty = false;
+        uint32_t tag;
+        uint8_t data[16];
+    };
+
+    struct Icache_line{
+        bool valid = false;
+        uint32_t tag;
+        Operation data[8];
+    };
+
+    Dcache_line Dcache[512];
+    Icache_line Icache[512];
+
+    inline bool decode_op(uint32_t word, Operation& op);
 
     void abort_pipeline();
 
@@ -253,7 +260,7 @@ public:
     uint8_t stall_depth;
     void on_pclock();
 
-    Operation op_storage[4];
+    Operation op_storage[4]{};
     //Pipeline stages.
     inline bool WB(); // write back
     WB_DC WB_in{};
@@ -262,6 +269,7 @@ public:
     inline bool EX(); // execute
     RF_EX EX_in{};
     inline bool RF(); // register fetch
+    void fetch_regs();
     IC_RF RF_in{};
     inline bool IC(); // instruction cache fetch
 
@@ -275,17 +283,6 @@ public:
 
     inline uint64_t fetch_reg(RegFile reg_file, uint8_t reg_num);
     inline void forward_write (const VR4300::Operation& stage_op, VR4300::Operation& in_op);
-
-    const VR4300::OperationTemplate noptmplt;
-    const VR4300::OperationTemplate primary_op_lut[64];
-    const VR4300::OperationTemplate special_op_lut[64];
-    const VR4300::OperationTemplate regimm_op_lut[32];
-    const VR4300::OperationTemplate COP0rs_op_lut[32];
-    const VR4300::OperationTemplate COP0rt_op_lut[32];
-    const VR4300::OperationTemplate COP1rs_op_lut[32];
-    const VR4300::OperationTemplate COP1rt_op_lut[32];
-    const VR4300::OperationTemplate CP0_op_lut[32];
-    const VR4300::OperationTemplate CP1_op_lut[64];
 
 private:
 };
