@@ -645,60 +645,80 @@ void TGE(VR4300 &cpu)
     VR4300::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val >= (int64_t)op.rt_val)
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TGEU(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val >= op.rt_val)
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TLT(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val < (int64_t)op.rt_val)
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TLTU(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val < op.rt_val)
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TEQ(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val == op.rt_val)
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TNE(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val != op.rt_val)
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TGEI(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val >= (int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TGEIU(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val >= (op.opcode & 0xFFFF))
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TLTI(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val < (int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TLTIU(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val < (op.opcode & 0xFFFF))
         op.result = 1;
+    else
+        op.result = 0;
 }
 // immidiate is sign extended here, it doesn't say in general description, so good i checked...
 void TEQI(VR4300 &cpu)
@@ -706,12 +726,16 @@ void TEQI(VR4300 &cpu)
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val == (uint64_t)(int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
+    else
+        op.result = 0;
 }
 void TNEI(VR4300 &cpu)
 {
     VR4300::Operation &op = *cpu.EX_in.op;
     if (op.rs_val == (uint64_t)(int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
+    else
+        op.result = 0;
 }
 void LWCz(VR4300 &cpu)
 {

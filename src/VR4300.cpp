@@ -134,19 +134,19 @@ inline bool VR4300::DC()
     //a lot of the code below is bloated by exception and interlock handling
 
     //for now disabled
-    //if(DC_in.op->fire_fpu_exception){
-    //    DC_in.op->fire_fpu_exception = false;
-    //    EX_in.op->fire_fpu_exception = false;
-    //    uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
-    //    uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
-    //    //wooo magic numbers
-    //    fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
-    //    if( ((Enables | 0x20) & Cause) != 0){
-    //        cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
-    //        handle_general_exception(*DC_in.op,FPE);
-    //        return true;
-    //    }
-    //}
+    if(DC_in.op->fire_fpu_exception){
+        DC_in.op->fire_fpu_exception = false;
+        EX_in.op->fire_fpu_exception = false;
+        uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
+        uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
+        //wooo magic numbers
+        fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
+        if( ((Enables | 0x20) & Cause) != 0){
+            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
+            handle_general_exception(*DC_in.op,FPE);
+            return true;
+        }
+    }
 
     if(update_conditional){
         fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.op->conditional_val << 23);
@@ -642,6 +642,8 @@ inline bool VR4300::decode_op(uint32_t word, Operation& op)
 }
 
 inline void VR4300::submit_pipeline(){
+
+    //std::cout<<*WB_in.op << "\n";
 
     if(cp0.random == cp0.wired && cp0.wired < 32)
         cp0.random = (cp0.wired > 31)?63:31;
