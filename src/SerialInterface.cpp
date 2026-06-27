@@ -47,7 +47,10 @@ void SerialInterface::start_dma()
     SI_STATUS |= 1;
     //completely random, change later
     //temp_i = 64 * 3;
-    rcp.eventq.enqueue(rcp.cycles + 64 * 3, EventType::SI_DMA_DONE);
+
+    int latency = dma_direction?64*3:1500;
+
+    rcp.eventq.enqueue(rcp.cycles + latency, EventType::SI_DMA_DONE);
 }
 
 void SerialInterface::continue_dma()

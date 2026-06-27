@@ -14,7 +14,7 @@
 
 int main(){
     
-    std::ifstream rom_file("./ROMS/ZELOOTD.z64", std::ios::binary);
+    std::ifstream rom_file("./ROMS/n64-systemtest.z64", std::ios::binary);
     //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
@@ -85,7 +85,7 @@ int main(){
             double hz = loop_count / elapsed.count();
             double mhz = hz / 1'000'000.0;
             
-            std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
+            //std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
             
             // Reset tracking window
             loop_count = 0;

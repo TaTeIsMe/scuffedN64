@@ -134,16 +134,16 @@ inline bool VR4300::DC()
     //a lot of the code below is bloated by exception and interlock handling
 
     //for now disabled
-    //if(in.fire_fpu_exception){
-    //    in.fire_fpu_exception = false;
-    //    EX_out.fire_fpu_exception = false;
+    //if(DC_in.op->fire_fpu_exception){
+    //    DC_in.op->fire_fpu_exception = false;
+    //    EX_in.op->fire_fpu_exception = false;
     //    uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
     //    uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
     //    //wooo magic numbers
     //    fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
     //    if( ((Enables | 0x20) & Cause) != 0){
     //        cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
-    //        handle_general_exception(in.op,FPE);
+    //        handle_general_exception(*DC_in.op,FPE);
     //        return true;
     //    }
     //}
@@ -164,10 +164,10 @@ inline bool VR4300::DC()
         return true;
     }
     
-    //if((in.op->flags & IS_TRAP) && in.op->result)[[unlikely]]{
-    //    handle_general_exception(*in.op, Tr);
-    //    return true;
-    //}
+    if(in.op->tmplt->is_trap && in.op->result)[[unlikely]]{
+        handle_general_exception(*in.op, Tr);
+        return true;
+    }
     
     if(!(in.op->tmplt->is_store) && !in.op->tmplt->is_load && !(in.op->tmplt->instruction_type == OpType::CACHE)){
         return false;
@@ -177,60 +177,60 @@ inline bool VR4300::DC()
     in.op->cacheable = segment.cacheable;
     
     //DADE
-    //bool misalligned = ((in.op->tmplt->access_size == 8) && in.op->data_addr % 8 != 0) ||
-    //((in.op->tmplt->access_size == 4) && in.op->data_addr % 4 != 0) ||
-    //((in.op->tmplt->access_size == 2) && in.op->data_addr % 2 != 0);
-    //bool wrong_mode = ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
-    //((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
-    //((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible);
-    //bool sided = (in.op->flags & (RIGHT_ACCESS | LEFT_ACCESS));
-    //if( !sided && (misalligned || wrong_mode))[[unlikely]]{
-    //    cp0.badVAddr = in.op->data_addr;
-    //    if(in.op->tmplt->is_store)handle_general_exception(*in.op,AdES);
-    //    else handle_general_exception(*in.op,AdEL);
-    //    return true;
-    //}
+    bool misalligned = ((in.op->tmplt->access_size == 8) && in.op->data_addr % 8 != 0) ||
+    ((in.op->tmplt->access_size == 4) && in.op->data_addr % 4 != 0) ||
+    ((in.op->tmplt->access_size == 2) && in.op->data_addr % 2 != 0);
+    bool wrong_mode = ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
+    ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
+    ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible);
+    bool sided = ( DC_in.op->tmplt->right_access ||DC_in.op->tmplt->left_access );
+    if( !sided && (misalligned || wrong_mode))[[unlikely]]{
+        cp0.badVAddr = in.op->data_addr;
+        if(in.op->tmplt->is_store)handle_general_exception(*in.op,AdES);
+        else handle_general_exception(*in.op,AdEL);
+        return true;
+    }
 
-    //if(segment.tlb_mapped)[[unlikely]]{
-    //    CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
-    //    if(tlb_result.miss){
-    //        //tlb miss exception
-    //        if(in.op->tmplt->is_store)
-    //            handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBS);
-    //        else
-    //            handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBL);
-    //        return true;
-    //        
-    //    }
-    //    if(!tlb_result.valid){
-    //        set_tlb_context(in.op->data_addr);
-    //        if(in.op->tmplt->is_store)
-    //            handle_general_exception(*in.op, TLBS);
-    //        else
-    //            handle_general_exception(*in.op, TLBL);
-    //        return true;
-    //    }
-    //    if(!tlb_result.dirty && in.op->tmplt->is_store){
-    //        set_tlb_context(in.op->data_addr);
-    //        handle_general_exception(*in.op, Mod);
-    //        return true;
-    //    }
-    //    
-    //    in.op->data_addr_p = tlb_result.p_addr;
-    //    in.op->cacheable = tlb_result.cache != 2;
-    //}else 
+    if(segment.tlb_mapped)[[unlikely]]{
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(in.op->data_addr);
+        if(tlb_result.miss){
+            //tlb miss exception
+            if(in.op->tmplt->is_store)
+                handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBS);
+            else
+                handle_tlb_miss_exception(in.op->data_addr, *in.op, TLBL);
+            return true;
+            
+        }
+        if(!tlb_result.valid){
+            set_tlb_context(in.op->data_addr);
+            if(in.op->tmplt->is_store)
+                handle_general_exception(*in.op, TLBS);
+            else
+                handle_general_exception(*in.op, TLBL);
+            return true;
+        }
+        if(!tlb_result.dirty && in.op->tmplt->is_store){
+            set_tlb_context(in.op->data_addr);
+            handle_general_exception(*in.op, Mod);
+            return true;
+        }
+        
+        in.op->data_addr_p = tlb_result.p_addr;
+        in.op->cacheable = tlb_result.cache != 2;
+    }else 
     in.op->data_addr_p = in.op->data_addr - segment.translation_offset;
     in.op->dcache_index = (in.op->data_addr & 0x1FF0) >> 4;
     
     
-    //if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_load))[[unlikely]]{
-    //    handle_general_exception(*in.op,WATCH);
-    //    return true;
-    //}
-    //if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_store))[[unlikely]]{
-    //    handle_general_exception(*in.op,WATCH);
-    //    return true;
-    //}
+    if((cp0.watchLo & WATCHLO_R_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_load))[[unlikely]]{
+        handle_general_exception(*in.op,WATCH);
+        return true;
+    }
+    if((cp0.watchLo & WATCHLO_W_MASK) && ((in.op->data_addr_p >> 3) == (cp0.watchLo>>3) && in.op->tmplt->is_store))[[unlikely]]{
+        handle_general_exception(*in.op,WATCH);
+        return true;
+    }
     
     if(in.op->cacheable)[[likely]]{
         Dcache_line& line = Dcache[in.op->dcache_index];
@@ -433,15 +433,15 @@ inline bool VR4300::EX()
         return true;
     }
 
-    //if(in.op->tmplt->instruction_type == OpType::SYSCALL)[[unlikely]]{
-    //    handle_general_exception(*in.op, Sys);
-    //    return true;
-    //}
+    if(in.op->tmplt->instruction_type == OpType::SYSCALL)[[unlikely]]{
+        handle_general_exception(*in.op, Sys);
+        return true;
+    }
 //
-    //if(in.op->tmplt->instruction_type == OpType::BREAK)[[unlikely]]{
-    //    handle_general_exception(*in.op, Bp);
-    //    return true;
-    //}
+    if(in.op->tmplt->instruction_type == OpType::BREAK)[[unlikely]]{
+        handle_general_exception(*in.op, Bp);
+        return true;
+    }
 
     //this isn't perfect but i actually don't understand how sc would know during dc whether it succeded or not
     //even assuming it knows, with how the pipeline works here implementing that would be hell
@@ -489,32 +489,32 @@ inline bool VR4300::RF()
     bool cacheable = segment.cacheable;
 
     //IADE
-    //if(
-    //    // wrong mode (user, kernel, supervisor)
-    //    ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
-    //    ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
-    //    ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible)
-    //)[[unlikely]]{
-    //    cp0.badVAddr = RF_in.op->PC;
-    //    handle_general_exception(*in.op,AdEL);
-    //    return true;
-    //}
+    if(
+        // wrong mode (user, kernel, supervisor)
+        ((cp0.mode == Mode::USER) && !segment.user_accesible) ||
+        ((cp0.mode == Mode::SUPERVISOR) && !segment.supervisor_accesible) ||
+        ((cp0.mode == Mode::KERNEL) && !segment.kernel_accesible)
+    )[[unlikely]]{
+        cp0.badVAddr = RF_in.op->PC;
+        handle_general_exception(*RF_in.op,AdEL);
+        return true;
+    }
 
-    //if(segment.tlb_mapped)[[unlikely]]{
-    //    CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op->PC);
-    //    if(tlb_result.miss){
-    //        //tlb miss exception
-    //        handle_tlb_miss_exception(RF_in.op->PC, *in.op, TLBL);
-    //        return true;
-    //    }
-    //    if(!tlb_result.valid){
-    //        set_tlb_context(RF_in.op->PC);
-    //        handle_general_exception(*in.op, TLBL);
-    //        return true;
-    //    }
-    //    PC_p = tlb_result.p_addr;
-    //    cacheable = tlb_result.cache != 2;
-    //}else 
+    if(segment.tlb_mapped)[[unlikely]]{
+        CP0::TLB_Result tlb_result = cp0.tlb_translate(RF_in.op->PC);
+        if(tlb_result.miss){
+            //tlb miss exception
+            handle_tlb_miss_exception(RF_in.op->PC, *RF_in.op, TLBL);
+            return true;
+        }
+        if(!tlb_result.valid){
+            set_tlb_context(RF_in.op->PC);
+            handle_general_exception(*RF_in.op, TLBL);
+            return true;
+        }
+        PC_p = tlb_result.p_addr;
+        cacheable = tlb_result.cache != 2;
+    }else 
     PC_p = RF_in.op->PC - segment.translation_offset;
 
     uint32_t op_code;
@@ -607,7 +607,6 @@ inline bool VR4300::decode_op(uint32_t word, Operation& op)
                 tmplt = &COP0rt_op_lut[(word >> 16) & 0x1F];
             else
                 tmplt = &COP1rt_op_lut[(word >> 16) & 0x1F];
-
         }
         else if((word >> 25) == 33)
         tmplt = &CP0_op_lut[word & 0x3F];
@@ -1001,6 +1000,7 @@ VR4300::OperationTemplate::OperationTemplate(void (*execute)(VR4300 &cpu), uint3
     writes_reg = flags & WRITES_REG;
     right_access = flags & RIGHT_ACCESS;
     left_access = flags & LEFT_ACCESS;
+    is_trap = flags & IS_TRAP;
     atomic = flags & ATOMIC;
     is_cpz = flags & CPZ;
     stores_in_rd = flags & STORES_IN_RD;
