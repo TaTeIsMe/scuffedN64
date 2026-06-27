@@ -134,19 +134,19 @@ inline bool VR4300::DC()
     //a lot of the code below is bloated by exception and interlock handling
 
     //for now disabled
-    if(DC_in.op->fire_fpu_exception){
-        DC_in.op->fire_fpu_exception = false;
-        EX_in.op->fire_fpu_exception = false;
-        uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
-        uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
-        //wooo magic numbers
-        fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
-        if( ((Enables | 0x20) & Cause) != 0){
-            cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
-            handle_general_exception(*DC_in.op,FPE);
-            return true;
-        }
-    }
+    //if(DC_in.op->fire_fpu_exception){
+    //    DC_in.op->fire_fpu_exception = false;
+    //    EX_in.op->fire_fpu_exception = false;
+    //    uint8_t Cause = ((fpu.FCR31 >> 12) & 0x3F);
+    //    uint8_t Enables = ((fpu.FCR31 >> 7) & 0x1F);
+    //    //wooo magic numbers
+    //    fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
+    //    if( ((Enables | 0x20) & Cause) != 0){
+    //        cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
+    //        handle_general_exception(*DC_in.op,FPE);
+    //        return true;
+    //    }
+    //}
 
     if(update_conditional){
         fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.op->conditional_val << 23);
@@ -605,8 +605,10 @@ inline bool VR4300::decode_op(uint32_t word, Operation& op)
         if(((word >> 21) & 0x1F) == 8){
             if(((word >> 26) & 0x3) == 0)
                 tmplt = &COP0rt_op_lut[(word >> 16) & 0x1F];
-            else
+            else if(((word >> 26) & 0x3) == 1)
                 tmplt = &COP1rt_op_lut[(word >> 16) & 0x1F];
+            else
+                tmplt = &COP2rt_op_lut[(word >> 16) & 0x1F];
         }
         else if((word >> 25) == 33)
         tmplt = &CP0_op_lut[word & 0x3F];
@@ -615,8 +617,10 @@ inline bool VR4300::decode_op(uint32_t word, Operation& op)
         else{
             if(((word >> 26) & 0x3) == 0)
                 tmplt = &COP0rs_op_lut[(word >> 21) & 0x1F];
-            else
+            else if(((word >> 26) & 0x3) == 1)
                 tmplt = &COP1rs_op_lut[(word >> 21) & 0x1F];
+            else
+                tmplt = &COP2rs_op_lut[(word >> 21) & 0x1F];
         }
     }
     else

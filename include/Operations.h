@@ -189,5 +189,7 @@ extern const VR4300::OperationTemplate COP0rs_op_lut[32];
 extern const VR4300::OperationTemplate COP0rt_op_lut[32];
 extern const VR4300::OperationTemplate COP1rs_op_lut[32];
 extern const VR4300::OperationTemplate COP1rt_op_lut[32];
+extern const VR4300::OperationTemplate COP2rs_op_lut[32];
+extern const VR4300::OperationTemplate COP2rt_op_lut[32];
 extern const VR4300::OperationTemplate CP0_op_lut[32];
 extern const VR4300::OperationTemplate CP1_op_lut[64];

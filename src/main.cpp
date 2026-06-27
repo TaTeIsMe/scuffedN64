@@ -14,7 +14,7 @@
 
 int main(){
     
-    std::ifstream rom_file("./ROMS/n64-systemtest.z64", std::ios::binary);
+    std::ifstream rom_file("./ROMS/ZELOOT.z64", std::ios::binary);
     //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),

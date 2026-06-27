@@ -2651,7 +2651,7 @@ void Ccondfmt(VR4300 &cpu)
     /*0F*/ {LUI, WRITES_REG | STORES_IN_RT, 0, 0, 0, OpType::LUI}, // LUI reads no GPR (rs unused)
     /*10*/ {COPz, 0, 0, 0, 0, OpType::COPz},
     /*11*/ {COPz, 0, 0, 0, 1, OpType::COPz},
-    /*12*/ {},
+    /*12*/ {COPz, 0, 0, 0, 2, OpType::COPz},
     /*13*/ {},
     /*14*/ {BEQL, CAUSES_BRANCH_DELAY, 0, 0, 0, OpType::BEQL},
     /*15*/ {BNEL, CAUSES_BRANCH_DELAY, 0, 0, 0, OpType::BNEL},
@@ -2822,6 +2822,25 @@ void Ccondfmt(VR4300 &cpu)
     /*0E*/ {},
     /*0F*/ {},
 };
+
+ VR4300::OperationTemplate COP2rs_op_lut[32]{
+    /*00*/ {MFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 4,2, OpType::MFCz},
+    /*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 8,2, OpType::DMFCz},
+    /*02*/ {CFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPControl | CPZ, 0, 0,2, OpType::CFCz},
+    /*03*/ {},
+    /*04*/ {MTCz, WRITES_REG | WRITES_CP | STORES_IN_RD | CPZ, 0, 4,2, OpType::MTCz}, // (unchanged, already correct)
+    /*05*/ {DMTCz, WRITES_REG | WRITES_CP | STORES_IN_RD | CPZ, 0, 8,2, OpType::DMTCz},
+    /*06*/ {CTCz, WRITES_REG | WRITES_CP | CPControl | CPZ, 0, 0,2, OpType::CTCz},
+    /*07*/ {},
+    /*08*/ {},
+    /*09*/ {},
+    /*0A*/ {},
+    /*0B*/ {},
+    /*0C*/ {},
+    /*0D*/ {},
+    /*0E*/ {},
+    /*0F*/ {},
+};
  VR4300::OperationTemplate COP0rt_op_lut[32]{
     /*00*/ {BCzF, CAUSES_BRANCH_DELAY | CPZ, 0, 0,0, OpType::BCzF},
     /*01*/ {BCzT, CAUSES_BRANCH_DELAY | CPZ, 0, 0,0, OpType::BCzT},
@@ -2890,6 +2909,42 @@ void Ccondfmt(VR4300 &cpu)
     /*1E*/ {},
     /*1F*/ {},
 };
+
+ VR4300::OperationTemplate COP2rt_op_lut[32]{
+    /*00*/ {BCzF, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzF},
+    /*01*/ {BCzT, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzT},
+    /*02*/ {BCzFL, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzFL},
+    /*03*/ {BCzTL, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzTL},
+    /*04*/ {},
+    /*05*/ {},
+    /*06*/ {},
+    /*07*/ {},
+    /*08*/ {},
+    /*09*/ {},
+    /*0A*/ {},
+    /*0B*/ {},
+    /*0C*/ {},
+    /*0D*/ {},
+    /*0E*/ {},
+    /*0F*/ {},
+    /*10*/ {},
+    /*11*/ {},
+    /*12*/ {},
+    /*13*/ {},
+    /*14*/ {},
+    /*15*/ {},
+    /*16*/ {},
+    /*17*/ {},
+    /*18*/ {},
+    /*19*/ {},
+    /*1A*/ {},
+    /*1B*/ {},
+    /*1C*/ {},
+    /*1D*/ {},
+    /*1E*/ {},
+    /*1F*/ {},
+};
+
  VR4300::OperationTemplate CP0_op_lut[32]{
     /*00*/ {},
     /*01*/ {TLBR, CPZ, 0, 0,0, OpType::TLBR},
