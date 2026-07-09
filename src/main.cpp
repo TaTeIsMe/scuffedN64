@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
-#include "VR4300.h"
+#include "VR4300Cycle.h"
 #include "RCP.h"
 #include "Cartridge.h"
 #include "Rdram.h"
@@ -14,7 +14,7 @@
 
 int main(){
     
-    std::ifstream rom_file("./ROMS/ZELOOT.z64", std::ios::binary);
+    std::ifstream rom_file("./ROMS/ZELOOTD.z64", std::ios::binary);
     //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
@@ -25,7 +25,7 @@ int main(){
     Pif pif;
     Rdram rdram;
     Cartridge cartridge(rom);
-    VR4300 vr4300;
+    VR4300Cycle vr4300;
     EventQ eventq;
     RCP rcp(vr4300, rdram, cartridge, pif, gfx, eventq);
     eventq.enqueue(rcp.cycles + 1500000,EventType::VI_DONE);

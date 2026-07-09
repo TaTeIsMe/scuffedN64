@@ -1,353 +1,353 @@
-#include "VR4300.h"
+#include "VR4300Cycle.h"
 #include <bit>
 #include <cmath>
 #include <fenv.h>
 
 #pragma STDC FENV_ACCESS ON
 
-void NOP(VR4300 &cpu) {};
+void NOP(VR4300Cycle &cpu) {};
 
 // Load/Store
-void LB(VR4300 &cpu)
+void LB(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LBU(VR4300 &cpu)
+void LBU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LH(VR4300 &cpu)
+void LH(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LHU(VR4300 &cpu)
+void LHU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LW(VR4300 &cpu)
+void LW(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LWL(VR4300 &cpu)
+void LWL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LWR(VR4300 &cpu)
+void LWR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void SB(VR4300 &cpu)
+void SB(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
-    op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
-    op.result = op.rt_val;
-}
-void SH(VR4300 &cpu)
-{
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val;
 }
-void SW(VR4300 &cpu)
+void SH(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val;
 }
-void SWL(VR4300 &cpu)
+void SW(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
+    op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
+    op.result = op.rt_val;
+}
+void SWL(VR4300Cycle &cpu)
+{
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val >> ((op.data_addr & 0x3) * 8);
 }
-void SWR(VR4300 &cpu)
+void SWR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val << ((3 - (op.data_addr & 0x3)) * 8);
 }
-void LD(VR4300 &cpu)
+void LD(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LDL(VR4300 &cpu)
+void LDL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LDR(VR4300 &cpu)
+void LDR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LL(VR4300 &cpu)
+void LL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LLD(VR4300 &cpu)
+void LLD(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void LWU(VR4300 &cpu)
+void LWU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void SC(VR4300 &cpu)
+void SC(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void SCD(VR4300 &cpu)
+void SCD(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void SD(VR4300 &cpu)
+void SD(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val;
 }
-void SDL(VR4300 &cpu)
+void SDL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val >> ((op.data_addr & 0x7) * 8);
 }
-void SDR(VR4300 &cpu)
+void SDR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val << ((7 - (op.data_addr & 0x7)) * 8);
 }
 // Computational
-void ADDI(VR4300 &cpu)
+void ADDI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)((int16_t)(op.opcode & 0xFFFF) + op.rs_val);
 }
-void ADDIU(VR4300 &cpu)
+void ADDIU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)((int16_t)(op.opcode & 0xFFFF) + op.rs_val);
 }
-void SLTI(VR4300 &cpu)
+void SLTI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ((int64_t)(int16_t)(op.opcode & 0xFFFF) > (int64_t)op.rs_val);
 }
-void SLTIU(VR4300 &cpu)
+void SLTIU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ((uint64_t)(int16_t)(op.opcode & 0xFFFF) > (uint64_t)op.rs_val);
 }
-void ANDI(VR4300 &cpu)
+void ANDI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ((op.opcode & 0xFFFF) & op.rs_val);
 }
-void ORI(VR4300 &cpu)
+void ORI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ((op.opcode & 0xFFFF) | op.rs_val);
 }
-void XORI(VR4300 &cpu)
+void XORI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ((op.opcode & 0xFFFF) ^ op.rs_val);
 }
 
 // these sign extentions might have to happen later
-void LUI(VR4300 &cpu)
+void LUI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)((op.opcode & 0xFFFF) << 16);
 }
-void DADDI(VR4300 &cpu)
+void DADDI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void DADDIU(VR4300 &cpu)
+void DADDIU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void ADD(VR4300 &cpu)
+void ADD(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rs_val + op.rt_val);
 }
-void ADDU(VR4300 &cpu)
+void ADDU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rs_val + op.rt_val);
 }
-void SUB(VR4300 &cpu)
+void SUB(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rs_val - op.rt_val);
 }
-void SUBU(VR4300 &cpu)
+void SUBU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rs_val - op.rt_val);
 }
-void SLT(VR4300 &cpu)
+void SLT(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ((int64_t)op.rt_val > (int64_t)op.rs_val);
 }
-void SLTU(VR4300 &cpu)
+void SLTU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rt_val > op.rs_val);
 }
-void AND(VR4300 &cpu)
+void AND(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rt_val & op.rs_val);
 }
-void OR(VR4300 &cpu)
+void OR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rt_val | op.rs_val);
 }
-void XOR(VR4300 &cpu)
+void XOR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rt_val ^ op.rs_val);
 }
-void NOR(VR4300 &cpu)
+void NOR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = ~(op.rt_val | op.rs_val);
 }
-void DADD(VR4300 &cpu)
+void DADD(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rs_val + op.rt_val);
 }
-void DADDU(VR4300 &cpu)
+void DADDU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rs_val + op.rt_val);
 }
-void DSUB(VR4300 &cpu)
+void DSUB(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rs_val - op.rt_val);
 }
-void DSUBU(VR4300 &cpu)
+void DSUBU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (op.rs_val - op.rt_val);
 }
-void SLL(VR4300 &cpu)
+void SLL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rt_val << op.sa);
 }
-void SRL(VR4300 &cpu)
+void SRL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)((uint32_t)op.rt_val >> op.sa);
 }
-void SRA(VR4300 &cpu)
+void SRA(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rt_val >> op.sa);
 }
-void SLLV(VR4300 &cpu)
+void SLLV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rt_val << (op.rs_val & 0x1F));
 }
-void SRLV(VR4300 &cpu)
+void SRLV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)((uint32_t)op.rt_val >> (op.rs_val & 0x1F));
 }
-void SRAV(VR4300 &cpu)
+void SRAV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)(op.rt_val >> (op.rs_val & 0x1F));
 }
-void DSLL(VR4300 &cpu)
+void DSLL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val << op.sa;
 }
-void DSRL(VR4300 &cpu)
+void DSRL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val >> op.sa;
 }
 // not confident in this either
-void DSRA(VR4300 &cpu)
+void DSRA(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int64_t)op.rt_val >> op.sa;
 }
-void DSLLV(VR4300 &cpu)
+void DSLLV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val << (op.rs_val & 0x3F);
 }
-void DSRLV(VR4300 &cpu)
+void DSRLV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val >> (op.rs_val & 0x3F);
 }
 // this too...
-void DSRAV(VR4300 &cpu)
+void DSRAV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int64_t)op.rt_val >> (op.rs_val & 0x3F);
 }
-void DSLL32(VR4300 &cpu)
+void DSLL32(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val << (32 + op.sa);
 }
-void DSRL32(VR4300 &cpu)
+void DSRL32(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val >> (32 + op.sa);
 }
-void DSRA32(VR4300 &cpu)
+void DSRA32(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int64_t)op.rt_val >> (32 + op.sa);
 }
-void MULT(VR4300 &cpu)
+void MULT(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     int64_t result = (int64_t)(int32_t)op.rs_val * (int64_t)(int32_t)op.rt_val;
     op.result_LO = (int32_t)(result);
     op.result_HI = (int32_t)(result >> 32);
 }
-void MULTU(VR4300 &cpu)
+void MULTU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t result = (uint64_t)(uint32_t)op.rs_val * (uint64_t)(uint32_t)op.rt_val;
     op.result_LO = (int32_t)(result);
     op.result_HI = (int32_t)(result >> 32);
 }
-void DIV(VR4300 &cpu)
+void DIV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rt_val == 0)
     {
         op.result_LO = ((int32_t)op.rs_val < 0) ? 1 : -1;
@@ -367,9 +367,9 @@ void DIV(VR4300 &cpu)
     op.result_LO = quotient;
     op.result_HI = remainder;
 }
-void DIVU(VR4300 &cpu)
+void DIVU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rt_val == 0)
     {
         op.result_LO = -1;
@@ -381,9 +381,9 @@ void DIVU(VR4300 &cpu)
     op.result_LO = quotient;
     op.result_HI = remainder;
 }
-void MFHI(VR4300 &cpu)
+void MFHI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     // if(cpu.EX_out.op.flags & WRITES_HI)op.result = cpu.EX_out.op.result_HI;
     if (cpu.DC_in.op->tmplt->writes_hi)
         op.result = cpu.DC_in.op->result_HI;
@@ -392,9 +392,9 @@ void MFHI(VR4300 &cpu)
     else
         op.result = cpu.HI;
 }
-void MFLO(VR4300 &cpu)
+void MFLO(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     // if(cpu.EX_out.op.flags & WRITES_LO)op.result = cpu.EX_out.op.result_LO;
     if (cpu.DC_in.op->tmplt->writes_lo)
         op.result = cpu.DC_in.op->result_LO;
@@ -403,33 +403,33 @@ void MFLO(VR4300 &cpu)
     else
         op.result = cpu.LO;
 }
-void MTHI(VR4300 &cpu)
+void MTHI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result_HI = op.rs_val;
 }
-void MTLO(VR4300 &cpu)
+void MTLO(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result_LO = op.rs_val;
 }
-void DMULT(VR4300 &cpu)
+void DMULT(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     __int128_t result = (__int128_t)(int64_t)op.rs_val * (__int128_t)(int64_t)op.rt_val;
     op.result_LO = result;
     op.result_HI = result >> 64;
 }
-void DMULTU(VR4300 &cpu)
+void DMULTU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     __uint128_t result = (__uint128_t)(uint64_t)op.rs_val * (__uint128_t)(uint64_t)op.rt_val;
     op.result_LO = result;
     op.result_HI = result >> 64;
 }
-void DDIV(VR4300 &cpu)
+void DDIV(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
 
     if (op.rt_val == 0)
     {
@@ -450,9 +450,9 @@ void DDIV(VR4300 &cpu)
     op.result_LO = quotient;
     op.result_HI = remainder;
 }
-void DDIVU(VR4300 &cpu)
+void DDIVU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
 
     if (op.rt_val == 0)
     {
@@ -469,147 +469,147 @@ void DDIVU(VR4300 &cpu)
 
 // Jump/Branch
 // description says it is coupled with high 4 bits, but specifics say it copies everything but bottom 28
-void J(VR4300 &cpu)
+void J(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     cpu.PC = ((op.PC + 4) & (~0xFFFFFFF)) | ((op.opcode & 0x3FFFFFF) << 2); // value might be wrong
 }
-void JAL(VR4300 &cpu)
+void JAL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     cpu.PC = ((op.PC + 4) & (~0xFFFFFFF)) | ((op.opcode & 0x3FFFFFF) << 2); // value might be wrong
 }
-void JR(VR4300 &cpu)
+void JR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     cpu.PC = op.rs_val;
 }
 
-void JALR(VR4300 &cpu)
+void JALR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rd)
         op.dest_reg = op.rd;
     op.result = op.PC + 8;
     cpu.GPR[op.dest_reg] = op.result;
     cpu.PC = op.rs_val;
 }
-void BEQ(VR4300 &cpu)
+void BEQ(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (op.rs_val == op.rt_val)
         cpu.PC = target;
 }
-void BNE(VR4300 &cpu)
+void BNE(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (op.rs_val != op.rt_val)
         cpu.PC = target;
 }
-void BLEZ(VR4300 &cpu)
+void BLEZ(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val <= 0)
         cpu.PC = target;
 }
-void BGTZ(VR4300 &cpu)
+void BGTZ(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val > 0)
         cpu.PC = target;
 }
-void BLTZ(VR4300 &cpu)
+void BLTZ(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val < 0)
         cpu.PC = target;
 }
-void BGEZ(VR4300 &cpu)
+void BGEZ(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val >= 0)
         cpu.PC = target;
 }
-void BLTZAL(VR4300 &cpu)
+void BLTZAL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val < 0)
         cpu.PC = target;
 }
-void BGEZAL(VR4300 &cpu)
+void BGEZAL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val >= 0)
         cpu.PC = target;
 }
-void BEQL(VR4300 &cpu)
+void BEQL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (op.rs_val == op.rt_val)
         cpu.PC = target;
     else
         cpu.discard_bd = true;
 }
-void BNEL(VR4300 &cpu)
+void BNEL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (op.rs_val != op.rt_val)
         cpu.PC = target;
     else
         cpu.discard_bd = true;
 }
-void BLEZL(VR4300 &cpu)
+void BLEZL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val <= 0)
         cpu.PC = target;
     else
         cpu.discard_bd = true;
 }
-void BGTZL(VR4300 &cpu)
+void BGTZL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val > 0)
         cpu.PC = target;
     else
         cpu.discard_bd = true;
 }
-void BLTZL(VR4300 &cpu)
+void BLTZL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val < 0)
         cpu.PC = target;
     else
         cpu.discard_bd = true;
 }
-void BGEZL(VR4300 &cpu)
+void BGEZL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val >= 0)
         cpu.PC = target;
     else
         cpu.discard_bd = true;
 }
-void BLTZALL(VR4300 &cpu)
+void BLTZALL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val < 0)
@@ -617,9 +617,9 @@ void BLTZALL(VR4300 &cpu)
     else
         cpu.discard_bd = true;
 }
-void BGEZALL(VR4300 &cpu)
+void BGEZALL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if ((int64_t)op.rs_val >= 0)
@@ -628,195 +628,195 @@ void BGEZALL(VR4300 &cpu)
         cpu.discard_bd = true;
 }
 // Special
-void SYNC(VR4300 &cpu)
+void SYNC(VR4300Cycle &cpu)
 {
     NOP(cpu); // good thing i checked...
 }
-void SYSCALL(VR4300 &cpu)
+void SYSCALL(VR4300Cycle &cpu)
 {
     // exception handled in ex logic
 }
-void BREAK(VR4300 &cpu)
+void BREAK(VR4300Cycle &cpu)
 {
     // exception handled in ex logic
 }
-void TGE(VR4300 &cpu)
+void TGE(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val >= (int64_t)op.rt_val)
         op.result = 1;
     else
         op.result = 0;
 }
-void TGEU(VR4300 &cpu)
+void TGEU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val >= op.rt_val)
         op.result = 1;
     else
         op.result = 0;
 }
-void TLT(VR4300 &cpu)
+void TLT(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val < (int64_t)op.rt_val)
         op.result = 1;
     else
         op.result = 0;
 }
-void TLTU(VR4300 &cpu)
+void TLTU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val < op.rt_val)
         op.result = 1;
     else
         op.result = 0;
 }
-void TEQ(VR4300 &cpu)
+void TEQ(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val == op.rt_val)
         op.result = 1;
     else
         op.result = 0;
 }
-void TNE(VR4300 &cpu)
+void TNE(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val != op.rt_val)
         op.result = 1;
     else
         op.result = 0;
 }
-void TGEI(VR4300 &cpu)
+void TGEI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val >= (int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
     else
         op.result = 0;
 }
-void TGEIU(VR4300 &cpu)
+void TGEIU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val >= (op.opcode & 0xFFFF))
         op.result = 1;
     else
         op.result = 0;
 }
-void TLTI(VR4300 &cpu)
+void TLTI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if ((int64_t)op.rs_val < (int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
     else
         op.result = 0;
 }
-void TLTIU(VR4300 &cpu)
+void TLTIU(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val < (op.opcode & 0xFFFF))
         op.result = 1;
     else
         op.result = 0;
 }
 // immidiate is sign extended here, it doesn't say in general description, so good i checked...
-void TEQI(VR4300 &cpu)
+void TEQI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val == (uint64_t)(int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
     else
         op.result = 0;
 }
-void TNEI(VR4300 &cpu)
+void TNEI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     if (op.rs_val == (uint64_t)(int16_t)(op.opcode & 0xFFFF))
         op.result = 1;
     else
         op.result = 0;
 }
-void LWCz(VR4300 &cpu)
+void LWCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
 
-void SWCz(VR4300 &cpu)
+void SWCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val;
 }
-void MTCz(VR4300 &cpu)
+void MTCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)op.rt_val;
 }
-void MFCz(VR4300 &cpu)
+void MFCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)op.rd_val;
 }
-void CTCz(VR4300 &cpu)
+void CTCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)op.rt_val;
 }
-void CFCz(VR4300 &cpu)
+void CFCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = (int32_t)op.rd_val;
 }
 
-void COPz(VR4300 &cpu)
+void COPz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
 }
 // this only does stuff for fpu so make later with fpu, hopefully
-void BCzT(VR4300 &cpu)
+void BCzT(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (cpu.fpu.COC)
         cpu.PC = target;
 }
 // this only does stuff for fpu so make later with fpu, hopefully
-void BCzF(VR4300 &cpu)
+void BCzF(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (!cpu.fpu.COC)
         cpu.PC = target;
 }
-void DMTCz(VR4300 &cpu)
+void DMTCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rt_val;
 }
-void DMFCz(VR4300 &cpu)
+void DMFCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rd_val;
 }
-void LDCz(VR4300 &cpu)
+void LDCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
-void SDCz(VR4300 &cpu)
+void SDCz(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
     op.result = op.rt_val;
 }
 
-void BCzTL(VR4300 &cpu)
+void BCzTL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (cpu.fpu.COC)
@@ -825,9 +825,9 @@ void BCzTL(VR4300 &cpu)
         cpu.discard_bd = true;
 }
 
-void BCzFL(VR4300 &cpu)
+void BCzFL(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
     if (!cpu.fpu.COC)
@@ -836,9 +836,9 @@ void BCzFL(VR4300 &cpu)
         cpu.discard_bd = true;
 }
 
-void TLBR(VR4300 &cpu)
+void TLBR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint8_t tlb_index = cpu.cp0.index & 0x3F;
     uint64_t G = (cpu.cp0.TLB[tlb_index][1] >> 12) & 1;
     op.result_pagemask = cpu.cp0.TLB[tlb_index][0];
@@ -846,9 +846,9 @@ void TLBR(VR4300 &cpu)
     op.result_entryLO0 = cpu.cp0.TLB[tlb_index][2] + G;
     op.result_entryLO1 = cpu.cp0.TLB[tlb_index][3] + G;
 }
-void TLBWI(VR4300 &cpu)
+void TLBWI(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t G = (cpu.cp0.entryLo0 & 1) && (cpu.cp0.entryLo1 & 1);
     uint64_t pagemask_high_bits = cpu.cp0.pageMask & (0b101010101010ULL << 13);
     op.result_pagemask = pagemask_high_bits | (pagemask_high_bits >> 1);
@@ -856,9 +856,9 @@ void TLBWI(VR4300 &cpu)
     op.result_entryLO0 = cpu.cp0.entryLo0 & (0x3fffffe);
     op.result_entryLO1 = cpu.cp0.entryLo1 & (0x3fffffe);
 }
-void TLBWR(VR4300 &cpu)
+void TLBWR(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t G = (cpu.cp0.entryLo0 & 1) && (cpu.cp0.entryLo1 & 1);
     uint64_t pagemask_high_bits = cpu.cp0.pageMask & (0b101010101010ULL << 13);
     op.result_pagemask = pagemask_high_bits | (pagemask_high_bits >> 1);
@@ -868,9 +868,9 @@ void TLBWR(VR4300 &cpu)
 }
 
 // thsi will need to write the index reg
-void TLBP(VR4300 &cpu)
+void TLBP(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
 
     for (int i = 0; i < 32; i++)
     {
@@ -895,9 +895,9 @@ void TLBP(VR4300 &cpu)
     op.result = 1 << 31;
 }
 
-void ERET(VR4300 &cpu)
+void ERET(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     cpu.discard_bd = true;
     if (cpu.cp0.status & STATUS_ERL_MASK)
     {
@@ -914,16 +914,16 @@ void ERET(VR4300 &cpu)
     cpu.LLBit = 0;
 }
 
-void CACHE(VR4300 &cpu)
+void CACHE(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.data_addr = (int16_t)(op.opcode & 0xFFFF) + op.rs_val;
 }
 
 // these would have been so much nicer to split into sub formats
-void CVTSfmt(VR4300 &cpu)
+void CVTSfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
@@ -1011,9 +1011,9 @@ void CVTSfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 }
 
-void CVTDfmt(VR4300 &cpu)
+void CVTDfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     uint8_t FS_BIT = (cpu.fpu.FCR31 >> CONTROL_FS_SHIFT) & CONTROL_FS_MASK;
@@ -1080,9 +1080,9 @@ void CVTDfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
 
-void CVTLfmt(VR4300 &cpu)
+void CVTLfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
@@ -1144,9 +1144,9 @@ void CVTLfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
 
-void CVTWfmt(VR4300 &cpu)
+void CVTWfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -1214,9 +1214,9 @@ void CVTWfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
 
-void ROUNDLfmt(VR4300 &cpu)
+void ROUNDLfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
@@ -1274,9 +1274,9 @@ void ROUNDLfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void ROUNDWfmt(VR4300 &cpu)
+void ROUNDWfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -1344,9 +1344,9 @@ void ROUNDWfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void TRUNCLfmt(VR4300 &cpu)
+void TRUNCLfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
@@ -1404,9 +1404,9 @@ void TRUNCLfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void TRUNCWfmt(VR4300 &cpu)
+void TRUNCWfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -1473,9 +1473,9 @@ void TRUNCWfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void CEILLfmt(VR4300 &cpu)
+void CEILLfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
@@ -1533,9 +1533,9 @@ void CEILLfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void CEILWfmt(VR4300 &cpu)
+void CEILWfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -1602,9 +1602,9 @@ void CEILWfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void FLOORLfmt(VR4300 &cpu)
+void FLOORLfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int64_t converted;
@@ -1662,10 +1662,10 @@ void FLOORLfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void FLOORWfmt(VR4300 &cpu)
+void FLOORWfmt(VR4300Cycle &cpu)
 {
 
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -1734,9 +1734,9 @@ void FLOORWfmt(VR4300 &cpu)
 };
 
 // fpu computational
-void ADDfmt(VR4300 &cpu)
+void ADDfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr1_val = op.rd_val;
     uint64_t fpr2_val = op.rt_val;
     uint8_t fmt = op.rs;
@@ -1871,9 +1871,9 @@ void ADDfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void SUBfmt(VR4300 &cpu)
+void SUBfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr1_val = op.rd_val;
     uint64_t fpr2_val = op.rt_val;
     uint8_t fmt = op.rs;
@@ -2008,9 +2008,9 @@ void SUBfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void MULfmt(VR4300 &cpu)
+void MULfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr1_val = op.rd_val;
     uint64_t fpr2_val = op.rt_val;
     uint8_t fmt = op.rs;
@@ -2147,9 +2147,9 @@ void MULfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void DIVfmt(VR4300 &cpu)
+void DIVfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr1_val = op.rd_val;
     uint64_t fpr2_val = op.rt_val;
     uint8_t fmt = op.rs;
@@ -2298,9 +2298,9 @@ void DIVfmt(VR4300 &cpu)
     if ((cpu.fpu.FCR31 >> 12) & 0x3F)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
-void ABSfmt(VR4300 &cpu)
+void ABSfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -2372,15 +2372,15 @@ void ABSfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
 
-void MOVfmt(VR4300 &cpu)
+void MOVfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.rd_val;
 };
 
-void NEGfmt(VR4300 &cpu)
+void NEGfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     int32_t converted;
@@ -2452,9 +2452,9 @@ void NEGfmt(VR4300 &cpu)
         cpu.EX_in.op->fire_fpu_exception = 1;
 };
 
-void SQRTfmt(VR4300 &cpu)
+void SQRTfmt(VR4300Cycle &cpu)
 {
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr_val = op.rd_val;
     uint8_t fmt = op.rs;
     cpu.fpu.clear_cause();
@@ -2537,10 +2537,10 @@ void SQRTfmt(VR4300 &cpu)
 };
 
 // fpu compare
-void Ccondfmt(VR4300 &cpu)
+void Ccondfmt(VR4300Cycle &cpu)
 {
 
-    VR4300::Operation &op = *cpu.EX_in.op;
+    VR4300Cycle::Operation &op = *cpu.EX_in.op;
     uint64_t fpr1_val = op.rd_val;
     uint64_t fpr2_val = op.rt_val;
     uint8_t fmt = op.rs;
@@ -2631,8 +2631,8 @@ void Ccondfmt(VR4300 &cpu)
 };
 
 
- VR4300::OperationTemplate noptmplt{NOP, 0, 0, 0, 0, OpType::NOP};
- VR4300::OperationTemplate primary_op_lut[64]{
+ VR4300Cycle::OperationTemplate noptmplt{NOP, 0, 0, 0, 0, OpType::NOP};
+ VR4300Cycle::OperationTemplate primary_op_lut[64]{
     /*00*/ {nullptr, 0, 0, 0, 0, OpType::SPECIAL}, // SPECIAL
     /*01*/ {nullptr, 0, 0, 0, 0, OpType::REGIMM},  // REGIMM
     /*02*/ {J, CAUSES_BRANCH_DELAY, 0, 0, 0, OpType::J},
@@ -2698,7 +2698,7 @@ void Ccondfmt(VR4300 &cpu)
     /*3E*/ {SDCz, IS_STORE | READS_CP, 0, 8, 2, OpType::SDCz},
     /*3F*/ {SD, IS_STORE, 0, 8, 0, OpType::SD},
 };
- VR4300::OperationTemplate special_op_lut[64]{
+ VR4300Cycle::OperationTemplate special_op_lut[64]{
     /*00*/ {SLL, WRITES_REG | STORES_IN_RD, 0, 0, 0, OpType::SLL},
     /*01*/ {},
     /*02*/ {SRL, WRITES_REG | STORES_IN_RD, 0, 0, 0, OpType::SRL},
@@ -2764,7 +2764,7 @@ void Ccondfmt(VR4300 &cpu)
     /*3E*/ {DSRL32, WRITES_REG | STORES_IN_RD, 0, 0,0, OpType::DSRL32},
     /*3F*/ {DSRA32, WRITES_REG | STORES_IN_RD, 0, 0,0, OpType::DSRA32},
 };
- VR4300::OperationTemplate regimm_op_lut[32]{
+ VR4300Cycle::OperationTemplate regimm_op_lut[32]{
     /*00*/ {BLTZ, CAUSES_BRANCH_DELAY, 0, 0,0, OpType::BLTZ},
     /*01*/ {BGEZ, CAUSES_BRANCH_DELAY, 0, 0,0, OpType::BGEZ},
     /*02*/ {BLTZL, CAUSES_BRANCH_DELAY, 0, 0,0, OpType::BLTZL},
@@ -2786,7 +2786,7 @@ void Ccondfmt(VR4300 &cpu)
     /*12*/ {BLTZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG, 0, 0,0, OpType::BLTZALL},
     /*13*/ {BGEZALL, CAUSES_BRANCH_DELAY | STORES_IN_31 | WRITES_REG, 0, 0,0, OpType::BGEZALL},
 };
- VR4300::OperationTemplate COP0rs_op_lut[32]{
+ VR4300Cycle::OperationTemplate COP0rs_op_lut[32]{
     /*00*/ {MFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 4,0, OpType::MFCz},
     /*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 8,0, OpType::DMFCz},
     /*02*/ {CFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPControl | CPZ, 0, 0,0, OpType::CFCz},
@@ -2804,7 +2804,7 @@ void Ccondfmt(VR4300 &cpu)
     /*0E*/ {},
     /*0F*/ {},
 };
- VR4300::OperationTemplate COP1rs_op_lut[32]{
+ VR4300Cycle::OperationTemplate COP1rs_op_lut[32]{
     /*00*/ {MFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 4,1, OpType::MFCz},
     /*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 8,1, OpType::DMFCz},
     /*02*/ {CFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPControl | CPZ, 0, 0,1, OpType::CFCz},
@@ -2823,7 +2823,7 @@ void Ccondfmt(VR4300 &cpu)
     /*0F*/ {},
 };
 
- VR4300::OperationTemplate COP2rs_op_lut[32]{
+ VR4300Cycle::OperationTemplate COP2rs_op_lut[32]{
     /*00*/ {MFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 4,2, OpType::MFCz},
     /*01*/ {DMFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPZ, 0, 8,2, OpType::DMFCz},
     /*02*/ {CFCz, WRITES_REG | STORES_IN_RT | READS_CP | CPControl | CPZ, 0, 0,2, OpType::CFCz},
@@ -2841,7 +2841,7 @@ void Ccondfmt(VR4300 &cpu)
     /*0E*/ {},
     /*0F*/ {},
 };
- VR4300::OperationTemplate COP0rt_op_lut[32]{
+ VR4300Cycle::OperationTemplate COP0rt_op_lut[32]{
     /*00*/ {BCzF, CAUSES_BRANCH_DELAY | CPZ, 0, 0,0, OpType::BCzF},
     /*01*/ {BCzT, CAUSES_BRANCH_DELAY | CPZ, 0, 0,0, OpType::BCzT},
     /*02*/ {BCzFL, CAUSES_BRANCH_DELAY | CPZ, 0, 0,0, OpType::BCzFL},
@@ -2875,7 +2875,7 @@ void Ccondfmt(VR4300 &cpu)
     /*1E*/ {},
     /*1F*/ {},
 };
- VR4300::OperationTemplate COP1rt_op_lut[32]{
+ VR4300Cycle::OperationTemplate COP1rt_op_lut[32]{
     /*00*/ {BCzF, CAUSES_BRANCH_DELAY | CPZ, 0, 0,1, OpType::BCzF},
     /*01*/ {BCzT, CAUSES_BRANCH_DELAY | CPZ, 0, 0,1, OpType::BCzT},
     /*02*/ {BCzFL, CAUSES_BRANCH_DELAY | CPZ, 0, 0,1, OpType::BCzFL},
@@ -2910,7 +2910,7 @@ void Ccondfmt(VR4300 &cpu)
     /*1F*/ {},
 };
 
- VR4300::OperationTemplate COP2rt_op_lut[32]{
+ VR4300Cycle::OperationTemplate COP2rt_op_lut[32]{
     /*00*/ {BCzF, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzF},
     /*01*/ {BCzT, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzT},
     /*02*/ {BCzFL, CAUSES_BRANCH_DELAY | CPZ, 0, 0,2, OpType::BCzFL},
@@ -2945,7 +2945,7 @@ void Ccondfmt(VR4300 &cpu)
     /*1F*/ {},
 };
 
- VR4300::OperationTemplate CP0_op_lut[32]{
+ VR4300Cycle::OperationTemplate CP0_op_lut[32]{
     /*00*/ {},
     /*01*/ {TLBR, CPZ, 0, 0,0, OpType::TLBR},
     /*02*/ {TLBWI, CPZ, 0, 0,0, OpType::TLBWI},
@@ -2979,7 +2979,7 @@ void Ccondfmt(VR4300 &cpu)
     /*1E*/ {},
     /*1F*/ {},
 };
- VR4300::OperationTemplate CP1_op_lut[64]{
+ VR4300Cycle::OperationTemplate CP1_op_lut[64]{
     /*00*/ {ADDfmt, READS_CP | WRITES_CP | WRITES_REG | STORES_IN_SA | CPZ, 3, 8,1, OpType::ADDfmt},
     /*01*/ {SUBfmt, READS_CP | WRITES_CP | WRITES_REG | STORES_IN_SA | CPZ, 3, 8,1, OpType::SUBfmt},
     /*02*/ {MULfmt, READS_CP | WRITES_CP | WRITES_REG | STORES_IN_SA | CPZ, 5, 8,1, OpType::MULfmt},

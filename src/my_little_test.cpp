@@ -1,5 +1,5 @@
 /*#include <iostream>
-#include "VR4300.h"
+#include "VR4300Cycle.h"
 #include "Bus.h"
 
 //finish cpu
@@ -48,7 +48,7 @@ int little_test(){
         0x00, 0x00, 0x00, 0x00,
     };
     Bus bus = Bus(memory);
-    VR4300 vr4300 = VR4300(bus);
+    VR4300Cycle vr4300 = VR4300Cycle(bus);
 
     for (int i = 0; i < 69; i++)
     {
