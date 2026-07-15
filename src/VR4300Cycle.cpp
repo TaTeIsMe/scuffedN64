@@ -1,5 +1,5 @@
 #include "VR4300Cycle.h"
-#include "Operations.h"
+#include "OperationsCycle.h"
 #include <iostream>
 #include <cstring>
 #include <iomanip>
@@ -27,9 +27,13 @@ VR4300Cycle::VR4300Cycle() : cp0(), rcp(rcp), fpu(cp0){
 // fpu
 void VR4300Cycle::on_pclock()
 {
-    if(cp0.count == cp0.compare )//>= cp0.compare)
-        cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
-    cp0.count = (uint32_t)(cp0.count + 1);
+    static bool increment = false;
+    if(increment){
+        if(cp0.count == cp0.compare )//>= cp0.compare)
+            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
+        cp0.count = (uint32_t)(cp0.count + 1);
+        increment = false;
+    }else increment = true;
     
     //on interlock the ENTIRE pipeline is stalled
     if(stall){
@@ -40,6 +44,7 @@ void VR4300Cycle::on_pclock()
     if (WB() || DC() || EX() || RF() || IC()) return; 
     submit_pipeline();
 
+    //std::cout<<*WB_in.op<<"\n";
 }
 
 //Pipeline writeback stage
@@ -91,7 +96,7 @@ inline bool VR4300Cycle::WB()
             if(in.op->tmplt->CPz== 1 && (in.op->tmplt->cp_control))
                 fpu.set_control(in.op->rd, in.op->result);
             else if(in.op->tmplt->CPz == 1) 
-                fpu.write_fpr(in.op->dest_reg,in.op->result,in.op->tmplt->access_size);
+                fpu.set_fpr(in.op->result,in.op->dest_reg,in.op->tmplt->access_size);
         }else
         if(in.op->dest_reg != 0)
             GPR[in.op->dest_reg] = in.op->result;
@@ -646,8 +651,6 @@ inline bool VR4300Cycle::decode_op(uint32_t word, Operation& op)
 }
 
 inline void VR4300Cycle::submit_pipeline(){
-
-    //std::cout<<*WB_in.op << "\n";
 
     if(cp0.random == cp0.wired && cp0.wired < 32)
         cp0.random = (cp0.wired > 31)?63:31;

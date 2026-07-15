@@ -19,7 +19,7 @@ public:
                 uint32_t DPC_PIPE_BUSY;
                 uint32_t DPC_TME_BUSY;
             };
-            uint32_t regs[8];
+            uint32_t regs[8]{};
         };
         void write_size(uint32_t address, uint64_t value, uint8_t size) override;
         uint64_t read_size(uint32_t address, uint8_t size) override;
@@ -33,7 +33,7 @@ public:
                 uint32_t DPS_BUFTEST_ADDR;
                 uint32_t DPS_BUFTEST_DATA;
             };
-            uint32_t rdp_span_regs[4];
+            uint32_t rdp_span_regs[4]{};
         };
         void write_size(uint32_t address, uint64_t value, uint8_t size) override;
         uint64_t read_size(uint32_t address, uint8_t size) override;

@@ -16,7 +16,7 @@ public:
             uint32_t AI_DACRATE;
             uint32_t AI_BITRATE;
         };
-        uint32_t regs[6];
+        uint32_t regs[6]{};
     };
 
     class RCP& rcp;

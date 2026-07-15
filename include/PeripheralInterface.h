@@ -20,7 +20,7 @@ public:
             uint32_t PI_BSD_DOM2_PGS;
             uint32_t PI_BSD_DOM2_RLS;
         };
-        uint32_t regs[13];
+        uint32_t regs[13]{};
     };
     void write_size(uint32_t address, uint64_t value, uint8_t size) override;
     uint64_t read_size(uint32_t address, uint8_t size) override;
@@ -29,15 +29,15 @@ public:
 
     PeripheralInterface(RCP& rcp);
     
-    uint8_t dma_completed;
-    uint8_t dma_busy;
-    uint8_t dma_error;
-    uint8_t io_busy;
-    uint8_t dma_direction; //1 when writing to ram
-    uint32_t current_ram_addr;
-    uint32_t current_cart_addr;
-    int64_t len;
-    int timer;
+    uint8_t dma_completed = 0;
+    uint8_t dma_busy = 0;
+    uint8_t dma_error = 0;
+    uint8_t io_busy = 0;
+    uint8_t dma_direction = 0; //1 when writing to ram
+    uint32_t current_ram_addr = 0;
+    uint32_t current_cart_addr = 0;
+    int64_t len = 0;
+    int timer = 0;
     void start_dma();
     void continue_dma();
     void finish_dma();

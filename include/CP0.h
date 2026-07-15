@@ -125,7 +125,7 @@ public:
             uint64_t cause;
             uint64_t EPC;
             uint64_t PRId;
-            uint64_t config = 0x7006E463;
+            uint64_t config;
             uint64_t LLAddr;
             uint64_t watchLo;
             uint64_t watchHi;
@@ -142,7 +142,7 @@ public:
             uint64_t errorEPC;
             uint64_t r31;
         };
-        uint64_t regs[32];
+        uint64_t regs[32]{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x7006E463,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     };
 
     struct Segment{
@@ -210,16 +210,16 @@ public:
 
     const Segment& get_segment(uint64_t v_addr);
     
-    uint64_t TLB[32][4];
+    uint64_t TLB[32][4]{};
 
     struct TLB_Result{
-        bool miss;
-        bool dirty;
-        bool valid;
-        bool global;
-        uint8_t cache;
-        uint8_t asid;
-        uint32_t p_addr;
+        bool miss = false;
+        bool dirty = false;
+        bool valid = false;
+        bool global = false;
+        uint8_t cache = 0;
+        uint8_t asid = 0;
+        uint32_t p_addr = 0;
     };
 
 
@@ -228,6 +228,8 @@ public:
     bool in_supervisor_mode();
     bool in_kernel_mode();
     bool is_xmode();
+    void set_reg(uint64_t val, uint8_t dest_reg);
+    uint64_t get_reg(uint8_t reg) const;
     TLB_Result tlb_translate(uint64_t v_addr);
     uint32_t set_bits(uint32_t reg, uint32_t mask, uint32_t value);
     uint32_t get_bits(uint32_t reg, uint32_t mask, int shift);

@@ -70,9 +70,9 @@ public:
     
     FPU fpu;
     CP0 cp0;
-    class RCP* rcp;
-    uint64_t PC;
-    uint64_t cycle_count;
+    class RCP* rcp = 0;
+    uint64_t PC = 0;
+    uint64_t cycle_count = 0;
 
     uint8_t LLBit = 0;
     
@@ -115,7 +115,7 @@ public:
             uint64_t HI;
             uint64_t LO;
         };
-        uint64_t GPR[34];
+        uint64_t GPR[34]{};
     };
     
     struct OperationTemplate{
@@ -159,7 +159,6 @@ public:
         uint64_t rt_val = 0;//needed during operation
         uint64_t PC = 0;//virtual address of instruction
 
-        
         union {
             // TLB instructions
             struct {

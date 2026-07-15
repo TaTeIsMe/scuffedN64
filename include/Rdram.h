@@ -25,7 +25,7 @@ public:
                 uint32_t DeviceManufacturer;
                 uint32_t Row;
             };
-            uint32_t regs[11];
+            uint32_t regs[11]{};
         };
         void write_size(uint32_t address, uint64_t value, uint8_t size) override;
         uint64_t read_size(uint32_t address, uint8_t size) override;

@@ -24,7 +24,7 @@ public:
             uint32_t MI_INTERRUPT;
             uint32_t MI_MASK;
         };
-        uint32_t regs[4];
+        uint32_t regs[4]{};
     };
 
     class RCP& rcp;

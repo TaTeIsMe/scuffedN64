@@ -64,7 +64,7 @@ public:
             uint64_t FGR30;
             uint64_t FGR31;
         };
-        uint64_t regs[32];
+        uint64_t regs[32]{};
     };
 
     union {
@@ -105,11 +105,12 @@ public:
         uint64_t control_regs[32]{0xa00,0};
     };
 
-    uint64_t get_fpr(uint8_t fpr, uint8_t write_size);
-    void write_fpr(uint8_t fpr, uint64_t val, uint8_t write_size);
+    uint64_t get_fpr(uint8_t fpr, uint8_t size);
+    void set_fpr(uint64_t val, uint8_t fpr, uint8_t size);
     void set_cause(bool inexact, bool underflow, bool overflow, bool zerodiv, bool invalid, bool unimplemented);
     void clear_cause();
-    void set_control(uint8_t fcr, uint32_t val);
+    void set_control(uint32_t val, uint8_t fcr);
+    uint64_t get_control(uint8_t fcr);
 
     float flush_float(float value);
     double flush_double(double value);

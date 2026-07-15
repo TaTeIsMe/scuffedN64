@@ -109,6 +109,22 @@ bool CP0::is_xmode(){
     return (mode == Mode::USER && UX)|| (mode == Mode::SUPERVISOR  && SX) || (mode == Mode::KERNEL && KX);
 }
 
+void CP0::set_reg(uint64_t val, uint8_t dest_reg)
+{
+    regs[dest_reg] = (regs[dest_reg] & ~write_masks[dest_reg]) | (val & write_masks[dest_reg]);
+    if(dest_reg == 11)
+        cause = set_bits(cause, CAUSE_IP_TIMER_MASK, 0 << CAUSE_IP_TIMER_SHIFT);
+    if(dest_reg == 6)
+        random = (wired > 31)?63:31;
+    if(dest_reg == 12)
+        stash_status();
+}
+
+uint64_t CP0::get_reg(uint8_t reg) const
+{
+    return regs[reg];
+}
+
 // figure out the c (cache) bit in entrylo register
 CP0::TLB_Result CP0::tlb_translate(uint64_t v_addr)
 {

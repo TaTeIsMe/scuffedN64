@@ -11,8 +11,8 @@ public:
     ~GFX();
     void render_cycle();
     std::vector<Eigen::Vector4f> vertices;
-    uint32_t VAO;
-    uint32_t VBO;
+    uint32_t VAO = 0;
+    uint32_t VBO = 0;
     GLFWwindow* window;
-    uint32_t shaderProgram;
+    uint32_t shaderProgram = 0;
 };

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
-#include "VR4300Cycle.h"
+#include "VR4300Interpreter.h"
 #include "RCP.h"
 #include "Cartridge.h"
 #include "Rdram.h"
@@ -15,7 +15,7 @@
 int main(){
     
     std::ifstream rom_file("./ROMS/ZELOOTD.z64", std::ios::binary);
-    //std::ifstream rom_file("n64-systemtest.z64", std::ios::binary);
+    //std::ifstream rom_file("./ROMS/n64-systemtest.z64", std::ios::binary);
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
         std::istreambuf_iterator<char>()
@@ -25,12 +25,13 @@ int main(){
     Pif pif;
     Rdram rdram;
     Cartridge cartridge(rom);
-    VR4300Cycle vr4300;
+    VR4300Interpreter vr4300;
     EventQ eventq;
     RCP rcp(vr4300, rdram, cartridge, pif, gfx, eventq);
     eventq.enqueue(rcp.cycles + 1500000,EventType::VI_DONE);
     eventq.rcp = &rcp;
     vr4300.rcp = &rcp;
+    pif.rcp = &rcp;
     
     //IPL2 skip
     vr4300.PC = 0xffffffffa4000040;
@@ -64,33 +65,13 @@ int main(){
     
     //ram init skip
     rcp.ri.RI_SELECT = 0x14;
-    
-    uint64_t loop_count = 0;
-    auto start_time = std::chrono::high_resolution_clock::now();
 
     //will be 93 MHz hopefully
     while(true){
         vr4300.on_pclock();
 
-
         rcp.cycles++;
         eventq.process_queue();
-
-        // --- MEASURE PERFORMANCE ---
-        loop_count++;
-        if (loop_count >= 10'000'000) [[unlikely]] { 
-            auto end_time = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> elapsed = end_time - start_time;
-            
-            double hz = loop_count / elapsed.count();
-            double mhz = hz / 1'000'000.0;
-            
-            //std::cout << "Loop Execution Speed: " << hz << " Hz (" << mhz << " MHz)\n";
-            
-            // Reset tracking window
-            loop_count = 0;
-            start_time = std::chrono::high_resolution_clock::now();
-        }
 
     }
     return 0;

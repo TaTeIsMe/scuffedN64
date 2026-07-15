@@ -24,7 +24,7 @@ uint64_t FPU::get_fpr(uint8_t fpr, uint8_t size)
     return 0;
 }
 
-void FPU::write_fpr(uint8_t fpr, uint64_t val, uint8_t size)
+void FPU::set_fpr( uint64_t val, uint8_t fpr, uint8_t size)
 {
     uint8_t fr_bit = cp0.get_bits(cp0.status,STATUS_FR_MASK, STATUS_FR_SHIFT);
     uint8_t reg_id = fpr &~!fr_bit;
@@ -50,7 +50,7 @@ void FPU::clear_cause(){
     FCR31 &= ~(0x3F << 12);
 }
 
-void FPU::set_control(uint8_t fcr, uint32_t val){
+void FPU::set_control(uint32_t val, uint8_t fcr){
     if(fcr == 31){
         uint8_t prev_rm = FCR31 & 3;
         FCR31 = val & 0x183ffff;
@@ -63,6 +63,11 @@ void FPU::set_control(uint8_t fcr, uint32_t val){
             default:break;
             }
     }
+}
+
+uint64_t FPU::get_control(uint8_t fcr)
+{
+    return control_regs[fcr];
 }
 
 float FPU::flush_float(float value){

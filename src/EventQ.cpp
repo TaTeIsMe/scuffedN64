@@ -29,7 +29,7 @@ void EventQ::process_queue()
         {
             case EventType::VI_DONE:
             rcp->mi.route_interrupt(InterruptSource::VI);
-            enqueue(rcp->cycles + 1500000, EventType::VI_DONE); // this value shoudl be 1.5 mil for corect ratio
+            enqueue(rcp->cycles + 1'500'000, EventType::VI_DONE); // this value shoudl be 1.5 mil for corect ratio
             break;
             
             case EventType::PI_DMA_DONE:

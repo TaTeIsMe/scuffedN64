@@ -902,7 +902,7 @@ void ERET(VR4300Cycle &cpu)
     if (cpu.cp0.status & STATUS_ERL_MASK)
     {
         cpu.PC = cpu.cp0.errorEPC;
-        cpu.cp0.status = cpu.cp0.set_bits(cpu.cp0.status, STATUS_EXL_MASK, 0);
+        cpu.cp0.status = cpu.cp0.set_bits(cpu.cp0.status, STATUS_ERL_MASK, 0);
         cpu.cp0.stash_status();
     }
     else

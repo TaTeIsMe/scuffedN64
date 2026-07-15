@@ -26,7 +26,7 @@ public:
             uint32_t VI_TEST_ADDR;
             uint32_t VI_STAGED_DATA;
         };
-        uint32_t regs[16];
+        uint32_t regs[16]{};
     };
 
     class RCP& rcp;

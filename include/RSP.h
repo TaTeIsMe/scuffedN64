@@ -140,7 +140,7 @@ public:
                 uint32_t SP_DMA_BUSY;
                 uint32_t SP_SEMAPHORE;
             };
-            uint32_t regs[8];
+            uint32_t regs[8]{};
         };
         void write_size(uint32_t address, uint64_t value, uint8_t size) override;
         uint64_t read_size(uint32_t address, uint8_t size) override;
@@ -152,7 +152,7 @@ public:
             uint32_t pending_dma_rdlen;
             uint32_t pending_dma_wrlen;
         };
-        uint32_t pending_dma[4];
+        uint32_t pending_dma[4]{};
     };
     bool pending_dma_direction;
     
@@ -161,27 +161,27 @@ public:
     class Rdram& rdram;
     RSP(RCP& rcp,GFX& gfx, Rdram& rdram);
 
-    uint32_t PC;
+    uint32_t PC = 0;
     Dmem dmem;
     Imem imem;
     RSPRegs regs;
 
 
-    int16_t len;
-    int16_t start_len;
-    uint8_t count;
-    uint16_t skip;
-    uint32_t current_ram_addr;
-    uint16_t current_mem_addr;
-    int timer;
-    bool dma_direction; //1 when writing to ram
+    int16_t len = 0;
+    int16_t start_len = 0;
+    uint8_t count = 0;
+    uint16_t skip = 0;
+    uint32_t current_ram_addr = 0;
+    uint16_t current_mem_addr = 0;
+    int timer = 0;
+    bool dma_direction = false; //1 when writing to ram
     void start_dma();
     void continue_dma();
     void finish_dma();
 
     RSPTaskType current_task_type;
-    bool task_in_progress;
-    uint32_t task_timer;
+    bool task_in_progress = false;
+    uint32_t task_timer = 0;
     void start_task();
     void continue_task();
     void finish_task();

@@ -18,7 +18,7 @@ public:
             uint32_t RI_ERROR;
             uint32_t RI_BANK_STATUS;
         };
-        uint32_t regs[8];
+        uint32_t regs[8]{};
     };
     
     class RCP& rcp;
