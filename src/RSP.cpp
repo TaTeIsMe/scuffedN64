@@ -3,6 +3,8 @@
 #include <stack>
 #include <Eigen/Dense>
 #include "GFX.h"
+#include "Vertex.h"
+#include <iostream>
 
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
 
@@ -268,6 +270,7 @@ inline Eigen::Matrix4f parse_mtx_from_mem(const std::vector<uint8_t>& mem, uint3
     return mtx;
 }
 
+
 void RSP::process_gfx_task(OSTask task){
 
     uint32_t segments[16]{};
@@ -276,7 +279,17 @@ void RSP::process_gfx_task(OSTask task){
     modelview_mtx_stack.push(Eigen::Matrix4f::Identity());
     Eigen::Matrix4f projection_mtx(Eigen::Matrix4f::Identity());
     Eigen::Matrix4f modelview_projection_mtx;
-    Eigen::Vector4f vertex_buffer[32];
+    Vertex vertex_buffer[32];
+    uint32_t tex_ptr = 0;
+    uint8_t tex_fmt = 0;
+    uint8_t tex_siz = 0;
+    uint16_t tex_width = 0;
+
+float width = 0;
+float height = 0;
+
+    float s = 1.0f;
+    float t = 1.0f;
     
     auto translate_address = [&](uint32_t address){
         if(address >> 24 == 0x80)return address & 0xFFFFFF;
@@ -305,7 +318,41 @@ void RSP::process_gfx_task(OSTask task){
                 int16_t x = rcp.rdram.read_size(vaddr,2);
                 int16_t y = rcp.rdram.read_size(vaddr + 2,2);
                 int16_t z = rcp.rdram.read_size(vaddr + 4,2);
-                vertex_buffer[buf_id + i] = modelview_projection_mtx * Eigen::Vector4f(x,y,z,1) ;
+                int16_t u = rcp.rdram.read_size(vaddr + 8,2);
+                int16_t v = rcp.rdram.read_size(vaddr + 10,2);
+
+                vertex_buffer[buf_id + i].vector = modelview_projection_mtx * Eigen::Vector4f(x,y,z,1) ;
+                vertex_buffer[buf_id + i].u = (float)u * s / 32. / width;
+                vertex_buffer[buf_id + i].v = (float)v * t / 32. / height;
+
+                // Read signed 8-bit normal values from the vertex data
+int8_t nx = (int8_t)rcp.rdram.read_size(vaddr + 12, 1);
+int8_t ny = (int8_t)rcp.rdram.read_size(vaddr + 13, 1);
+int8_t nz = (int8_t)rcp.rdram.read_size(vaddr + 14, 1);
+
+// Convert normals from raw bytes to normalized floats (-1.0 to 1.0)
+Eigen::Vector3f normal(nx / 127.0f, ny / 127.0f, nz / 127.0f);
+
+// Transform the normal vector using your modelview matrix
+Eigen::Matrix3f normalMatrix = modelview_projection_mtx.block<3,3>(0,0).inverse().transpose();
+Eigen::Vector3f transformedNormal = (normalMatrix * normal).normalized();
+
+// Simple directional light math: Ambient + Max(0, Normal dot LightDir) * LightColor
+Eigen::Vector3f lightDir(0.5f, 1.0f, 0.3f);
+lightDir.normalize();
+
+float diff = std::max(transformedNormal.dot(lightDir), 0.0f);
+
+Eigen::Vector3f ambient(0.2f, 0.2f, 0.2f);
+Eigen::Vector3f diffuseColor(1.0f, 1.0f, 1.0f);
+Eigen::Vector3f finalColor = ambient + (diff * diffuseColor);
+
+// Store this inside your vertex buffer to send to OpenGL
+vertex_buffer[buf_id + i].r = finalColor.x();
+vertex_buffer[buf_id + i].g = finalColor.y();
+vertex_buffer[buf_id + i].b = finalColor.z();
+vertex_buffer[buf_id + i].a = 1.0f; // Alpha
+
                 vaddr += 16;
             }
             
@@ -349,7 +396,13 @@ void RSP::process_gfx_task(OSTask task){
         case 0xD6: // G_DMA_IO
             break;
         case 0xD7: // G_TEXTURE
+        {
+            uint16_t raw_s = (instr >> 16) & 0xFFFF;
+            uint16_t raw_t = instr & 0xFFFF;
+            s = (float)raw_s / 65536.0f;
+            t = (float)raw_t / 65536.0f;
             break;
+        }
         case G_POPMTX: // G_POPMTX
         {
             uint16_t num = (instr & 0xFFFFFFFF) >> 6;
@@ -466,7 +519,22 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xF1: // G_RDPHALF_2
             break;
-        case 0xF2: // G_SETTILESIZE
+        case G_SETTILESIZE: // G_SETTILESIZE
+        {
+uint16_t uls = (instr >> 44) & 0xFFF;
+uint16_t ult = (instr >> 32) & 0xFFF;
+uint16_t lrs = (instr >> 12) & 0xFFF;
+uint16_t lrt =  instr        & 0xFFF;
+
+float s0 = uls / 4.0f;
+float t0 = ult / 4.0f;
+float s1 = lrs / 4.0f;
+float t1 = lrt / 4.0f;
+
+width  = (int)(s1 - s0 + 1);
+height = (int)(t1 - t0 + 1);
+
+        }
             break;
         case 0xF3: // G_LOADBLOCK
             break;
@@ -488,8 +556,14 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xFC: // G_SETCOMBINE
             break;
-        case 0xFD: // G_SETTIMG
+        case G_SETTIMG: // G_SETTIMG
+        {
+            tex_ptr = instr & 0xFFFFFFFF;
+            tex_fmt = (instr >> 53) & 0x7;
+            tex_siz = (instr >> 51) & 0x3;
+            tex_width = (instr >> 32) & 0xFFF;
             break;
+        }
         case 0xFE: // G_SETZIMG
             break;
         case 0xFF: // G_SETCIMG
