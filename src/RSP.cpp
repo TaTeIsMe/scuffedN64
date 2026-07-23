@@ -6,6 +6,289 @@
 #include "Vertex.h"
 #include <iostream>
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <vector>
+#include <cstdint>
+#include <iostream>
+
+// Helper to compile shaders for the full-screen quad
+static GLuint createFullScreenShaderProgram() {
+    const char* vertexShaderSource = R"(
+        #version 330 core
+        out vec2 TexCoord;
+        void main() {
+            float x = -1.0 + float((gl_VertexID & 1) << 2);
+            float y = -1.0 + float((gl_VertexID & 2) << 1);
+            TexCoord = vec2((x + 1.0) * 0.5, (y + 1.0) * 0.5);
+            gl_Position = vec4(x, y, 0.0, 1.0);
+        }
+    )";
+
+    const char* fragmentShaderSource = R"(
+        #version 330 core
+        in vec2 TexCoord;
+        out vec4 FragColor;
+        uniform sampler2D screenTexture;
+        void main() {
+            FragColor = texture(screenTexture, TexCoord);
+        }
+    )";
+
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &vertexShaderSource, NULL);
+    glCompileShader(vs);
+
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fs);
+
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    glLinkProgram(program);
+
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+
+    return program;
+}
+
+/**
+ * Creates a single persistent GLFW window and updates its texture content per call.
+ */
+void displayTextureInWindow(const std::vector< uint8_t>& data, int width, int height, int channels) {
+    if (!data.size() || width <= 0 || height <= 0) return;
+
+    // Persistent state across function calls
+    static GLFWwindow* window = nullptr;
+    static GLuint shaderProgram = 0;
+    static GLuint dummyVAO = 0;
+    static GLuint textureID = 0;
+    static int currentWidth = 0;
+    static int currentHeight = 0;
+
+    // 1. One-time initialization for GLFW and Window Creation
+    if (!window) {
+        // Assume main game already initialized GLFW; do not call glfwTerminate() on failure here!
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+        window = glfwCreateWindow(width * 10, height * 10, "Texture Viewer", NULL, NULL);
+        if (!window) {
+            std::cerr << "Failed to create debug GLFW window" << std::endl;
+            return;
+        }
+
+        // Temporarily set context to load glad and gen resources
+        GLFWwindow* prev = glfwGetCurrentContext();
+        glfwMakeContextCurrent(window);
+
+        if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+            std::cerr << "Failed to initialize GLAD in debug window" << std::endl;
+            glfwDestroyWindow(window);
+            window = nullptr;
+            glfwMakeContextCurrent(prev);
+            return;
+        }
+
+        glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int w, int h) {
+            glViewport(0, 0, w, h);
+        });
+
+        shaderProgram = createFullScreenShaderProgram();
+        glGenVertexArrays(1, &dummyVAO);
+        glGenTextures(1, &textureID);
+
+        currentWidth = width * 10;
+        currentHeight = height * 10;
+        glViewport(0, 0, width * 10, height * 10);
+
+        // Restore context back to game
+        glfwMakeContextCurrent(prev);
+    }
+
+    // Save the original game context
+    GLFWwindow* previousContext = glfwGetCurrentContext();
+
+    // Make texture window active
+    glfwMakeContextCurrent(window);
+
+    // Process OS events
+    glfwPollEvents();
+    if (glfwWindowShouldClose(window)) {
+        // ALWAYS restore game context before returning!
+        glfwMakeContextCurrent(previousContext);
+        return;
+    }
+
+    // Resize window dynamically if texture dimensions changed
+    if (width != currentWidth || height != currentHeight) {
+        glfwSetWindowSize(window, width * 10, height * 10);
+        glViewport(0, 0, width * 10, height * 10);
+        currentWidth = width * 10;
+        currentHeight = height * 10;
+    }
+
+    // 2. Determine texture pixel format
+    GLenum format = GL_RGB;
+    GLenum internalFormat = GL_RGB8;
+    
+    if (channels == 1) {
+        format = GL_RED;
+        internalFormat = GL_R8;
+    } else if (channels == 3) {
+        format = GL_RGB;
+        internalFormat = GL_RGB8;
+    } else if (channels == 4) {
+        format = GL_RGBA;
+        internalFormat = GL_RGBA8;
+    }
+
+    // 3. Update Texture Data
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data.data());
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // 4. Render Frame
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(shaderProgram);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glBindVertexArray(dummyVAO);
+    
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glfwSwapBuffers(window);
+
+    // ALWAYS restore main game context before exiting function
+    glfwMakeContextCurrent(previousContext);
+}
+
+std::vector<uint8_t> decode_tex_temp(uint32_t phys_addr, uint8_t fmt, uint8_t siz, uint8_t pal, int w, int h ,uint8_t* mem, uint16_t* tlut_buffer) {
+        std::vector<uint8_t> rgba(w * h * 4, 0);
+
+        auto get_tlut_color = [&](uint8_t index, uint8_t& r, uint8_t& g, uint8_t& b, uint8_t& a) {
+            uint16_t raw = tlut_buffer[index];
+            r = ((raw >> 11) & 0x1F) * 255 / 31;
+            g = ((raw >> 6)  & 0x1F) * 255 / 31;
+            b = ((raw >> 1)  & 0x1F) * 255 / 31;
+            a = (raw & 1) ? 255 : 0;
+        };
+
+        int total_pixels = w * h;
+
+        for (int i = 0; i < total_pixels; i++) {
+            uint8_t r = 255, g = 255, b = 255, a = 255;
+
+            switch (fmt) {
+            case 0: // RGBA
+                if (siz == 2) { // RGBA16 (5-5-5-1)
+                    uint32_t addr = phys_addr + (i * 2);
+                        uint16_t pixel = (mem[addr] << 8) | mem[addr + 1];
+                        r = ((pixel >> 11) & 0x1F) * 255 / 31;
+                        g = ((pixel >> 6)  & 0x1F) * 255 / 31;
+                        b = ((pixel >> 1)  & 0x1F) * 255 / 31;
+                        a = (pixel & 1) ? 255 : 0;
+                } else if (siz == 3) { // RGBA32 (8-8-8-8)
+                    uint32_t addr = phys_addr + (i * 4);
+                        r = mem[addr + 0];
+                        g = mem[addr + 1];
+                        b = mem[addr + 2];
+                        a = mem[addr + 3];
+                }
+                break;
+
+            case 1: // YUV (YUV16 4:2:2) - Full Range BT.601 Conversion
+                if (siz == 2) {
+                    uint32_t pair_index = i / 2;
+                    uint32_t addr = phys_addr + (pair_index * 4);
+                        uint8_t y0 = mem[addr + 0];
+                        uint8_t u  = mem[addr + 1];
+                        uint8_t y1 = mem[addr + 2];
+                        uint8_t v  = mem[addr + 3];
+
+                        uint8_t y = (i % 2 == 0) ? y0 : y1;
+                        int u1 = (int)u - 128;
+                        int v1 = (int)v - 128;
+
+                        int rf = (int)(y + 1.402f * v1);
+                        int gf = (int)(y - 0.344136f * u1 - 0.714136f * v1);
+                        int bf = (int)(y + 1.772f * u1);
+
+                        r = std::clamp(rf, 0, 255);
+                        g = std::clamp(gf, 0, 255);
+                        b = std::clamp(bf, 0, 255);
+                        a = 255;
+                }
+                break;
+
+            case 2: // CI (Color Indexed)
+                if (siz == 0) { // CI4 (4-bit sub-palette)
+                    uint32_t addr = phys_addr + (i / 2);
+                        uint8_t byte = mem[addr];
+                        uint8_t idx = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        uint8_t tlut_idx = (pal << 4) | idx;
+                        get_tlut_color(tlut_idx, r, g, b, a);
+                } else if (siz == 1) { // CI8
+                    uint32_t addr = phys_addr + i;
+                        uint8_t idx = mem[addr];
+                        get_tlut_color(idx, r, g, b, a);
+                }
+                break;
+
+            case 3: // IA (Intensity + Alpha)
+                if (siz == 0) { // IA4 (3 bits I, 1 bit A)
+                    uint32_t addr = phys_addr + (i / 2);
+                        uint8_t byte = mem[addr];
+                        uint8_t nibble = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        uint8_t intensity = ((nibble >> 1) & 0x07) * 255 / 7;
+                        r = g = b = intensity;
+                        a = (nibble & 1) ? 255 : 0;
+                } else if (siz == 1) { // IA8 (4 bits I, 4 bits A)
+                    uint32_t addr = phys_addr + i;
+                        uint8_t byte = mem[addr];
+                        r = g = b = ((byte >> 4) & 0x0F) * 255 / 15;
+                        a = (byte & 0x0F) * 255 / 15;
+                } else if (siz == 2) { // IA16 (8 bits I, 8 bits A)
+                    uint32_t addr = phys_addr + (i * 2);
+                        r = g = b = mem[addr];
+                        a = mem[addr + 1];
+                }
+                break;
+
+            case 4: // I (Intensity)
+                if (siz == 0) { // I4
+                    uint32_t addr = phys_addr + (i / 2);
+                        uint8_t byte = mem[addr];
+                        uint8_t nibble = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        r = g = b = a = nibble * 255 / 15;
+                } else if (siz == 1) { // I8
+                    uint32_t addr = phys_addr + i;
+                        r = g = b = a = mem[addr];
+                }
+                break;
+
+            default:
+                break;
+            }
+
+            rgba[i * 4 + 0] = r;
+            rgba[i * 4 + 1] = g;
+            rgba[i * 4 + 2] = b;
+            rgba[i * 4 + 3] = a;
+        }
+
+        return rgba;
+}
+
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
 
 void inline set_clear_reg_bit(uint8_t set, uint8_t clear,uint32_t& reg, uint32_t bit){
@@ -280,16 +563,13 @@ void RSP::process_gfx_task(OSTask task){
     Eigen::Matrix4f projection_mtx(Eigen::Matrix4f::Identity());
     Eigen::Matrix4f modelview_projection_mtx;
     Vertex vertex_buffer[32];
-    uint32_t tex_ptr = 0;
-    uint8_t tex_fmt = 0;
-    uint8_t tex_siz = 0;
-    uint16_t tex_width = 0;
 
-float width = 0;
-float height = 0;
+    uint32_t tex_load_ptr = 0;
+    uint8_t tex_load_fmt = 0;
+    uint8_t tex_load_siz = 0;
+    uint16_t tex_load_width = 0;
 
-    float s = 1.0f;
-    float t = 1.0f;
+    uint32_t geometry_mode = 0;
     
     auto translate_address = [&](uint32_t address){
         if(address >> 24 == 0x80)return address & 0xFFFFFF;
@@ -321,38 +601,57 @@ float height = 0;
                 int16_t u = rcp.rdram.read_size(vaddr + 8,2);
                 int16_t v = rcp.rdram.read_size(vaddr + 10,2);
 
+                float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
+                float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
+                float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
+                float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
+
+                float width = (int)(s1 - s0 + 1);
+                float height = (int)(t1 - t0 + 1);
+
                 vertex_buffer[buf_id + i].vector = modelview_projection_mtx * Eigen::Vector4f(x,y,z,1) ;
-                vertex_buffer[buf_id + i].u = (float)u * s / 32. / width;
-                vertex_buffer[buf_id + i].v = (float)v * t / 32. / height;
+                vertex_buffer[buf_id + i].u = (float)u * gfx.s / 32. / width;
+                vertex_buffer[buf_id + i].v = (float)v * gfx.t / 32. / height;
 
-                // Read signed 8-bit normal values from the vertex data
-int8_t nx = (int8_t)rcp.rdram.read_size(vaddr + 12, 1);
-int8_t ny = (int8_t)rcp.rdram.read_size(vaddr + 13, 1);
-int8_t nz = (int8_t)rcp.rdram.read_size(vaddr + 14, 1);
+                if(((geometry_mode >> 17) & 1)){
 
-// Convert normals from raw bytes to normalized floats (-1.0 to 1.0)
-Eigen::Vector3f normal(nx / 127.0f, ny / 127.0f, nz / 127.0f);
-
-// Transform the normal vector using your modelview matrix
-Eigen::Matrix3f normalMatrix = modelview_projection_mtx.block<3,3>(0,0).inverse().transpose();
-Eigen::Vector3f transformedNormal = (normalMatrix * normal).normalized();
-
-// Simple directional light math: Ambient + Max(0, Normal dot LightDir) * LightColor
-Eigen::Vector3f lightDir(0.5f, 1.0f, 0.3f);
-lightDir.normalize();
-
-float diff = std::max(transformedNormal.dot(lightDir), 0.0f);
-
-Eigen::Vector3f ambient(0.2f, 0.2f, 0.2f);
-Eigen::Vector3f diffuseColor(1.0f, 1.0f, 1.0f);
-Eigen::Vector3f finalColor = ambient + (diff * diffuseColor);
-
-// Store this inside your vertex buffer to send to OpenGL
-vertex_buffer[buf_id + i].r = finalColor.x();
-vertex_buffer[buf_id + i].g = finalColor.y();
-vertex_buffer[buf_id + i].b = finalColor.z();
-vertex_buffer[buf_id + i].a = 1.0f; // Alpha
-
+                    // Read signed 8-bit normal values from the vertex data scuffed lighting
+                    int8_t nx = (int8_t)rcp.rdram.read_size(vaddr + 12, 1);
+                    int8_t ny = (int8_t)rcp.rdram.read_size(vaddr + 13, 1);
+                    int8_t nz = (int8_t)rcp.rdram.read_size(vaddr + 14, 1);
+                    
+                    // Convert normals from raw bytes to normalized floats (-1.0 to 1.0)
+                    Eigen::Vector3f normal(nx / 127.0f, ny / 127.0f, nz / 127.0f);
+                    
+                    // Transform the normal vector using your modelview matrix
+                    Eigen::Matrix3f normalMatrix =
+                        modelview_mtx_stack.top().block<3,3>(0,0)
+                            .inverse()
+                            .transpose();
+                    Eigen::Vector3f transformedNormal = (normalMatrix * normal).normalized();
+                    
+                    // Simple directional light math: Ambient + Max(0, Normal dot LightDir) * LightColor
+                    Eigen::Vector3f lightDir(0.5f, 1.0f, 0.3f);
+                    lightDir.normalize();
+                    
+                    float diff = std::max(transformedNormal.dot(lightDir), 0.0f);
+                    
+                    Eigen::Vector3f ambient(0.2f, 0.2f, 0.2f);
+                    Eigen::Vector3f diffuseColor(1.0f, 1.0f, 1.0f);
+                    Eigen::Vector3f finalColor = ambient + (diff * diffuseColor);
+                    
+                    // Store this inside your vertex buffer to send to OpenGL
+                    vertex_buffer[buf_id + i].r = finalColor.x();
+                    vertex_buffer[buf_id + i].g = finalColor.y();
+                    vertex_buffer[buf_id + i].b = finalColor.z();
+                    vertex_buffer[buf_id + i].a = 1.0f; // Alpha
+                }else{
+                    vertex_buffer[buf_id + i].r  = rcp.rdram.read_size(vaddr + 12,1) / 255.f;
+                    vertex_buffer[buf_id + i].g  = rcp.rdram.read_size(vaddr + 13,1) / 255.f;
+                    vertex_buffer[buf_id + i].b  = rcp.rdram.read_size(vaddr + 14,1) / 255.f;
+                    vertex_buffer[buf_id + i].a  = rcp.rdram.read_size(vaddr + 15,1) / 255.f;
+                }
+                    
                 vaddr += 16;
             }
             
@@ -369,7 +668,33 @@ vertex_buffer[buf_id + i].a = 1.0f; // Alpha
             uint8_t v0 = ((instr >> 48) & 0xFF) / 2;
             uint8_t v1 = ((instr >> 40) & 0xFF) / 2;
             uint8_t v2 = ((instr >> 32) & 0xFF) / 2;
-            gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2]});
+            //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2]});
+
+            float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
+            float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
+            float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
+            float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
+
+            float width = (int)(s1 - s0 + 1);
+            float height = (int)(t1 - t0 + 1);
+
+            //displayTextureInWindow(
+            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+            //        gfx.tiles[gfx.active_tile].fmt,
+            //        gfx.tiles[gfx.active_tile].siz,
+            //        gfx.tiles[gfx.active_tile].palette,
+            //        width,
+            //        height,
+            //        gfx.tmem,
+            //        gfx.tlut_buffer),
+            //    width,
+            //    height,
+            //    4
+            //);
+            GLuint tex = gfx.create_new_texture();
+
+            gfx.draw_calls.push_back(DrawCall(vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2], tex));
+            
             break;
         }
         case 0x06: // G_TRI2
@@ -377,12 +702,15 @@ vertex_buffer[buf_id + i].a = 1.0f; // Alpha
             uint8_t v00 = ((instr >> 48) & 0xFF) / 2;
             uint8_t v01 = ((instr >> 40) & 0xFF) / 2;
             uint8_t v02 = ((instr >> 32) & 0xFF) / 2;
-            gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02]});
+            //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02]});
+            GLuint tex = gfx.create_new_texture();
+            gfx.draw_calls.push_back(DrawCall(vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02], tex));
 
             uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
             uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
             uint8_t v12 = ((instr) & 0xFF) / 2;
-            gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12]});
+            //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12]});
+            gfx.draw_calls.push_back(DrawCall(vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12], tex));
             break;
         }
         case 0x07: // G_QUAD
@@ -395,12 +723,14 @@ vertex_buffer[buf_id + i].a = 1.0f; // Alpha
             break;
         case 0xD6: // G_DMA_IO
             break;
-        case 0xD7: // G_TEXTURE
+        case G_TEXTURE: // G_TEXTURE
         {
             uint16_t raw_s = (instr >> 16) & 0xFFFF;
             uint16_t raw_t = instr & 0xFFFF;
-            s = (float)raw_s / 65536.0f;
-            t = (float)raw_t / 65536.0f;
+            gfx.s = (float)raw_s / 65536.0f;
+            gfx.t = (float)raw_t / 65536.0f;
+            uint8_t tile = (instr >> 40) & 0x7;
+            gfx.active_tile = tile;
             break;
         }
         case G_POPMTX: // G_POPMTX
@@ -412,8 +742,13 @@ vertex_buffer[buf_id + i].a = 1.0f; // Alpha
             
             break;
         }
-        case 0xD9: // G_GEOMETRYMODE
+        case G_GEOMETRYMODE: // G_GEOMETRYMODE
+        {
+            uint32_t clear_bits = (instr >> 32) & 0x00FFFFFF;
+            uint32_t set_bits = instr & 0xFFFFFFFF;
+            geometry_mode = (geometry_mode & ~clear_bits) | set_bits;
             break;
+        }
         case G_MTX: // G_MTX
         {
             uint32_t mtxaddr = translate_address(instr & 0xFFFFFFFF);
@@ -515,33 +850,129 @@ vertex_buffer[buf_id + i].a = 1.0f; // Alpha
             break;
         case 0xEF: // G_RDPSETOTHERMODE
             break;
-        case 0xF0: // G_LOADTLUT
+        case G_LOADTLUT: // G_LOADTLUT
+        {
+            uint32_t count = ((instr >> 12) & 0xFFF) + 1;
+            uint32_t tlut_phys = translate_address(tex_load_ptr);
+            for (uint32_t i = 0; i < 256 && i < count; i++) {
+                uint32_t addr = tlut_phys + (i * 2);
+                if (addr + 1 < rcp.rdram.mem.size()) {
+                    gfx.tlut_buffer[i] = (rcp.rdram.mem[addr] << 8) | rcp.rdram.mem[addr + 1];
+                }
+            }
             break;
+        }
         case 0xF1: // G_RDPHALF_2
             break;
         case G_SETTILESIZE: // G_SETTILESIZE
         {
-uint16_t uls = (instr >> 44) & 0xFFF;
-uint16_t ult = (instr >> 32) & 0xFFF;
-uint16_t lrs = (instr >> 12) & 0xFFF;
-uint16_t lrt =  instr        & 0xFFF;
-
-float s0 = uls / 4.0f;
-float t0 = ult / 4.0f;
-float s1 = lrs / 4.0f;
-float t1 = lrt / 4.0f;
-
-width  = (int)(s1 - s0 + 1);
-height = (int)(t1 - t0 + 1);
-
+            uint8_t tile = (instr >> 24) & 0xF;
+            gfx.tiles[tile].uls = (instr >> 44) & 0xFFF;
+            gfx.tiles[tile].ult = (instr >> 32) & 0xFFF;
+            gfx.tiles[tile].lrs = (instr >> 12) & 0xFFF;
+            gfx.tiles[tile].lrt =  instr        & 0xFFF;
         }
             break;
-        case 0xF3: // G_LOADBLOCK
+        case G_LOADBLOCK:
+        {
+            uint8_t tile = (instr >> 24) & 0x7;
+
+            uint32_t texels = ((instr >> 12) & 0xFFF) + 1;
+
+            Tile& t = gfx.tiles[tile];
+
+            uint32_t src = translate_address(tex_load_ptr);
+
+            uint32_t bytesPerTexel;
+            switch (tex_load_siz)
+            {
+            case 0: bytesPerTexel = 0; break; // handled separately (4bpp)
+            case 1: bytesPerTexel = 1; break;
+            case 2: bytesPerTexel = 2; break;
+            case 3: bytesPerTexel = 4; break;
+            }
+
+            uint32_t bytes =
+                (tex_load_siz == 0)
+                ? ((texels + 1) / 2)
+                : texels * bytesPerTexel;
+
+            memcpy(
+                &gfx.tmem[t.tmem * 8],
+                &rcp.rdram.mem[src],
+                bytes);
+
             break;
-        case 0xF4: // G_LOADTILE
+        }
+        case G_LOADTILE:
+        {
+            uint8_t tile = (instr >> 24) & 0x7;
+
+            Tile& t = gfx.tiles[tile];
+
+            uint32_t src = translate_address(tex_load_ptr);
+
+            uint32_t width =
+                (((instr >> 12) & 0xFFF) - ((instr >> 44) & 0xFFF)) / 4 + 1;
+
+            uint32_t height =
+                ((instr & 0xFFF) - ((instr >> 32) & 0xFFF)) / 4 + 1;
+
+            uint32_t bytesPerPixel;
+
+            switch (tex_load_siz)
+            {
+            case 0: bytesPerPixel = 0; break;
+            case 1: bytesPerPixel = 1; break;
+            case 2: bytesPerPixel = 2; break;
+            case 3: bytesPerPixel = 4; break;
+            }
+
+            uint32_t dst = t.tmem * 8;
+
+            if (tex_load_siz == 0)
+            {
+                uint32_t rowBytes = (width + 1) / 2;
+
+                for (uint32_t y = 0; y < height; y++)
+                {
+                    memcpy(
+                        &gfx.tmem[dst + y * t.line * 8],
+                        &rcp.rdram.mem[src + y * rowBytes],
+                        rowBytes);
+                }
+            }
+            else
+            {
+                uint32_t rowBytes = width * bytesPerPixel;
+
+                for (uint32_t y = 0; y < height; y++)
+                {
+                    memcpy(
+                        &gfx.tmem[dst + y * t.line * 8],
+                        &rcp.rdram.mem[src + y * rowBytes],
+                        rowBytes);
+                }
+            }
+
             break;
-        case 0xF5: // G_SETTILE
+        }
+        case G_SETTILE: // G_SETTILE
+        {
+            uint8_t tile = (instr >> 24) & 0x7;
+            gfx.tiles[tile].fmt = (instr >> 53) & 0x7;
+            gfx.tiles[tile].siz = (instr >> 51) & 0x3;
+            gfx.tiles[tile].line = (instr >> 41) & 0x1FF;
+            gfx.tiles[tile].tmem = (instr >> 32) & 0x1FF;
+            gfx.tiles[tile].palette = (instr >> 20) & 0x0F;
+            gfx.tiles[tile].cmt = (instr >> 18) & 0x3;
+            gfx.tiles[tile].maskt = (instr >> 14) & 0xF;
+            gfx.tiles[tile].shiftt = (instr >> 10) & 0xF;
+            gfx.tiles[tile].cms = (instr >> 8) & 0x3;
+            gfx.tiles[tile].masks = (instr >> 4) & 0xF;
+            gfx.tiles[tile].shifts = (instr >> 0) & 0xF;
             break;
+        }
         case 0xF6: // G_FILLRECT
             break;
         case 0xF7: // G_SETFILLCOLOR
@@ -558,10 +989,10 @@ height = (int)(t1 - t0 + 1);
             break;
         case G_SETTIMG: // G_SETTIMG
         {
-            tex_ptr = instr & 0xFFFFFFFF;
-            tex_fmt = (instr >> 53) & 0x7;
-            tex_siz = (instr >> 51) & 0x3;
-            tex_width = (instr >> 32) & 0xFFF;
+            tex_load_ptr = instr & 0xFFFFFFFF;
+            tex_load_fmt = (instr >> 53) & 0x7;
+            tex_load_siz = (instr >> 51) & 0x3;
+            tex_load_width = (instr >> 32) & 0xFFF;
             break;
         }
         case 0xFE: // G_SETZIMG
@@ -603,3 +1034,4 @@ OSTask OSTask::parse_from_mem(std::vector<uint8_t> mem, uint32_t addr)
 
     return new_task;
 }
+
