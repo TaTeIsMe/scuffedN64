@@ -3,33 +3,20 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-const char *vertexShaderSource = "#version 460 core\n"
-    "layout (location = 0) in vec4 aPos;\n"
-    "layout (location = 1) in vec2 aTexCoord;\n"
-    "layout (location = 2) in vec4 aColor;\n"
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
-    "out vec2 TexCoord;\n"
-    "out vec4 Color;\n"
-
-    "void main()\n"
-    "{\n"
-    "   gl_Position = aPos;\n"
-    "   TexCoord = aTexCoord;\n"
-    "   Color = aColor;\n"
-    "}\0";
-
-const char *fragmentShaderSource = "#version 460 core\n"
-    "out vec4 FragColor;\n"
-
-    "in vec2 TexCoord;\n"
-    "in vec4 Color;\n"
-
-    "uniform sampler2D theOneTexture;\n"
-
-    "void main()\n"
-    "{\n"
-    "   FragColor = texture(theOneTexture, TexCoord) * Color;\n"
-    "}\0";
+std::string load_shader_source(const char* filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cout << "Failed to open shader file: " << filePath << std::endl;
+        return "";
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
 
 std::vector<uint8_t> decode_tex(uint32_t offset, uint8_t fmt, uint8_t siz, uint8_t pal, int w, int h ,uint8_t* mem, uint16_t* tlut_buffer) {
         std::vector<uint8_t> rgba(w * h * 4, 0);
@@ -181,6 +168,12 @@ GFX::GFX()
     glFrontFace(GL_CCW);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+
+    std::string vertCode = load_shader_source("shaders/shader.vert");
+    std::string fragCode = load_shader_source("shaders/shader.frag");
+
+    const char* vertexShaderSource   = vertCode.c_str();
+    const char* fragmentShaderSource = fragCode.c_str();
 
     uint32_t vertexShader;
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
