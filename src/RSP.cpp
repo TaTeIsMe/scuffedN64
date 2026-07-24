@@ -613,7 +613,7 @@ void RSP::process_gfx_task(OSTask task){
                 vertex_buffer[buf_id + i].u = (float)u * gfx.s / 32. / width;
                 vertex_buffer[buf_id + i].v = (float)v * gfx.t / 32. / height;
 
-                if(((geometry_mode >> 17) & 1)){
+                if((geometry_mode & G_LIGHTING)){
 
                     // Read signed 8-bit normal values from the vertex data scuffed lighting
                     int8_t nx = (int8_t)rcp.rdram.read_size(vaddr + 12, 1);
@@ -646,10 +646,19 @@ void RSP::process_gfx_task(OSTask task){
                     vertex_buffer[buf_id + i].b = finalColor.z();
                     vertex_buffer[buf_id + i].a = 1.0f; // Alpha
                 }else{
-                    vertex_buffer[buf_id + i].r  = rcp.rdram.read_size(vaddr + 12,1) / 255.f;
-                    vertex_buffer[buf_id + i].g  = rcp.rdram.read_size(vaddr + 13,1) / 255.f;
-                    vertex_buffer[buf_id + i].b  = rcp.rdram.read_size(vaddr + 14,1) / 255.f;
-                    vertex_buffer[buf_id + i].a  = rcp.rdram.read_size(vaddr + 15,1) / 255.f;
+                    float r = rcp.rdram.read_size(vaddr + 12,1) / 255.f;
+                    float g = rcp.rdram.read_size(vaddr + 13,1) / 255.f;
+                    float b = rcp.rdram.read_size(vaddr + 14,1) / 255.f;
+                    float a = rcp.rdram.read_size(vaddr + 15,1) / 255.f;
+                    vertex_buffer[buf_id + i].r  = r;
+                    vertex_buffer[buf_id + i].g  = g;
+                    vertex_buffer[buf_id + i].b  = b;
+                    vertex_buffer[buf_id + i].a  = a;
+                }
+
+                if (!(geometry_mode & G_SHADE))
+                {
+                    vertex_buffer[buf_id + i].r = vertex_buffer[buf_id + i].g = vertex_buffer[buf_id + i].b = 1.0f;
                 }
                     
                 vaddr += 16;
@@ -691,9 +700,14 @@ void RSP::process_gfx_task(OSTask task){
             //    height,
             //    4
             //);
-            GLuint tex = gfx.create_new_texture();
+            GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
+            GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
-            gfx.draw_calls.push_back(DrawCall(vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2], tex));
+            bool is2Cycle = ((gfx.othermode >> 52) & 0x3) == 1;
+
+            gfx.draw_calls.push_back(
+                DrawCall(vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2], tex0, tex1, gfx.current_combiner, is2Cycle)
+            );
             
             break;
         }
@@ -702,15 +716,43 @@ void RSP::process_gfx_task(OSTask task){
             uint8_t v00 = ((instr >> 48) & 0xFF) / 2;
             uint8_t v01 = ((instr >> 40) & 0xFF) / 2;
             uint8_t v02 = ((instr >> 32) & 0xFF) / 2;
-            //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02]});
-            GLuint tex = gfx.create_new_texture();
-            gfx.draw_calls.push_back(DrawCall(vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02], tex));
+            GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
+            GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
+
+            float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
+            float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
+            float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
+            float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
+
+            float width = (int)(s1 - s0 + 1);
+            float height = (int)(t1 - t0 + 1);
+
+            //displayTextureInWindow(
+            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+            //        gfx.tiles[gfx.active_tile].fmt,
+            //        gfx.tiles[gfx.active_tile].siz,
+            //        gfx.tiles[gfx.active_tile].palette,
+            //        width,
+            //        height,
+            //        gfx.tmem,
+            //        gfx.tlut_buffer),
+            //    width,
+            //    height,
+            //    4
+            //);
+
+            bool is2Cycle = ((gfx.othermode >> 52) & 0x3) == 1;
+
+            gfx.draw_calls.push_back(
+                DrawCall(vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02], tex0, tex1, gfx.current_combiner, is2Cycle)
+            );
 
             uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
             uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
             uint8_t v12 = ((instr) & 0xFF) / 2;
-            //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12]});
-            gfx.draw_calls.push_back(DrawCall(vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12], tex));
+            gfx.draw_calls.push_back(
+                DrawCall(vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12], tex0, tex1, gfx.current_combiner, is2Cycle)
+            );
             break;
         }
         case 0x07: // G_QUAD
@@ -822,10 +864,26 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xE1: // G_RDPHALF_1
             break;
-        case 0xE2: // G_SETOTHERMODE_L
+        case G_SETOTHERMODE_L: // G_SETOTHERMODE_L
+        {
+            uint8_t nn = (instr >> 32) & 0xFF;
+            uint8_t ss = (instr >> 40) & 0xFF;
+            uint16_t length = nn + 1;
+            uint16_t shift = 32 - length - ss;
+            uint64_t data = instr & 0xFFFFFFFF;
+            gfx.othermode = gfx.othermode & ~(((1ULL<<length) - 1) << shift) | data;
             break;
-        case 0xE3: // G_SETOTHERMODE_H
+        }
+        case G_SETOTHERMODE_H: // G_SETOTHERMODE_H
+        {
+            uint8_t nn = (instr >> 32) & 0xFF;
+            uint8_t ss = (instr >> 40) & 0xFF;
+            uint16_t length = nn + 1;
+            uint16_t shift = 32 - length - ss + 32;
+            uint64_t data = instr & 0xFFFFFFFF;
+            gfx.othermode = gfx.othermode & ~(((1ULL<<length) - 1) << shift) | (data << 32);
             break;
+        }
         case 0xE4: // G_TEXRECT
             break;
         case 0xE5: // G_TEXRECTFLIP
@@ -849,7 +907,10 @@ void RSP::process_gfx_task(OSTask task){
         case 0xEE: // G_SETPRIMDEPTH
             break;
         case 0xEF: // G_RDPSETOTHERMODE
+        {
+            gfx.othermode = instr & 0x00FFFFFFFFFFFFFF;
             break;
+        }
         case G_LOADTLUT: // G_LOADTLUT
         {
             uint32_t count = ((instr >> 12) & 0xFFF) + 1;
@@ -981,12 +1042,47 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xF9: // G_SETBLENDCOLOR
             break;
-        case 0xFA: // G_SETPRIMCOLOR
+        case G_SETPRIMCOLOR: 
+        {
+            gfx.current_combiner.prim_r = ((instr >> 24) & 0xFF) / 255.0f;
+            gfx.current_combiner.prim_g = ((instr >> 16) & 0xFF) / 255.0f;
+            gfx.current_combiner.prim_b = ((instr >>  8) & 0xFF) / 255.0f;
+            gfx.current_combiner.prim_a = ( instr        & 0xFF) / 255.0f;
             break;
-        case 0xFB: // G_SETENVCOLOR
+        }
+
+        case G_SETENVCOLOR: 
+        {
+            gfx.current_combiner.env_r = ((instr >> 24) & 0xFF) / 255.0f;
+            gfx.current_combiner.env_g = ((instr >> 16) & 0xFF) / 255.0f;
+            gfx.current_combiner.env_b = ((instr >>  8) & 0xFF) / 255.0f;
+            gfx.current_combiner.env_a = ( instr        & 0xFF) / 255.0f;
             break;
-        case 0xFC: // G_SETCOMBINE
+        }
+        case G_SETCOMBINE:
+        {
+            gfx.current_combiner.cc0_a = (instr >> 52) & 0x0F;
+            gfx.current_combiner.cc0_c = (instr >> 47) & 0x1F;
+            gfx.current_combiner.cc0_b = (instr >> 28) & 0x0F;
+            gfx.current_combiner.cc0_d = (instr >> 15) & 0x07;
+
+            gfx.current_combiner.ac0_a = (instr >> 44) & 0x07;
+            gfx.current_combiner.ac0_c = (instr >> 41) & 0x07;
+            gfx.current_combiner.ac0_b = (instr >> 12) & 0x07;
+            gfx.current_combiner.ac0_d = (instr >>  9) & 0x07;
+
+            gfx.current_combiner.cc1_a = (instr >> 37) & 0x0F;
+            gfx.current_combiner.cc1_c = (instr >> 32) & 0x1F;
+            gfx.current_combiner.cc1_b = (instr >> 24) & 0x0F;
+            gfx.current_combiner.cc1_d = (instr >>  6) & 0x07;
+
+            gfx.current_combiner.ac1_a = (instr >> 21) & 0x07;
+            gfx.current_combiner.ac1_c = (instr >> 18) & 0x07;
+            gfx.current_combiner.ac1_b = (instr >>  3) & 0x07;
+            gfx.current_combiner.ac1_d = (instr >>  0) & 0x07;
+
             break;
+        }
         case G_SETTIMG: // G_SETTIMG
         {
             tex_load_ptr = instr & 0xFFFFFFFF;

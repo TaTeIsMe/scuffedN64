@@ -4,11 +4,11 @@ layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec4 aColor;
 
 out vec2 TexCoord;
-out vec4 Color;
+out vec4 ShadeColor;
 
 void main()
 {
    gl_Position = aPos;
    TexCoord = aTexCoord;
-   Color = aColor;
+   ShadeColor = aColor;
 }

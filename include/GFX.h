@@ -30,9 +30,22 @@ struct Tile {
     GLint tex;
 };
 
+struct CombinerState {
+    float prim_r = 1.0f, prim_g = 1.0f, prim_b = 1.0f, prim_a = 1.0f;
+    float env_r  = 0.0f, env_g  = 0.0f, env_b  = 0.0f, env_a  = 1.0f;
+    
+    int cc0_a = 1, cc0_b = 15, cc0_c = 4, cc0_d = 15;
+    int ac0_a = 1, ac0_b = 7,  ac0_c = 4, ac0_d = 7;
+    int cc1_a = 1, cc1_b = 15, cc1_c = 4, cc1_d = 15;
+    int ac1_a = 1, ac1_b = 7,  ac1_c = 4, ac1_d = 7;
+};
+
 struct DrawCall {
     Vertex v0, v1, v2;
-    GLuint texture;
+    GLuint texture0;
+    GLuint texture1;
+    CombinerState combiner;
+    bool is2Cycle;
 };
 
 class GFX
@@ -41,7 +54,7 @@ public:
     GFX();
     ~GFX();
     void render_cycle();
-    GLuint create_new_texture();
+    GLuint create_new_texture(uint8_t tile);
     void drawTriangle(const DrawCall &dc);
 
     std::vector<Vertex> vertices;
@@ -49,11 +62,11 @@ public:
     uint32_t VBO = 0;
     GLFWwindow* window;
     uint32_t shaderProgram = 0;
-    uint32_t theOneTexture = 0;
     Tile tiles[8];
     std::vector<DrawCall> draw_calls;
     std::vector<GLuint> frameTextures;
     uint32_t current_tex = 0;
+    uint64_t othermode = 0;
 
     uint8_t tmem[4096];
     uint16_t tlut_buffer[256]{};
@@ -61,5 +74,7 @@ public:
     float t = 1.0f;
     bool on = false;
     uint8_t active_tile = 0;
+
+    CombinerState current_combiner;
 
 };

@@ -82,6 +82,11 @@ enum class RSPTaskType : uint32_t{
     HVQMTASK = 7
 };
 
+enum GeometryMode : uint32_t{
+    G_LIGHTING = 1 << 17,
+    G_SHADE = 1 << 2
+};
+
 struct OSTask{
     uint32_t type;
     uint32_t flags;

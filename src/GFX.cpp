@@ -217,6 +217,10 @@ GFX::GFX()
                 << infoLog << std::endl;
     }
 
+    glUseProgram(shaderProgram);
+    glUniform1i(glGetUniformLocation(shaderProgram, "texture_0"), 0);
+    glUniform1i(glGetUniformLocation(shaderProgram, "texture_1"), 1);
+
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);  
 
@@ -231,8 +235,8 @@ GFX::GFX()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
     glEnableVertexAttribArray(1);
 
-glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, r));
-glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, r));
+    glEnableVertexAttribArray(2);
 
 
     glEnable(GL_BLEND);
@@ -272,7 +276,7 @@ void GFX::render_cycle()
     current_tex = 0;
 }
 
-GLuint GFX::create_new_texture()
+GLuint GFX::create_new_texture(uint8_t tile)
 {
     if (current_tex == frameTextures.size())
     {
@@ -283,26 +287,35 @@ GLuint GFX::create_new_texture()
 
     GLuint tex = frameTextures[current_tex++];
 
-    float s0 = tiles[active_tile].uls / 4.0f;
-    float t0 = tiles[active_tile].ult / 4.0f;
-    float s1 = tiles[active_tile].lrs / 4.0f;
-    float t1 = tiles[active_tile].lrt / 4.0f;
+    float s0 = tiles[tile].uls / 4.0f;
+    float t0 = tiles[tile].ult / 4.0f;
+    float s1 = tiles[tile].lrs / 4.0f;
+    float t1 = tiles[tile].lrt / 4.0f;
 
     float width = (int)(s1 - s0 + 1);
     float height = (int)(t1 - t0 + 1);
 
     glBindTexture(GL_TEXTURE_2D, tex);
 
+    auto get_gl_wrap_mode = [](uint8_t cm) -> GLenum {
+        if (cm & 0x2)
+            return GL_CLAMP_TO_EDGE;   // G_TX_CLAMP
+        if (cm & 0x1)
+            return GL_MIRRORED_REPEAT; // G_TX_MIRROR
+        return GL_REPEAT;                        // G_TX_WRAP
+    };
+
+    // In texture creation / binding:
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, get_gl_wrap_mode(tiles[tile].cms));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, get_gl_wrap_mode(tiles[tile].cmt));
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    std::vector<uint8_t> tex_data = decode_tex(tiles[active_tile].tmem * 8,
-        tiles[active_tile].fmt,
-        tiles[active_tile].siz,
-        tiles[active_tile].palette,
+    std::vector<uint8_t> tex_data = decode_tex(tiles[tile].tmem * 8,
+        tiles[tile].fmt,
+        tiles[tile].siz,
+        tiles[tile].palette,
         width,
         height,
         tmem,
@@ -322,7 +335,39 @@ void GFX::drawTriangle(const DrawCall& dc)
         dc.v2
     };
 
-    glBindTexture(GL_TEXTURE_2D, dc.texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, dc.texture0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, dc.texture1);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uIs2Cycle"), dc.is2Cycle);
+
+    // Pass the state uniforms per draw call
+    glUniform4f(glGetUniformLocation(shaderProgram, "uPrimColor"),
+        dc.combiner.prim_r, dc.combiner.prim_g, dc.combiner.prim_b, dc.combiner.prim_a);
+    glUniform4f(glGetUniformLocation(shaderProgram, "uEnvColor"), 
+        dc.combiner.env_r, dc.combiner.env_g, dc.combiner.env_b, dc.combiner.env_a);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC0_A"), dc.combiner.cc0_a);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC0_B"), dc.combiner.cc0_b);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC0_C"), dc.combiner.cc0_c);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC0_D"), dc.combiner.cc0_d);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC0_A"), dc.combiner.ac0_a);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC0_B"), dc.combiner.ac0_b);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC0_C"), dc.combiner.ac0_c);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC0_D"), dc.combiner.ac0_d);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC1_A"), dc.combiner.cc1_a);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC1_B"), dc.combiner.cc1_b);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC1_C"), dc.combiner.cc1_c);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uCC1_D"), dc.combiner.cc1_d);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC1_A"), dc.combiner.ac1_a);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC1_B"), dc.combiner.ac1_b);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC1_C"), dc.combiner.ac1_c);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAC1_D"), dc.combiner.ac1_d);
 
     glBufferData(
         GL_ARRAY_BUFFER,
