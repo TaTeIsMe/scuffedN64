@@ -9,7 +9,9 @@ uniform sampler2D texture_1;
 
 uniform vec4 uPrimColor;
 uniform vec4 uEnvColor;
+uniform vec4 uBlendColor;
 
+uniform int uAlphaCompare;
 uniform bool uIs2Cycle; 
 
 uniform int uCC0_A, uCC0_B, uCC0_C, uCC0_D;
@@ -17,6 +19,7 @@ uniform int uAC0_A, uAC0_B, uAC0_C, uAC0_D;
 
 uniform int uCC1_A, uCC1_B, uCC1_C, uCC1_D;
 uniform int uAC1_A, uAC1_B, uAC1_C, uAC1_D;
+
 
 vec3 get_color_source(int source, vec4 tex0, vec4 tex1, vec4 combined) {
     switch(source) {
@@ -29,6 +32,7 @@ vec3 get_color_source(int source, vec4 tex0, vec4 tex1, vec4 combined) {
         case 6:  return vec3(1.0);          // G_CCMUX_1
         case 7:  return vec3(combined.a);   // G_CCMUX_COMBINED_ALPHA
         case 8:  return vec3(tex0.a);       // G_CCMUX_TEXEL0_ALPHA
+        case 9:  return vec3(tex1.a);
         case 10: return vec3(uPrimColor.a); // G_CCMUX_PRIMITIVE_ALPHA
         case 11: return vec3(ShadeColor.a); // G_CCMUX_SHADE_ALPHA
         case 12: return vec3(uEnvColor.a);  // G_CCMUX_ENV_ALPHA
@@ -62,7 +66,7 @@ float get_alpha_source(int source, vec4 tex0, vec4 tex1, vec4 combined) {
         case 6:  return 1.0;                // G_ACMUX_1
         case 7:  return 0.0;                // G_ACMUX_0
         default:
-            return 0.5;
+            return 0;
     }
 }
 
@@ -92,14 +96,28 @@ void main() {
 
     vec4 combined = vec4(0.0);
 
-    combined = evaluate_combiner(uCC0_A, uCC0_B, uCC0_C, uCC0_D,
-                                 uAC0_A, uAC0_B, uAC0_C, uAC0_D,
-                                 texel0, texel1, combined);
-
     if (uIs2Cycle) {
+        combined = evaluate_combiner(uCC0_A, uCC0_B, uCC0_C, uCC0_D,
+                                     uAC0_A, uAC0_B, uAC0_C, uAC0_D,
+                                     texel0, texel1, combined);
+
         combined = evaluate_combiner(uCC1_A, uCC1_B, uCC1_C, uCC1_D,
                                      uAC1_A, uAC1_B, uAC1_C, uAC1_D,
                                      texel0, texel1, combined);
+    } else {
+        combined = evaluate_combiner(uCC1_A, uCC1_B, uCC1_C, uCC1_D,
+                                     uAC1_A, uAC1_B, uAC1_C, uAC1_D,
+                                     texel0, texel1, combined);
+    }
+
+    if (uAlphaCompare == 1) {
+        if (combined.a <= uBlendColor.a || combined.a < 0.01) {
+            discard;
+        }
+    } else if (uAlphaCompare == 3) {
+        if (combined.a < 0.5) {
+            discard;
+        }
     }
 
     FragColor = clamp(combined, 0.0, 1.0);

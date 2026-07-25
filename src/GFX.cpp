@@ -238,10 +238,6 @@ GFX::GFX()
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, r));
     glEnableVertexAttribArray(2);
 
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 }
 
 GFX::~GFX()
@@ -343,11 +339,18 @@ void GFX::drawTriangle(const DrawCall& dc)
 
     glUniform1i(glGetUniformLocation(shaderProgram, "uIs2Cycle"), dc.is2Cycle);
 
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // Pass the state uniforms per draw call
     glUniform4f(glGetUniformLocation(shaderProgram, "uPrimColor"),
         dc.combiner.prim_r, dc.combiner.prim_g, dc.combiner.prim_b, dc.combiner.prim_a);
     glUniform4f(glGetUniformLocation(shaderProgram, "uEnvColor"), 
         dc.combiner.env_r, dc.combiner.env_g, dc.combiner.env_b, dc.combiner.env_a);
+    glUniform4f(glGetUniformLocation(shaderProgram, "uBlendColor"), 
+        dc.blender.blend_r, dc.blender.blend_g, dc.blender.blend_b, dc.blender.blend_a);
+    
+    glUniform1i(glGetUniformLocation(shaderProgram, "uAlphaCompare"), dc.blender.alpha_compare);
 
     glUniform1i(glGetUniformLocation(shaderProgram, "uCC0_A"), dc.combiner.cc0_a);
     glUniform1i(glGetUniformLocation(shaderProgram, "uCC0_B"), dc.combiner.cc0_b);
@@ -376,4 +379,33 @@ void GFX::drawTriangle(const DrawCall& dc)
         GL_DYNAMIC_DRAW);
 
     glDrawArrays(GL_TRIANGLES, 0, 3);
+}
+
+DrawCall::DrawCall(Vertex v0, 
+    Vertex v1, 
+    Vertex v2, 
+    GLuint texture0, 
+    GLuint texture1, 
+    CombinerState combiner, 
+    uint64_t othermode, 
+    Eigen::Vector4f blend_colr
+): v0(v0), v1(v1), v2(v2), texture0(texture0), texture1(texture1), combiner(combiner)
+{
+    is2Cycle = ((othermode >> 52) & 0x3) == 1;
+
+    blender.p0 = (othermode >> 30) & 0x3;
+    blender.a0 = (othermode >> 26) & 0x3;
+    blender.m0 = (othermode >> 22) & 0x3;
+    blender.b0 = (othermode >> 18) & 0x3;
+
+    blender.p1 = (othermode >> 28) & 0x3;
+    blender.a1 = (othermode >> 24) & 0x3;
+    blender.m1 = (othermode >> 20) & 0x3;
+    blender.b1 = (othermode >> 16) & 0x3;
+    blender.force_blend = (othermode >> 14) & 1;
+    blender.alpha_compare = othermode & 0x3;
+    blender.blend_r = blend_colr(0);
+    blender.blend_g = blend_colr(1);
+    blender.blend_b = blend_colr(2);
+    blender.blend_a = blend_colr(3);
 }

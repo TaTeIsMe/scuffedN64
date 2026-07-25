@@ -40,11 +40,21 @@ struct CombinerState {
     int ac1_a = 1, ac1_b = 7,  ac1_c = 4, ac1_d = 7;
 };
 
+struct BlenderState {
+    float blend_r = 1.0f, blend_g = 1.0f, blend_b = 1.0f, blend_a = 1.0f;
+    uint8_t p0, a0, m0, b0;
+    uint8_t p1, a1, m1, b1;
+    bool force_blend;
+    uint8_t alpha_compare;
+};
+
 struct DrawCall {
+    DrawCall(Vertex v0, Vertex v1, Vertex v2, GLuint texture0, GLuint texture1, CombinerState combiner, uint64_t othermode, Eigen::Vector4f blend_colr);
     Vertex v0, v1, v2;
     GLuint texture0;
     GLuint texture1;
     CombinerState combiner;
+    BlenderState blender;
     bool is2Cycle;
 };
 
@@ -67,6 +77,7 @@ public:
     std::vector<GLuint> frameTextures;
     uint32_t current_tex = 0;
     uint64_t othermode = 0;
+    Eigen::Vector4f blend_colr;
 
     uint8_t tmem[4096];
     uint16_t tlut_buffer[256]{};

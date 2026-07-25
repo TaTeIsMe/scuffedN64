@@ -157,7 +157,10 @@ void displayTextureInWindow(const std::vector< uint8_t>& data, int width, int he
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    // 4. Render Frame
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClearColor(1.0f, 0.0f, 0.0f, 1.0f); // Bright red
     glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(shaderProgram);
@@ -703,10 +706,15 @@ void RSP::process_gfx_task(OSTask task){
             GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
             GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
-            bool is2Cycle = ((gfx.othermode >> 52) & 0x3) == 1;
-
             gfx.draw_calls.push_back(
-                DrawCall(vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2], tex0, tex1, gfx.current_combiner, is2Cycle)
+                DrawCall(vertex_buffer[v0], 
+                    vertex_buffer[v1], 
+                    vertex_buffer[v2], 
+                    tex0, 
+                    tex1, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
             );
             
             break;
@@ -741,17 +749,29 @@ void RSP::process_gfx_task(OSTask task){
             //    4
             //);
 
-            bool is2Cycle = ((gfx.othermode >> 52) & 0x3) == 1;
-
             gfx.draw_calls.push_back(
-                DrawCall(vertex_buffer[v00], vertex_buffer[v01], vertex_buffer[v02], tex0, tex1, gfx.current_combiner, is2Cycle)
+                DrawCall(vertex_buffer[v00], 
+                    vertex_buffer[v01], 
+                    vertex_buffer[v02], 
+                    tex0, 
+                    tex1, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
             );
 
             uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
             uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
             uint8_t v12 = ((instr) & 0xFF) / 2;
             gfx.draw_calls.push_back(
-                DrawCall(vertex_buffer[v10], vertex_buffer[v11], vertex_buffer[v12], tex0, tex1, gfx.current_combiner, is2Cycle)
+                DrawCall(vertex_buffer[v10], 
+                    vertex_buffer[v11], 
+                    vertex_buffer[v12], 
+                    tex0, 
+                    tex1, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
             );
             break;
         }
@@ -1040,8 +1060,14 @@ void RSP::process_gfx_task(OSTask task){
             break;
         case 0xF8: // G_SETFOGCOLOR
             break;
-        case 0xF9: // G_SETBLENDCOLOR
+        case G_SETBLENDCOLOR: // G_SETBLENDCOLOR
+        {
+            gfx.blend_colr(0) = ((instr >> 24) & 0xFF) / 255.0f;
+            gfx.blend_colr(1) = ((instr >> 16) & 0xFF) / 255.0f;
+            gfx.blend_colr(2) = ((instr >>  8) & 0xFF) / 255.0f;
+            gfx.blend_colr(3) = ( instr        & 0xFF) / 255.0f;
             break;
+        }
         case G_SETPRIMCOLOR: 
         {
             gfx.current_combiner.prim_r = ((instr >> 24) & 0xFF) / 255.0f;
