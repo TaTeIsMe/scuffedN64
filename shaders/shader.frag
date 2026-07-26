@@ -11,6 +11,32 @@ uniform vec4 uPrimColor;
 uniform vec4 uEnvColor;
 uniform vec4 uBlendColor;
 
+uniform int uShiftS0;
+uniform int uShiftT0;
+uniform int uMaskS0;
+uniform int uMaskT0;
+uniform bool uMirrorS0;
+uniform bool uMirrorT0;
+uniform bool uClampS0;
+uniform bool uClampT0;
+uniform int uTileWidth0;
+uniform int uTileHeight0;
+uniform float uTexWidth0;
+uniform float uTexHeight0;
+
+uniform int uShiftS1;
+uniform int uShiftT1;
+uniform int uMaskS1;
+uniform int uMaskT1;
+uniform bool uMirrorS1;
+uniform bool uMirrorT1;
+uniform bool uClampS1;
+uniform bool uClampT1;
+uniform int uTileWidth1;
+uniform int uTileHeight1;
+uniform float uTexWidth1;
+uniform float uTexHeight1;
+
 uniform int uAlphaCompare;
 uniform bool uIs2Cycle; 
 
@@ -90,9 +116,119 @@ vec4 evaluate_combiner(int ccA, int ccB, int ccC, int ccD,
     return vec4(rgb, a);
 }
 
+float sample_coord(
+    float coord,
+    int shift,
+    int mask,
+    bool mirror,
+    bool clampEnable,
+    int tileSize)
+{
+    if (shift != 0) {
+        if (shift <= 10)
+            coord /= float(1 << shift);
+        else
+            coord *= float(1 << (16 - shift));
+    }
+
+    if (clampEnable || mask == 0)
+    {
+        float maxClamp = (mask != 0) ? float((1 << mask) - 1) : float(tileSize - 1);
+        coord = clamp(coord, 0.0, maxClamp);
+    }
+    else 
+    {
+        float wrap = float(1 << mask);
+
+        if (mirror)
+        {
+            float maxWrap = 2.0 * wrap;
+            float m = mod(coord, maxWrap);
+            if (m < 0.0) m += maxWrap; 
+
+            if (m >= wrap)
+                coord = 2.0 * wrap - 1.0 - floor(m);
+            else
+                coord = m;
+        }
+        else
+        {
+            coord = mod(coord, wrap);
+            if (coord < 0.0) coord += wrap;
+        }
+    }
+
+    return coord;
+}
+
+
+vec2 sample_uv(
+    vec2 uv,
+
+    int shiftS,
+    int maskS,
+    bool mirrorS,
+    bool clampS,
+
+    int shiftT,
+    int maskT,
+    bool mirrorT,
+    bool clampT,
+
+    int tileWidth,
+    int tileHeight)
+{
+    return vec2(
+        sample_coord(
+            uv.x,
+            shiftS,
+            maskS,
+            mirrorS,
+            clampS,
+            tileWidth),
+
+        sample_coord(
+            uv.y,
+            shiftT,
+            maskT,
+            mirrorT,
+            clampT,
+            tileHeight)
+    );
+}
+
 void main() {
-    vec4 texel0 = texture(texture_0, TexCoord);
-    vec4 texel1 = texture(texture_1, TexCoord);
+    vec2 tc0 = sample_uv(
+        TexCoord,
+        uShiftS0,
+        uMaskS0,
+        uMirrorS0,
+        uClampS0,
+        uShiftT0,
+        uMaskT0,
+        uMirrorT0,
+        uClampT0,
+        uTileWidth0,
+        uTileHeight0);
+
+    vec2 tc1 = sample_uv(
+        TexCoord,
+        uShiftS1,
+        uMaskS1,
+        uMirrorS1,
+        uClampS1,
+        uShiftT1,
+        uMaskT1,
+        uMirrorT1,
+        uClampT1,
+        uTileWidth1,
+        uTileHeight1);
+
+    tc0 = (tc0 + vec2(0.5)) / vec2(uTexWidth0, uTexHeight0);
+    vec4 texel0 = texture(texture_0, tc0);
+
+    tc1 = (tc1 + vec2(0.5)) / vec2(uTexWidth1, uTexHeight1);
+    vec4 texel1 = texture(texture_1, tc1);
 
     vec4 combined = vec4(0.0);
 

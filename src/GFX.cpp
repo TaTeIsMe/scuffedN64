@@ -293,18 +293,6 @@ GLuint GFX::create_new_texture(uint8_t tile)
 
     glBindTexture(GL_TEXTURE_2D, tex);
 
-    auto get_gl_wrap_mode = [](uint8_t cm) -> GLenum {
-        if (cm & 0x2)
-            return GL_CLAMP_TO_EDGE;   // G_TX_CLAMP
-        if (cm & 0x1)
-            return GL_MIRRORED_REPEAT; // G_TX_MIRROR
-        return GL_REPEAT;                        // G_TX_WRAP
-    };
-
-    // In texture creation / binding:
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, get_gl_wrap_mode(tiles[tile].cms));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, get_gl_wrap_mode(tiles[tile].cmt));
-
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -346,13 +334,83 @@ void GFX::drawTriangle(const DrawCall& dc)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    // Pass the state uniforms per draw call
+    int framebuffer_width, framebuffer_height;
+    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+
+    // 1. Calculate native N64 viewport dimensions in 320x240 base space
+    float n64_vp_width  = 2.0f * (dc.view_port_state.scale[0]);
+    float n64_vp_height = 2.0f * (dc.view_port_state.scale[1]);
+
+    float n64_vp_x = (dc.view_port_state.trans[0]) - (n64_vp_width / 2.0f);
+    float n64_vp_y = (dc.view_port_state.trans[1]) - (n64_vp_height / 2.0f);
+
+    // 2. Compute scaling factors based on standard 320x240 native canvas
+    constexpr float N64_BASE_WIDTH  = 320.0f;
+    constexpr float N64_BASE_HEIGHT = 240.0f;
+
+    float scale_x = static_cast<float>(framebuffer_width)  / N64_BASE_WIDTH;
+    float scale_y = static_cast<float>(framebuffer_height) / N64_BASE_HEIGHT;
+
+    // 3. Scale dimensions and coordinates to match window framebuffer
+    float scaled_width  = n64_vp_width  * scale_x;
+    float scaled_height = n64_vp_height * scale_y;
+
+    float scaled_x = n64_vp_x * scale_x;
+
+    // Flip Y coordinate for OpenGL bottom-left origin across the full window height
+    float scaled_y = static_cast<float>(framebuffer_height) - ((n64_vp_y + n64_vp_height) * scale_y);
+
+    // 4. Pass scaled dimensions to OpenGL
+    glViewport(static_cast<GLint>(scaled_x), 
+            static_cast<GLint>(scaled_y), 
+            static_cast<GLsizei>(scaled_width), 
+            static_cast<GLsizei>(scaled_height));
+
     glUniform4f(glGetUniformLocation(shaderProgram, "uPrimColor"),
         dc.combiner.prim_r, dc.combiner.prim_g, dc.combiner.prim_b, dc.combiner.prim_a);
     glUniform4f(glGetUniformLocation(shaderProgram, "uEnvColor"), 
         dc.combiner.env_r, dc.combiner.env_g, dc.combiner.env_b, dc.combiner.env_a);
     glUniform4f(glGetUniformLocation(shaderProgram, "uBlendColor"), 
         dc.blender.blend_r, dc.blender.blend_g, dc.blender.blend_b, dc.blender.blend_a);
+
+    // Texture 0
+    glUniform1i(glGetUniformLocation(shaderProgram, "uShiftS0"), dc.tile_state0.shifts);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uShiftT0"), dc.tile_state0.shiftt);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMaskS0"), dc.tile_state0.masks);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMaskT0"), dc.tile_state0.maskt);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMirrorS0"), dc.tile_state0.mirrors);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMirrorT0"), dc.tile_state0.mirrort);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uClampS0"), dc.tile_state0.clamps);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uClampT0"), dc.tile_state0.clampt);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uTileWidth0"), static_cast<GLint>(dc.tile_state0.width));
+    glUniform1i(glGetUniformLocation(shaderProgram, "uTileHeight0"), static_cast<GLint>(dc.tile_state0.height));
+
+    glUniform1f(glGetUniformLocation(shaderProgram, "uTexWidth0"), static_cast<GLfloat>(dc.tile_state0.width));
+    glUniform1f(glGetUniformLocation(shaderProgram, "uTexHeight0"), static_cast<GLfloat>(dc.tile_state0.height));
+
+
+    // Texture 1
+    glUniform1i(glGetUniformLocation(shaderProgram, "uShiftS1"), dc.tile_state1.shifts);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uShiftT1"), dc.tile_state1.shiftt);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMaskS1"), dc.tile_state1.masks);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMaskT1"), dc.tile_state1.maskt);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMirrorS1"), dc.tile_state1.mirrors);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uMirrorT1"), dc.tile_state1.mirrort);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uClampS1"), dc.tile_state1.clamps);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uClampT1"), dc.tile_state1.clampt);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "uTileWidth1"), static_cast<GLint>(dc.tile_state1.width));
+    glUniform1i(glGetUniformLocation(shaderProgram, "uTileHeight1"), static_cast<GLint>(dc.tile_state1.height));
+
+    glUniform1f(glGetUniformLocation(shaderProgram, "uTexWidth1"), static_cast<GLfloat>(dc.tile_state1.width));
+    glUniform1f(glGetUniformLocation(shaderProgram, "uTexHeight1"), static_cast<GLfloat>(dc.tile_state1.height));
     
     glUniform1i(glGetUniformLocation(shaderProgram, "uAlphaCompare"), dc.blender.alpha_compare);
 
@@ -392,7 +450,10 @@ DrawCall::DrawCall(Vertex v0,
     GLuint texture1, 
     CombinerState combiner, 
     uint64_t othermode, 
-    Eigen::Vector4f blend_colr
+    Eigen::Vector4f blend_colr,
+    Tile tile0,
+    Tile tile1,
+    ViewPort view_port
 ): v0(v0), v1(v1), v2(v2), texture0(texture0), texture1(texture1), combiner(combiner)
 {
     is2Cycle = ((othermode >> 52) & 0x3) == 1;
@@ -414,4 +475,36 @@ DrawCall::DrawCall(Vertex v0,
     blender.blend_g = blend_colr(1);
     blender.blend_b = blend_colr(2);
     blender.blend_a = blend_colr(3);
+
+    tile_state0.mirrors = tile0.cms & 1;
+    tile_state0.mirrort = tile0.cmt & 1;
+    tile_state0.clamps =  tile0.cms & 2;
+    tile_state0.clampt =  tile0.cmt & 2;
+    tile_state0.height =  tile0.height;
+    tile_state0.width =   tile0.width;
+    tile_state0.masks =   tile0.masks;
+    tile_state0.maskt =   tile0.maskt;
+    tile_state0.shifts =  tile0.shifts;
+    tile_state0.shiftt =  tile0.shiftt;
+
+
+    tile_state1.mirrors = tile1.cms & 1;
+    tile_state1.mirrort = tile1.cmt & 1;
+    tile_state1.clamps =  tile1.cms & 2;
+    tile_state1.clampt =  tile1.cmt & 2;
+    tile_state1.height =  tile1.height;
+    tile_state1.width =   tile1.width;
+    tile_state1.masks =   tile1.masks;
+    tile_state1.maskt =   tile1.maskt;
+    tile_state1.shifts =  tile1.shifts;
+    tile_state1.shiftt =  tile1.shiftt;
+
+    view_port_state.scale[0] = view_port.scale[0];
+    view_port_state.scale[1] = view_port.scale[1];
+    view_port_state.scale[2] = view_port.scale[2];
+    view_port_state.scale[3] = view_port.scale[3];
+    view_port_state.trans[0] = view_port.trans[0];
+    view_port_state.trans[1] = view_port.trans[1];
+    view_port_state.trans[2] = view_port.trans[2];
+    view_port_state.trans[3] = view_port.trans[3];
 }

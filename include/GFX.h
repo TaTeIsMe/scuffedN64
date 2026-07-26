@@ -27,6 +27,9 @@ struct Tile {
     uint16_t lrs;
     uint16_t lrt;
 
+    uint32_t height;
+    uint32_t width;
+
     GLint tex;
 };
 
@@ -50,13 +53,38 @@ struct BlenderState {
     uint8_t alpha_compare;
 };
 
+struct TileState{
+
+    uint8_t mirrors;
+    uint8_t clamps;
+    uint8_t masks;
+    uint8_t shifts;
+
+    uint8_t mirrort;
+    uint8_t clampt;
+    uint8_t maskt;
+    uint8_t shiftt;
+
+    uint32_t width;
+    uint32_t height;
+
+};
+
+struct ViewPort{
+    uint16_t scale[4];
+    uint16_t trans[4];
+};
+
 struct DrawCall {
-    DrawCall(Vertex v0, Vertex v1, Vertex v2, GLuint texture0, GLuint texture1, CombinerState combiner, uint64_t othermode, Eigen::Vector4f blend_colr);
+    DrawCall(Vertex v0, Vertex v1, Vertex v2, GLuint texture0, GLuint texture1, CombinerState combiner, uint64_t othermode, Eigen::Vector4f blend_colr, Tile tile0, Tile tile1, ViewPort view_port);
     Vertex v0, v1, v2;
     GLuint texture0;
     GLuint texture1;
     CombinerState combiner;
     BlenderState blender;
+    TileState tile_state0;
+    TileState tile_state1;
+    ViewPort view_port_state;
     bool is2Cycle;
 };
 
@@ -80,6 +108,7 @@ public:
     uint32_t current_tex = 0;
     uint64_t othermode = 0;
     Eigen::Vector4f blend_colr;
+    ViewPort view_port;
 
     uint8_t tmem[4096];
     uint16_t tlut_buffer[256]{};

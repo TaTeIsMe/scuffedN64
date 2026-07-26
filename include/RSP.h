@@ -14,6 +14,7 @@
 #define G_MW_FORCEMTX 0x0C
 #define G_MW_PERSPNORM 0x0E
 
+#define G_MV_VIEWPORT 8
 
 
 enum GBI: uint32_t{

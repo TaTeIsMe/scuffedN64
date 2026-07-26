@@ -650,20 +650,12 @@ void RSP::process_gfx_task(OSTask task){
                 int16_t x = rcp.rdram.read_size(vaddr,2);
                 int16_t y = rcp.rdram.read_size(vaddr + 2,2);
                 int16_t z = rcp.rdram.read_size(vaddr + 4,2);
-                int16_t u = rcp.rdram.read_size(vaddr + 8,2);
-                int16_t v = rcp.rdram.read_size(vaddr + 10,2);
-
-                float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
-                float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
-                float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
-                float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
-
-                float width = (int)(s1 - s0 + 1);
-                float height = (int)(t1 - t0 + 1);
+                int16_t s = rcp.rdram.read_size(vaddr + 8,2);
+                int16_t t = rcp.rdram.read_size(vaddr + 10,2);
 
                 vertex_buffer[buf_id + i].vector = modelview_projection_mtx * Eigen::Vector4f(x,y,z,1) ;
-                vertex_buffer[buf_id + i].u = (float)u * gfx.s / 32. / width;
-                vertex_buffer[buf_id + i].v = (float)v * gfx.t / 32. / height;
+                vertex_buffer[buf_id + i].u = (float)s * gfx.s / 32.;
+                vertex_buffer[buf_id + i].v = (float)t * gfx.t / 32.;
 
                 if((geometry_mode & G_LIGHTING)){
 
@@ -731,27 +723,19 @@ void RSP::process_gfx_task(OSTask task){
             uint8_t v2 = ((instr >> 32) & 0xFF) / 2;
             //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2]});
 
-            float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
-            float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
-            float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
-            float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
-
-            float width = (int)(s1 - s0 + 1);
-            float height = (int)(t1 - t0 + 1);
-
-            //displayTextureInWindow(
-            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
-            //        gfx.tiles[gfx.active_tile].fmt,
-            //        gfx.tiles[gfx.active_tile].siz,
-            //        gfx.tiles[gfx.active_tile].palette,
-            //        width,
-            //        height,
-            //        gfx.tmem,
-            //        gfx.tlut_buffer),
-            //    width,
-            //    height,
-            //    4
-            //);
+           //displayTextureInWindow(
+           //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+           //        gfx.tiles[gfx.active_tile].fmt,
+           //        gfx.tiles[gfx.active_tile].siz,
+           //        gfx.tiles[gfx.active_tile].palette,
+           //        gfx.tiles[gfx.active_tile].width,
+           //        gfx.tiles[gfx.active_tile].height,
+           //        gfx.tmem,
+           //        gfx.tlut_buffer),
+           //    gfx.tiles[gfx.active_tile].width,
+           //    gfx.tiles[gfx.active_tile].height,
+           //    4
+           //);
             GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
             GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
@@ -763,7 +747,10 @@ void RSP::process_gfx_task(OSTask task){
                     tex1, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile + 1],
+                    gfx.view_port)
             );
             
             break;
@@ -776,25 +763,17 @@ void RSP::process_gfx_task(OSTask task){
             GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
             GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
-            float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
-            float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
-            float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
-            float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
-
-            float width = (int)(s1 - s0 + 1);
-            float height = (int)(t1 - t0 + 1);
-
             //displayTextureInWindow(
             //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
             //        gfx.tiles[gfx.active_tile].fmt,
             //        gfx.tiles[gfx.active_tile].siz,
             //        gfx.tiles[gfx.active_tile].palette,
-            //        width,
-            //        height,
+            //        gfx.tiles[gfx.active_tile].width,
+            //        gfx.tiles[gfx.active_tile].height,
             //        gfx.tmem,
             //        gfx.tlut_buffer),
-            //    width,
-            //    height,
+            //    gfx.tiles[gfx.active_tile].width,
+            //    gfx.tiles[gfx.active_tile].height,
             //    4
             //);
 
@@ -806,7 +785,10 @@ void RSP::process_gfx_task(OSTask task){
                     tex1, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile + 1],
+                    gfx.view_port)
             );
 
             uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
@@ -820,64 +802,65 @@ void RSP::process_gfx_task(OSTask task){
                     tex1, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile + 1],
+                    gfx.view_port)
             );
             break;
         }
         case 0x07: // G_QUAD
         {
-            //uint8_t v00 = ((instr >> 48) & 0xFF) / 2;
-            //uint8_t v01 = ((instr >> 40) & 0xFF) / 2;
-            //uint8_t v02 = ((instr >> 32) & 0xFF) / 2;
-            //GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
-            //GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
-//
-            //float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
-            //float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
-            //float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
-            //float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
-//
-            //float width = (int)(s1 - s0 + 1);
-            //float height = (int)(t1 - t0 + 1);
-//
-            ////displayTextureInWindow(
-            ////    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
-            ////        gfx.tiles[gfx.active_tile].fmt,
-            ////        gfx.tiles[gfx.active_tile].siz,
-            ////        gfx.tiles[gfx.active_tile].palette,
-            ////        width,
-            ////        height,
-            ////        gfx.tmem,
-            ////        gfx.tlut_buffer),
-            ////    width,
-            ////    height,
-            ////    4
-            ////);
-//
-            //gfx.draw_calls.push_back(
-            //    DrawCall(vertex_buffer[v00], 
-            //        vertex_buffer[v01], 
-            //        vertex_buffer[v02], 
-            //        tex0, 
-            //        tex1, 
-            //        gfx.current_combiner, 
-            //        gfx.othermode, 
-            //        gfx.blend_colr)
+            uint8_t v00 = ((instr >> 48) & 0xFF) / 2;
+            uint8_t v01 = ((instr >> 40) & 0xFF) / 2;
+            uint8_t v02 = ((instr >> 32) & 0xFF) / 2;
+            GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
+            GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
+
+            //displayTextureInWindow(
+            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+            //        gfx.tiles[gfx.active_tile].fmt,
+            //        gfx.tiles[gfx.active_tile].siz,
+            //        gfx.tiles[gfx.active_tile].palette,
+            //        gfx.tiles[gfx.active_tile].width,
+            //        gfx.tiles[gfx.active_tile].height,
+            //        gfx.tmem,
+            //        gfx.tlut_buffer),
+            //    gfx.tiles[gfx.active_tile].width,
+            //    gfx.tiles[gfx.active_tile].height,
+            //    4
             //);
-//
-            //uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
-            //uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
-            //uint8_t v12 = ((instr) & 0xFF) / 2;
-            //gfx.draw_calls.push_back(
-            //    DrawCall(vertex_buffer[v10], 
-            //        vertex_buffer[v11], 
-            //        vertex_buffer[v12], 
-            //        tex0, 
-            //        tex1, 
-            //        gfx.current_combiner, 
-            //        gfx.othermode, 
-            //        gfx.blend_colr)
-            //);
+
+            gfx.draw_calls.push_back(
+                DrawCall(vertex_buffer[v00], 
+                    vertex_buffer[v01], 
+                    vertex_buffer[v02], 
+                    tex0, 
+                    tex1, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile + 1],
+                    gfx.view_port)
+            );
+
+            uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
+            uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
+            uint8_t v12 = ((instr) & 0xFF) / 2;
+            gfx.draw_calls.push_back(
+                DrawCall(vertex_buffer[v10], 
+                    vertex_buffer[v11], 
+                    vertex_buffer[v12], 
+                    tex0, 
+                    tex1, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile + 1],
+                    gfx.view_port)
+            );
             break;
         }
         case 0xD3: // G_SPECIAL_3
@@ -967,8 +950,34 @@ void RSP::process_gfx_task(OSTask task){
             }
             break;
         }
-        case 0xDC: // G_MOVEMEM
+        case G_MOVEMEM: // G_MOVEMEM
+        {
+            uint8_t index = ((instr >> 32) & 0xFF);
+            uint32_t addr = translate_address(instr & 0xFFFFFFFF);
+            uint32_t offset = ((instr >> 40) & 0xFF) * 8;
+            uint32_t nn = ((instr >> 48) & 0xFF);
+            uint32_t size = ((nn >> 3) + 1) * 8;
+
+            switch (index)
+            {
+            case G_MV_VIEWPORT:
+            {
+                gfx.view_port.scale[0] = (int16_t)rcp.read_size(addr + offset + 0, 2) / 4.0f;
+                gfx.view_port.scale[1] = (int16_t)rcp.read_size(addr + offset + 2, 2) / 4.0f;
+                gfx.view_port.scale[2] = (int16_t)rcp.read_size(addr + offset + 4, 2) / 4.0f;
+                gfx.view_port.scale[3] = (int16_t)rcp.read_size(addr + offset + 6, 2) / 4.0f;
+
+                gfx.view_port.trans[0] = (int16_t)rcp.read_size(addr + offset + 8, 2) / 4.0f;
+                gfx.view_port.trans[1] = (int16_t)rcp.read_size(addr + offset + 10, 2) / 4.0f;
+                gfx.view_port.trans[2] = (int16_t)rcp.read_size(addr + offset + 12, 2) / 4.0f;
+                gfx.view_port.trans[3] = (int16_t)rcp.read_size(addr + offset + 14, 2) / 4.0f;
+                break;
+            }
+            default:
+                break;
+            }
             break;
+        }
         case 0xDD: // G_LOAD_UCODE
             break;
         case G_DL: // G_DL
@@ -1034,38 +1043,30 @@ void RSP::process_gfx_task(OSTask task){
             float lrs = uls + (lrx - ulx) * ds;
             float lrt = ult + (lry - uly) * dt;
 
-            float s0 = gfx.tiles[tile].uls / 4.0f;
-            float t0 = gfx.tiles[tile].ult / 4.0f;
-            float s1 = gfx.tiles[tile].lrs / 4.0f;
-            float t1 = gfx.tiles[tile].lrt / 4.0f;
-
-            float width = (int)(s1 - s0 + 1);
-            float height = (int)(t1 - t0 + 1);
-
             auto to_ndc_x = [](float x) { return (x / 320.0f) * 2.0f - 1.0f; };
             auto to_ndc_y = [](float y) { return 1.0f - (y / 240.0f) * 2.0f; }; // Flips Y-axis
 
             Vertex ulvertex = Vertex(
                 Eigen::Vector4f(to_ndc_x(ulx), to_ndc_y(uly), 0.0f, 1.0f),
-                uls / width, ult / height,
+                uls , ult ,
                 .5f, .5f, .5f, .5f
             );
 
             Vertex urvertex = Vertex(
                 Eigen::Vector4f(to_ndc_x(lrx), to_ndc_y(uly ),0,1),
-                lrs / width, ult / height,
+                lrs , ult ,
                 .5,.5,.5,.5
             );
 
             Vertex lrvertex = Vertex(
                 Eigen::Vector4f(to_ndc_x(lrx ),to_ndc_y( lry ),0,1),
-                lrs / width, lrt / height,
+                lrs , lrt ,
                 .5,.5,.5,.5
             );
 
             Vertex llvertex = Vertex(
                 Eigen::Vector4f(to_ndc_x(ulx ), to_ndc_y(lry),0,1),
-                uls / width, lrt / height,
+                uls , lrt ,
                 .5,.5,.5,.5
             );
 
@@ -1079,7 +1080,10 @@ void RSP::process_gfx_task(OSTask task){
                     tex0, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[tile],
+                    gfx.tiles[tile],
+                    gfx.view_port)
             );
 
             gfx.draw_calls.push_back(
@@ -1090,7 +1094,10 @@ void RSP::process_gfx_task(OSTask task){
                     tex0, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[tile],
+                    gfx.tiles[tile],
+                    gfx.view_port)
             );
 
             break;
@@ -1168,7 +1175,10 @@ void RSP::process_gfx_task(OSTask task){
                     tex0, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile],
+                    gfx.view_port)
             );
 
             gfx.draw_calls.push_back(
@@ -1179,7 +1189,10 @@ void RSP::process_gfx_task(OSTask task){
                     tex0, 
                     gfx.current_combiner, 
                     gfx.othermode, 
-                    gfx.blend_colr)
+                    gfx.blend_colr,
+                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[gfx.active_tile],
+                    gfx.view_port)
             );
 
             break;
@@ -1228,6 +1241,14 @@ void RSP::process_gfx_task(OSTask task){
             gfx.tiles[tile].ult = (instr >> 32) & 0xFFF;
             gfx.tiles[tile].lrs = (instr >> 12) & 0xFFF;
             gfx.tiles[tile].lrt =  instr        & 0xFFF;
+
+            float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
+            float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
+            float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
+            float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
+
+            gfx.tiles[gfx.active_tile].width = s1 - s0 + 1;
+            gfx.tiles[gfx.active_tile].height = t1 - t0 + 1;
         }
             break;
         case G_LOADBLOCK:
