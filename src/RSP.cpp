@@ -12,6 +12,55 @@
 #include <cstdint>
 #include <iostream>
 
+#include <algorithm>
+#include <cstring>
+
+static inline uint32_t padded_row_bytes(uint32_t rowBytes)
+{
+    // TMEM rows are padded to 64-bit (8-byte) boundaries.
+    return (rowBytes + 7u) & ~7u;
+}
+
+static void copy_tmem_row_swizzled(
+    uint8_t* dst,
+    const uint8_t* src,
+    uint32_t rowBytes,
+    uint32_t tex_load_siz,
+    bool oddRow)
+{
+    const uint32_t dstBytes = padded_row_bytes(rowBytes);
+
+    // Clear the whole TMEM row so padding is deterministic.
+    std::memset(dst, 0, dstBytes);
+
+    // Copy the source row in linear order first.
+    std::memcpy(dst, src, rowBytes);
+
+    if (!oddRow)
+        return;
+
+    if (tex_load_siz == 3)
+    {
+        // 32-bit RGBA:
+        // swap the two 8-byte halves inside each 16-byte group.
+        for (uint32_t i = 0; i + 15 < dstBytes; i += 16)
+        {
+            for (uint32_t j = 0; j < 8; ++j)
+                std::swap(dst[i + j], dst[i + 8 + j]);
+        }
+    }
+    else
+    {
+        // 4/8/16-bit:
+        // swap the two 4-byte halves inside each 8-byte group.
+        for (uint32_t i = 0; i + 7 < dstBytes; i += 8)
+        {
+            for (uint32_t j = 0; j < 4; ++j)
+                std::swap(dst[i + j], dst[i + 4 + j]);
+        }
+    }
+}
+
 // Helper to compile shaders for the full-screen quad
 static GLuint createFullScreenShaderProgram() {
     const char* vertexShaderSource = R"(
@@ -776,7 +825,61 @@ void RSP::process_gfx_task(OSTask task){
             break;
         }
         case 0x07: // G_QUAD
+        {
+            //uint8_t v00 = ((instr >> 48) & 0xFF) / 2;
+            //uint8_t v01 = ((instr >> 40) & 0xFF) / 2;
+            //uint8_t v02 = ((instr >> 32) & 0xFF) / 2;
+            //GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
+            //GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
+//
+            //float s0 = gfx.tiles[gfx.active_tile].uls / 4.0f;
+            //float t0 = gfx.tiles[gfx.active_tile].ult / 4.0f;
+            //float s1 = gfx.tiles[gfx.active_tile].lrs / 4.0f;
+            //float t1 = gfx.tiles[gfx.active_tile].lrt / 4.0f;
+//
+            //float width = (int)(s1 - s0 + 1);
+            //float height = (int)(t1 - t0 + 1);
+//
+            ////displayTextureInWindow(
+            ////    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+            ////        gfx.tiles[gfx.active_tile].fmt,
+            ////        gfx.tiles[gfx.active_tile].siz,
+            ////        gfx.tiles[gfx.active_tile].palette,
+            ////        width,
+            ////        height,
+            ////        gfx.tmem,
+            ////        gfx.tlut_buffer),
+            ////    width,
+            ////    height,
+            ////    4
+            ////);
+//
+            //gfx.draw_calls.push_back(
+            //    DrawCall(vertex_buffer[v00], 
+            //        vertex_buffer[v01], 
+            //        vertex_buffer[v02], 
+            //        tex0, 
+            //        tex1, 
+            //        gfx.current_combiner, 
+            //        gfx.othermode, 
+            //        gfx.blend_colr)
+            //);
+//
+            //uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
+            //uint8_t v11 = ((instr >> 8) & 0xFF) / 2;
+            //uint8_t v12 = ((instr) & 0xFF) / 2;
+            //gfx.draw_calls.push_back(
+            //    DrawCall(vertex_buffer[v10], 
+            //        vertex_buffer[v11], 
+            //        vertex_buffer[v12], 
+            //        tex0, 
+            //        tex1, 
+            //        gfx.current_combiner, 
+            //        gfx.othermode, 
+            //        gfx.blend_colr)
+            //);
             break;
+        }
         case 0xD3: // G_SPECIAL_3
             break;
         case 0xD4: // G_SPECIAL_2
@@ -904,10 +1007,183 @@ void RSP::process_gfx_task(OSTask task){
             gfx.othermode = gfx.othermode & ~(((1ULL<<length) - 1) << shift) | (data << 32);
             break;
         }
-        case 0xE4: // G_TEXRECT
+        case G_TEXRECT: // G_TEXRECT
+        {
+            uint64_t word1 = instr;
+            instr_ptr += 8;
+            uint64_t word2 = rcp.rdram.read_size(instr_ptr, 8);
+            instr_ptr += 8;
+            uint64_t word3 = rcp.rdram.read_size(instr_ptr, 8);
+
+            auto fp10_2 = [](uint16_t v) -> float { return (float)(int16_t)(v & 0x0FFF) / 4.0f; };
+            auto s10_5  = [](uint16_t v) -> float { return (float)(int16_t)v / 32.0f; };
+            auto s5_10  = [](uint16_t v) -> float { return (float)(int16_t)v / 1024.0f; };
+
+            float ulx = fp10_2((word1 >> 12) & 0x0FFF);
+            float uly = fp10_2((word1 >>  0) & 0x0FFF);
+            float lrx = fp10_2((word1 >> 44) & 0x0FFF);
+            float lry = fp10_2((word1 >> 32) & 0x0FFF);
+
+            uint8_t tile = (word1 >> 24) & 0x7;
+
+            float uls = s10_5((word2 >> 16) & 0xFFFF);
+            float ult = s10_5((word2 >>  0) & 0xFFFF);
+            float ds = s5_10((word3 >> 16) & 0xFFFF);
+            float dt = s5_10((word3 >>  0) & 0xFFFF);
+
+            float lrs = uls + (lrx - ulx) * ds;
+            float lrt = ult + (lry - uly) * dt;
+
+            float s0 = gfx.tiles[tile].uls / 4.0f;
+            float t0 = gfx.tiles[tile].ult / 4.0f;
+            float s1 = gfx.tiles[tile].lrs / 4.0f;
+            float t1 = gfx.tiles[tile].lrt / 4.0f;
+
+            float width = (int)(s1 - s0 + 1);
+            float height = (int)(t1 - t0 + 1);
+
+            auto to_ndc_x = [](float x) { return (x / 320.0f) * 2.0f - 1.0f; };
+            auto to_ndc_y = [](float y) { return 1.0f - (y / 240.0f) * 2.0f; }; // Flips Y-axis
+
+            Vertex ulvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(ulx), to_ndc_y(uly), 0.0f, 1.0f),
+                uls / width, ult / height,
+                .5f, .5f, .5f, .5f
+            );
+
+            Vertex urvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(lrx), to_ndc_y(uly ),0,1),
+                lrs / width, ult / height,
+                .5,.5,.5,.5
+            );
+
+            Vertex lrvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(lrx ),to_ndc_y( lry ),0,1),
+                lrs / width, lrt / height,
+                .5,.5,.5,.5
+            );
+
+            Vertex llvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(ulx ), to_ndc_y(lry),0,1),
+                uls / width, lrt / height,
+                .5,.5,.5,.5
+            );
+
+            GLuint tex0 = gfx.create_new_texture(tile);
+
+            gfx.draw_calls.push_back(
+                DrawCall(llvertex, 
+                    urvertex, 
+                    ulvertex, 
+                    tex0, 
+                    tex0, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
+            );
+
+            gfx.draw_calls.push_back(
+                DrawCall(llvertex,
+                    lrvertex, 
+                    urvertex, 
+                    tex0, 
+                    tex0, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
+            );
+
             break;
+        }
         case 0xE5: // G_TEXRECTFLIP
+                {
+            //ts fucked up
+            uint64_t word1 = instr;
+            instr_ptr += 8;
+            uint64_t word2 = rcp.rdram.read_size(instr_ptr, 8);
+            instr_ptr += 8;
+            uint64_t word3 = rcp.rdram.read_size(instr_ptr, 8);
+
+            auto fp10_2 = [](uint16_t v) -> float { return (float)(int16_t)(v & 0x0FFF) / 4.0f; };
+            auto s10_5  = [](uint16_t v) -> float { return (float)(int16_t)v / 32.0f; };
+            auto s5_10  = [](uint16_t v) -> float { return (float)(int16_t)v / 1024.0f; };
+
+            float ulx = fp10_2((word1 >> 12) & 0x0FFF);
+            float uly = fp10_2((word1 >>  0) & 0x0FFF);
+            float lrx = fp10_2((word1 >> 44) & 0x0FFF);
+            float lry = fp10_2((word1 >> 32) & 0x0FFF);
+
+            uint8_t tile = (word1 >> 24) & 0x7;
+
+            float uls = s10_5((word2 >> 16) & 0xFFFF);
+            float ult = s10_5((word2 >>  0) & 0xFFFF);
+            float ds = s5_10((word3 >> 16) & 0xFFFF);
+            float dt = s5_10((word3 >>  0) & 0xFFFF);
+
+            float lrs = ult + (lrx - ulx) * dt;
+            float lrt = uls + (lry - uly) * ds;
+
+            float s0 = gfx.tiles[tile].uls / 4.0f;
+            float t0 = gfx.tiles[tile].ult / 4.0f;
+            float s1 = gfx.tiles[tile].lrs / 4.0f;
+            float t1 = gfx.tiles[tile].lrt / 4.0f;
+
+            float width = (int)(s1 - s0 + 1);
+            float height = (int)(t1 - t0 + 1);
+
+            auto to_ndc_x = [](float x) { return (x / 320.0f) * 2.0f - 1.0f; };
+            auto to_ndc_y = [](float y) { return 1.0f - (y / 240.0f) * 2.0f; }; // Flips Y-axis
+
+            Vertex ulvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(ulx), to_ndc_y(uly), 0.0f, 1.0f),
+                uls / width, ult / height,
+                .5f, .5f, .5f, .5f
+            );
+
+            Vertex urvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(lrx), to_ndc_y(uly ),0,1),
+                lrs / width, ult / height,
+                .5,.5,.5,.5
+            );
+
+            Vertex lrvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(lrx ),to_ndc_y( lry ),0,1),
+                lrs / width, lrt / height,
+                .5,.5,.5,.5
+            );
+
+            Vertex llvertex = Vertex(
+                Eigen::Vector4f(to_ndc_x(ulx ), to_ndc_y(lry),0,1),
+                uls / width, lrt / height,
+                .5,.5,.5,.5
+            );
+
+            GLuint tex0 = gfx.create_new_texture(tile);
+
+            gfx.draw_calls.push_back(
+                DrawCall(llvertex, 
+                    urvertex, 
+                    ulvertex, 
+                    tex0, 
+                    tex0, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
+            );
+
+            gfx.draw_calls.push_back(
+                DrawCall(llvertex,
+                    lrvertex, 
+                    urvertex, 
+                    tex0, 
+                    tex0, 
+                    gfx.current_combiner, 
+                    gfx.othermode, 
+                    gfx.blend_colr)
+            );
+
             break;
+        }
         case 0xE6: // G_RDPLOADSYNC
             break;
         case 0xE7: // G_RDPPIPESYNC
@@ -988,7 +1264,6 @@ void RSP::process_gfx_task(OSTask task){
         case G_LOADTILE:
         {
             uint8_t tile = (instr >> 24) & 0x7;
-
             Tile& t = gfx.tiles[tile];
 
             uint32_t src = translate_address(tex_load_ptr);
@@ -1000,40 +1275,31 @@ void RSP::process_gfx_task(OSTask task){
                 ((instr & 0xFFF) - ((instr >> 32) & 0xFFF)) / 4 + 1;
 
             uint32_t bytesPerPixel;
-
             switch (tex_load_siz)
             {
-            case 0: bytesPerPixel = 0; break;
+            case 0: bytesPerPixel = 0; break; // 4bpp, handled separately
             case 1: bytesPerPixel = 1; break;
             case 2: bytesPerPixel = 2; break;
             case 3: bytesPerPixel = 4; break;
+            default: bytesPerPixel = 0; break;
             }
 
-            uint32_t dst = t.tmem * 8;
+            const uint32_t dstBase   = t.tmem * 8;
+            const uint32_t dstStride = t.line * 8;
 
-            if (tex_load_siz == 0)
+            for (uint32_t y = 0; y < height; ++y)
             {
-                uint32_t rowBytes = (width + 1) / 2;
+                uint32_t rowBytes =
+                    (tex_load_siz == 0)
+                        ? ((width + 1) / 2)          // packed 4bpp texels
+                        : (width * bytesPerPixel);
 
-                for (uint32_t y = 0; y < height; y++)
-                {
-                    memcpy(
-                        &gfx.tmem[dst + y * t.line * 8],
-                        &rcp.rdram.mem[src + y * rowBytes],
-                        rowBytes);
-                }
-            }
-            else
-            {
-                uint32_t rowBytes = width * bytesPerPixel;
-
-                for (uint32_t y = 0; y < height; y++)
-                {
-                    memcpy(
-                        &gfx.tmem[dst + y * t.line * 8],
-                        &rcp.rdram.mem[src + y * rowBytes],
-                        rowBytes);
-                }
+                copy_tmem_row_swizzled(
+                    &gfx.tmem[dstBase + y * dstStride],
+                    &rcp.rdram.mem[src + y * rowBytes],
+                    rowBytes,
+                    tex_load_siz,
+                    (y & 1) != 0);
             }
 
             break;

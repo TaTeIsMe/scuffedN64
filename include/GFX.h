@@ -44,6 +44,8 @@ struct BlenderState {
     float blend_r = 1.0f, blend_g = 1.0f, blend_b = 1.0f, blend_a = 1.0f;
     uint8_t p0, a0, m0, b0;
     uint8_t p1, a1, m1, b1;
+    bool cvg_x_a;
+    bool use_cvg_as_a;
     bool force_blend;
     uint8_t alpha_compare;
 };

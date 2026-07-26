@@ -339,8 +339,12 @@ void GFX::drawTriangle(const DrawCall& dc)
 
     glUniform1i(glGetUniformLocation(shaderProgram, "uIs2Cycle"), dc.is2Cycle);
 
+    if(dc.blender.use_cvg_as_a && ! dc.blender.cvg_x_a){
+        glDisable(GL_BLEND);
+    }else {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
 
     // Pass the state uniforms per draw call
     glUniform4f(glGetUniformLocation(shaderProgram, "uPrimColor"),
@@ -402,6 +406,8 @@ DrawCall::DrawCall(Vertex v0,
     blender.a1 = (othermode >> 24) & 0x3;
     blender.m1 = (othermode >> 20) & 0x3;
     blender.b1 = (othermode >> 16) & 0x3;
+    blender.cvg_x_a = (othermode >> 12) & 1;
+    blender.use_cvg_as_a = (othermode >> 13) & 1;
     blender.force_blend = (othermode >> 14) & 1;
     blender.alpha_compare = othermode & 0x3;
     blender.blend_r = blend_colr(0);
