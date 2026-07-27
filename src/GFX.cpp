@@ -29,7 +29,6 @@ std::vector<uint8_t> decode_tex(uint32_t offset, uint32_t line, uint8_t fmt, uin
         a = (raw & 1) ? 255 : 0;
     };
 
-    // Stride per row in bytes
     uint32_t row_stride = line * 8;
 
     for (int y = 0; y < h; y++) {
@@ -51,12 +50,14 @@ std::vector<uint8_t> decode_tex(uint32_t offset, uint32_t line, uint8_t fmt, uin
                         a = (pixel & 1) ? 255 : 0;
                     }
                 } else if (siz == 3) { // RGBA32
-                    uint32_t addr = row_addr + (x * 4);
-                    if (addr + 3 < 4096) {
-                        r = mem[addr + 0];
-                        g = mem[addr + 1];
-                        b = mem[addr + 2];
-                        a = mem[addr + 3];
+                    uint32_t low_addr  = row_addr + (x * 2);
+                    uint32_t high_addr = low_addr + 0x800;
+
+                    if (high_addr + 1 < 4096) {
+                        r = mem[low_addr + 0]; 
+                        g = mem[low_addr + 1]; 
+                        b = mem[high_addr + 0];
+                        a = mem[high_addr + 1];
                     }
                 }
                 break;

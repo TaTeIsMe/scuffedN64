@@ -224,107 +224,127 @@ void displayTextureInWindow(const std::vector< uint8_t>& data, int width, int he
     glfwMakeContextCurrent(previousContext);
 }
 
-std::vector<uint8_t> decode_tex_temp(uint32_t phys_addr, uint8_t fmt, uint8_t siz, uint8_t pal, int w, int h ,uint8_t* mem, uint16_t* tlut_buffer) {
-        std::vector<uint8_t> rgba(w * h * 4, 0);
+std::vector<uint8_t> decode_tex_temp(uint32_t offset, uint32_t line, uint8_t fmt, uint8_t siz, uint8_t pal, int w, int h, uint8_t* mem, uint16_t* tlut_buffer) {
+    std::vector<uint8_t> rgba(w * h * 4, 0);
 
-        auto get_tlut_color = [&](uint8_t index, uint8_t& r, uint8_t& g, uint8_t& b, uint8_t& a) {
-            uint16_t raw = tlut_buffer[index];
-            r = ((raw >> 11) & 0x1F) * 255 / 31;
-            g = ((raw >> 6)  & 0x1F) * 255 / 31;
-            b = ((raw >> 1)  & 0x1F) * 255 / 31;
-            a = (raw & 1) ? 255 : 0;
-        };
+    auto get_tlut_color = [&](uint8_t index, uint8_t& r, uint8_t& g, uint8_t& b, uint8_t& a) {
+        uint16_t raw = tlut_buffer[index];
+        r = ((raw >> 11) & 0x1F) * 255 / 31;
+        g = ((raw >> 6)  & 0x1F) * 255 / 31;
+        b = ((raw >> 1)  & 0x1F) * 255 / 31;
+        a = (raw & 1) ? 255 : 0;
+    };
 
-        int total_pixels = w * h;
+    // Stride per row in bytes
+    uint32_t row_stride = line * 8;
 
-        for (int i = 0; i < total_pixels; i++) {
+    for (int y = 0; y < h; y++) {
+        uint32_t row_addr = offset + (y * row_stride);
+
+        for (int x = 0; x < w; x++) {
+            int pixel_index = y * w + x;
             uint8_t r = 255, g = 255, b = 255, a = 255;
 
             switch (fmt) {
             case 0: // RGBA
-                if (siz == 2) { // RGBA16 (5-5-5-1)
-                    uint32_t addr = phys_addr + (i * 2);
+                if (siz == 2) { // RGBA16
+                    uint32_t addr = row_addr + (x * 2);
+                    if (addr + 1 < 4096) {
                         uint16_t pixel = (mem[addr] << 8) | mem[addr + 1];
                         r = ((pixel >> 11) & 0x1F) * 255 / 31;
                         g = ((pixel >> 6)  & 0x1F) * 255 / 31;
                         b = ((pixel >> 1)  & 0x1F) * 255 / 31;
                         a = (pixel & 1) ? 255 : 0;
-                } else if (siz == 3) { // RGBA32 (8-8-8-8)
-                    uint32_t addr = phys_addr + (i * 4);
+                    }
+                } else if (siz == 3) { // RGBA32
+                    uint32_t addr = row_addr + (x * 4);
+                    if (addr + 3 < 4096) {
                         r = mem[addr + 0];
                         g = mem[addr + 1];
                         b = mem[addr + 2];
                         a = mem[addr + 3];
+                    }
                 }
                 break;
 
-            case 1: // YUV (YUV16 4:2:2) - Full Range BT.601 Conversion
+            case 1: // YUV
                 if (siz == 2) {
-                    uint32_t pair_index = i / 2;
-                    uint32_t addr = phys_addr + (pair_index * 4);
+                    uint32_t pair_index = x / 2;
+                    uint32_t addr = row_addr + (pair_index * 4);
+                    if (addr + 3 < 4096) {
                         uint8_t y0 = mem[addr + 0];
                         uint8_t u  = mem[addr + 1];
                         uint8_t y1 = mem[addr + 2];
                         uint8_t v  = mem[addr + 3];
 
-                        uint8_t y = (i % 2 == 0) ? y0 : y1;
+                        uint8_t luma = (x % 2 == 0) ? y0 : y1;
                         int u1 = (int)u - 128;
                         int v1 = (int)v - 128;
 
-                        int rf = (int)(y + 1.402f * v1);
-                        int gf = (int)(y - 0.344136f * u1 - 0.714136f * v1);
-                        int bf = (int)(y + 1.772f * u1);
-
-                        r = std::clamp(rf, 0, 255);
-                        g = std::clamp(gf, 0, 255);
-                        b = std::clamp(bf, 0, 255);
+                        r = std::clamp((int)(luma + 1.402f * v1), 0, 255);
+                        g = std::clamp((int)(luma - 0.344136f * u1 - 0.714136f * v1), 0, 255);
+                        b = std::clamp((int)(luma + 1.772f * u1), 0, 255);
                         a = 255;
+                    }
                 }
                 break;
 
             case 2: // CI (Color Indexed)
-                if (siz == 0) { // CI4 (4-bit sub-palette)
-                    uint32_t addr = phys_addr + (i / 2);
+                if (siz == 0) { // CI4
+                    uint32_t addr = row_addr + (x / 2);
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
-                        uint8_t idx = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        uint8_t idx = (x % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
                         uint8_t tlut_idx = (pal << 4) | idx;
                         get_tlut_color(tlut_idx, r, g, b, a);
+                    }
                 } else if (siz == 1) { // CI8
-                    uint32_t addr = phys_addr + i;
+                    uint32_t addr = row_addr + x;
+                    if (addr < 4096) {
                         uint8_t idx = mem[addr];
                         get_tlut_color(idx, r, g, b, a);
+                    }
                 }
                 break;
 
             case 3: // IA (Intensity + Alpha)
-                if (siz == 0) { // IA4 (3 bits I, 1 bit A)
-                    uint32_t addr = phys_addr + (i / 2);
+                if (siz == 0) { // IA4
+                    uint32_t addr = row_addr + (x / 2);
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
-                        uint8_t nibble = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
-                        uint8_t intensity = ((nibble >> 1) & 0x07) * 255 / 7;
-                        r = g = b = intensity;
+                        uint8_t nibble = (x % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        r = g = b = ((nibble >> 1) & 0x07) * 255 / 7;
                         a = (nibble & 1) ? 255 : 0;
-                } else if (siz == 1) { // IA8 (4 bits I, 4 bits A)
-                    uint32_t addr = phys_addr + i;
+                    }
+                } else if (siz == 1) { // IA8
+                    uint32_t addr = row_addr + x;
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
                         r = g = b = ((byte >> 4) & 0x0F) * 255 / 15;
                         a = (byte & 0x0F) * 255 / 15;
-                } else if (siz == 2) { // IA16 (8 bits I, 8 bits A)
-                    uint32_t addr = phys_addr + (i * 2);
+                    }
+                } else if (siz == 2) { // IA16
+                    uint32_t addr = row_addr + (x * 2);
+                    if (addr + 1 < 4096) {
                         r = g = b = mem[addr];
                         a = mem[addr + 1];
+                    }
                 }
                 break;
 
             case 4: // I (Intensity)
                 if (siz == 0) { // I4
-                    uint32_t addr = phys_addr + (i / 2);
+                    uint32_t addr = row_addr + (x / 2);
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
-                        uint8_t nibble = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        uint8_t nibble = (x % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
                         r = g = b = a = nibble * 255 / 15;
+                    }
                 } else if (siz == 1) { // I8
-                    uint32_t addr = phys_addr + i;
+                    uint32_t addr = row_addr + x;
+                    if (addr < 4096) {
                         r = g = b = a = mem[addr];
+                    }
                 }
                 break;
 
@@ -332,13 +352,14 @@ std::vector<uint8_t> decode_tex_temp(uint32_t phys_addr, uint8_t fmt, uint8_t si
                 break;
             }
 
-            rgba[i * 4 + 0] = r;
-            rgba[i * 4 + 1] = g;
-            rgba[i * 4 + 2] = b;
-            rgba[i * 4 + 3] = a;
+            rgba[pixel_index * 4 + 0] = r;
+            rgba[pixel_index * 4 + 1] = g;
+            rgba[pixel_index * 4 + 2] = b;
+            rgba[pixel_index * 4 + 3] = a;
         }
+    }
 
-        return rgba;
+    return rgba;
 }
 
 RSP::RSPRegs::RSPRegs(RSP &rsp):rsp(rsp){}
@@ -767,6 +788,7 @@ void RSP::process_gfx_task(OSTask task){
             if(show_tex){
                 displayTextureInWindow(
                     decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+                        gfx.tiles[gfx.active_tile].line,
                         gfx.tiles[gfx.active_tile].fmt,
                         gfx.tiles[gfx.active_tile].siz,
                         gfx.tiles[gfx.active_tile].palette,
@@ -826,6 +848,7 @@ void RSP::process_gfx_task(OSTask task){
             if(show_tex){
                 displayTextureInWindow(
                     decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+                        gfx.tiles[gfx.active_tile].line,
                         gfx.tiles[gfx.active_tile].fmt,
                         gfx.tiles[gfx.active_tile].siz,
                         gfx.tiles[gfx.active_tile].palette,
@@ -1087,6 +1110,7 @@ void RSP::process_gfx_task(OSTask task){
             if(show_tex){
                 displayTextureInWindow(
                     decode_tex_temp(gfx.tiles[tile].tmem,
+                        gfx.tiles[gfx.active_tile].line,
                         gfx.tiles[tile].fmt,
                         gfx.tiles[tile].siz,
                         gfx.tiles[tile].palette,
@@ -1206,8 +1230,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.current_combiner, 
                     gfx.othermode, 
                     gfx.blend_colr,
-                    gfx.tiles[gfx.active_tile],
-                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[tile],
+                    gfx.tiles[tile],
                     gfx.view_port,
                     gfx.geometry_mode)
             );
@@ -1221,8 +1245,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.current_combiner, 
                     gfx.othermode, 
                     gfx.blend_colr,
-                    gfx.tiles[gfx.active_tile],
-                    gfx.tiles[gfx.active_tile],
+                    gfx.tiles[tile],
+                    gfx.tiles[tile],
                     gfx.view_port,
                     gfx.geometry_mode)
             );
@@ -1286,34 +1310,48 @@ void RSP::process_gfx_task(OSTask task){
         case G_LOADBLOCK:
         {
             uint8_t tile = (instr >> 24) & 0x7;
-
             uint32_t texels = ((instr >> 12) & 0xFFF) + 1;
-
             Tile& t = gfx.tiles[tile];
-
             uint32_t src = translate_address(tex_load_ptr);
 
-            uint32_t bytesPerTexel;
-            switch (tex_load_siz)
+            const uint32_t dstBase = t.tmem * 8;
+
+            if (tex_load_siz == 3) // 32-bit RGBA
             {
-            case 0: bytesPerTexel = 0; break; // handled separately (4bpp)
-            case 1: bytesPerTexel = 1; break;
-            case 2: bytesPerTexel = 2; break;
-            case 3: bytesPerTexel = 4; break;
+                for (uint32_t i = 0; i < texels; ++i)
+                {
+                    uint32_t low_addr  = dstBase + (i * 2);
+                    uint32_t high_addr = low_addr + 0x800;
+
+                    if (high_addr + 1 < 4096)
+                    {
+                        gfx.tmem[low_addr + 0]  = rcp.rdram.mem[src + i * 4 + 0]; // Red
+                        gfx.tmem[low_addr + 1]  = rcp.rdram.mem[src + i * 4 + 1]; // Green
+                        gfx.tmem[high_addr + 0] = rcp.rdram.mem[src + i * 4 + 2]; // Blue
+                        gfx.tmem[high_addr + 1] = rcp.rdram.mem[src + i * 4 + 3]; // Alpha
+                    }
+                }
             }
+            else
+            {
+                uint32_t bytesPerTexel;
+                switch (tex_load_siz)
+                {
+                case 0: bytesPerTexel = 0; break; // handled separately (4bpp)
+                case 1: bytesPerTexel = 1; break;
+                case 2: bytesPerTexel = 2; break;
+                }
 
-            uint32_t bytes =
-                (tex_load_siz == 0)
-                ? ((texels + 1) / 2)
-                : texels * bytesPerTexel;
+                uint32_t bytes = (tex_load_siz == 0)
+                    ? ((texels + 1) / 2)
+                    : texels * bytesPerTexel;
 
-            memcpy(
-                &gfx.tmem[t.tmem * 8],
-                &rcp.rdram.mem[src],
-                bytes);
+                memcpy(&gfx.tmem[dstBase], &rcp.rdram.mem[src], bytes);
+            }
 
             break;
         }
+
         case G_LOADTILE:
         {
             uint8_t tile = (instr >> 24) & 0x7;
@@ -1327,32 +1365,53 @@ void RSP::process_gfx_task(OSTask task){
             uint32_t height =
                 ((instr & 0xFFF) - ((instr >> 32) & 0xFFF)) / 4 + 1;
 
-            uint32_t bytesPerPixel;
-            switch (tex_load_siz)
-            {
-            case 0: bytesPerPixel = 0; break; // 4bpp, handled separately
-            case 1: bytesPerPixel = 1; break;
-            case 2: bytesPerPixel = 2; break;
-            case 3: bytesPerPixel = 4; break;
-            default: bytesPerPixel = 0; break;
-            }
-
             const uint32_t dstBase   = t.tmem * 8;
             const uint32_t dstStride = t.line * 8;
 
             for (uint32_t y = 0; y < height; ++y)
             {
-                uint32_t rowBytes =
-                    (tex_load_siz == 0)
-                        ? ((width + 1) / 2)          // packed 4bpp texels
+                if (tex_load_siz == 3) // 32-bit RGBA
+                {
+                    const uint32_t srcRow = src + y * (width * 4);
+                    std::vector<uint8_t> rgRow(width * 2);
+                    std::vector<uint8_t> baRow(width * 2);
+
+                    for (uint32_t x = 0; x < width; ++x)
+                    {
+                        rgRow[x * 2 + 0] = rcp.rdram.mem[srcRow + x * 4 + 0]; // R
+                        rgRow[x * 2 + 1] = rcp.rdram.mem[srcRow + x * 4 + 1]; // G
+                        baRow[x * 2 + 0] = rcp.rdram.mem[srcRow + x * 4 + 2]; // B
+                        baRow[x * 2 + 1] = rcp.rdram.mem[srcRow + x * 4 + 3]; // A
+                    }
+
+                    copy_tmem_row_swizzled(
+                        &gfx.tmem[dstBase + y * dstStride],
+                        rgRow.data(),
+                        width * 2,
+                        2, 
+                        (y & 1) != 0);
+
+                    copy_tmem_row_swizzled(
+                        &gfx.tmem[dstBase + 0x800 + y * dstStride],
+                        baRow.data(),
+                        width * 2,
+                        2,
+                        (y & 1) != 0);
+                }
+                else
+                {
+                    uint32_t bytesPerPixel = (tex_load_siz == 0) ? 0 : (1 << (tex_load_siz - 1));
+                    uint32_t rowBytes = (tex_load_siz == 0)
+                        ? ((width + 1) / 2)
                         : (width * bytesPerPixel);
 
-                copy_tmem_row_swizzled(
-                    &gfx.tmem[dstBase + y * dstStride],
-                    &rcp.rdram.mem[src + y * rowBytes],
-                    rowBytes,
-                    tex_load_siz,
-                    (y & 1) != 0);
+                    copy_tmem_row_swizzled(
+                        &gfx.tmem[dstBase + y * dstStride],
+                        &rcp.rdram.mem[src + y * rowBytes],
+                        rowBytes,
+                        tex_load_siz,
+                        (y & 1) != 0);
+                }
             }
 
             break;
