@@ -18,107 +18,127 @@ std::string load_shader_source(const char* filePath) {
     return buffer.str();
 }
 
-std::vector<uint8_t> decode_tex(uint32_t offset, uint8_t fmt, uint8_t siz, uint8_t pal, int w, int h ,uint8_t* mem, uint16_t* tlut_buffer) {
-        std::vector<uint8_t> rgba(w * h * 4, 0);
+std::vector<uint8_t> decode_tex(uint32_t offset, uint32_t line, uint8_t fmt, uint8_t siz, uint8_t pal, int w, int h, uint8_t* mem, uint16_t* tlut_buffer) {
+    std::vector<uint8_t> rgba(w * h * 4, 0);
 
-        auto get_tlut_color = [&](uint8_t index, uint8_t& r, uint8_t& g, uint8_t& b, uint8_t& a) {
-            uint16_t raw = tlut_buffer[index];
-            r = ((raw >> 11) & 0x1F) * 255 / 31;
-            g = ((raw >> 6)  & 0x1F) * 255 / 31;
-            b = ((raw >> 1)  & 0x1F) * 255 / 31;
-            a = (raw & 1) ? 255 : 0;
-        };
+    auto get_tlut_color = [&](uint8_t index, uint8_t& r, uint8_t& g, uint8_t& b, uint8_t& a) {
+        uint16_t raw = tlut_buffer[index];
+        r = ((raw >> 11) & 0x1F) * 255 / 31;
+        g = ((raw >> 6)  & 0x1F) * 255 / 31;
+        b = ((raw >> 1)  & 0x1F) * 255 / 31;
+        a = (raw & 1) ? 255 : 0;
+    };
 
-        int total_pixels = w * h;
+    // Stride per row in bytes
+    uint32_t row_stride = line * 8;
 
-        for (int i = 0; i < total_pixels; i++) {
+    for (int y = 0; y < h; y++) {
+        uint32_t row_addr = offset + (y * row_stride);
+
+        for (int x = 0; x < w; x++) {
+            int pixel_index = y * w + x;
             uint8_t r = 255, g = 255, b = 255, a = 255;
 
             switch (fmt) {
             case 0: // RGBA
-                if (siz == 2) { // RGBA16 (5-5-5-1)
-                    uint32_t addr = offset + (i * 2);
+                if (siz == 2) { // RGBA16
+                    uint32_t addr = row_addr + (x * 2);
+                    if (addr + 1 < 4096) {
                         uint16_t pixel = (mem[addr] << 8) | mem[addr + 1];
                         r = ((pixel >> 11) & 0x1F) * 255 / 31;
                         g = ((pixel >> 6)  & 0x1F) * 255 / 31;
                         b = ((pixel >> 1)  & 0x1F) * 255 / 31;
                         a = (pixel & 1) ? 255 : 0;
-                } else if (siz == 3) { // RGBA32 (8-8-8-8)
-                    uint32_t addr = offset + (i * 4);
+                    }
+                } else if (siz == 3) { // RGBA32
+                    uint32_t addr = row_addr + (x * 4);
+                    if (addr + 3 < 4096) {
                         r = mem[addr + 0];
                         g = mem[addr + 1];
                         b = mem[addr + 2];
                         a = mem[addr + 3];
+                    }
                 }
                 break;
 
-            case 1: // YUV (YUV16 4:2:2) - Full Range BT.601 Conversion
+            case 1: // YUV
                 if (siz == 2) {
-                    uint32_t pair_index = i / 2;
-                    uint32_t addr = offset + (pair_index * 4);
+                    uint32_t pair_index = x / 2;
+                    uint32_t addr = row_addr + (pair_index * 4);
+                    if (addr + 3 < 4096) {
                         uint8_t y0 = mem[addr + 0];
                         uint8_t u  = mem[addr + 1];
                         uint8_t y1 = mem[addr + 2];
                         uint8_t v  = mem[addr + 3];
 
-                        uint8_t y = (i % 2 == 0) ? y0 : y1;
+                        uint8_t luma = (x % 2 == 0) ? y0 : y1;
                         int u1 = (int)u - 128;
                         int v1 = (int)v - 128;
 
-                        int rf = (int)(y + 1.402f * v1);
-                        int gf = (int)(y - 0.344136f * u1 - 0.714136f * v1);
-                        int bf = (int)(y + 1.772f * u1);
-
-                        r = std::clamp(rf, 0, 255);
-                        g = std::clamp(gf, 0, 255);
-                        b = std::clamp(bf, 0, 255);
+                        r = std::clamp((int)(luma + 1.402f * v1), 0, 255);
+                        g = std::clamp((int)(luma - 0.344136f * u1 - 0.714136f * v1), 0, 255);
+                        b = std::clamp((int)(luma + 1.772f * u1), 0, 255);
                         a = 255;
+                    }
                 }
                 break;
 
             case 2: // CI (Color Indexed)
-                if (siz == 0) { // CI4 (4-bit sub-palette)
-                    uint32_t addr = offset + (i / 2);
+                if (siz == 0) { // CI4
+                    uint32_t addr = row_addr + (x / 2);
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
-                        uint8_t idx = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        uint8_t idx = (x % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
                         uint8_t tlut_idx = (pal << 4) | idx;
                         get_tlut_color(tlut_idx, r, g, b, a);
+                    }
                 } else if (siz == 1) { // CI8
-                    uint32_t addr = offset + i;
+                    uint32_t addr = row_addr + x;
+                    if (addr < 4096) {
                         uint8_t idx = mem[addr];
                         get_tlut_color(idx, r, g, b, a);
+                    }
                 }
                 break;
 
             case 3: // IA (Intensity + Alpha)
-                if (siz == 0) { // IA4 (3 bits I, 1 bit A)
-                    uint32_t addr = offset + (i / 2);
+                if (siz == 0) { // IA4
+                    uint32_t addr = row_addr + (x / 2);
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
-                        uint8_t nibble = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
-                        uint8_t intensity = ((nibble >> 1) & 0x07) * 255 / 7;
-                        r = g = b = intensity;
+                        uint8_t nibble = (x % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        r = g = b = ((nibble >> 1) & 0x07) * 255 / 7;
                         a = (nibble & 1) ? 255 : 0;
-                } else if (siz == 1) { // IA8 (4 bits I, 4 bits A)
-                    uint32_t addr = offset + i;
+                    }
+                } else if (siz == 1) { // IA8
+                    uint32_t addr = row_addr + x;
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
                         r = g = b = ((byte >> 4) & 0x0F) * 255 / 15;
                         a = (byte & 0x0F) * 255 / 15;
-                } else if (siz == 2) { // IA16 (8 bits I, 8 bits A)
-                    uint32_t addr = offset + (i * 2);
+                    }
+                } else if (siz == 2) { // IA16
+                    uint32_t addr = row_addr + (x * 2);
+                    if (addr + 1 < 4096) {
                         r = g = b = mem[addr];
                         a = mem[addr + 1];
+                    }
                 }
                 break;
 
             case 4: // I (Intensity)
                 if (siz == 0) { // I4
-                    uint32_t addr = offset + (i / 2);
+                    uint32_t addr = row_addr + (x / 2);
+                    if (addr < 4096) {
                         uint8_t byte = mem[addr];
-                        uint8_t nibble = (i % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
+                        uint8_t nibble = (x % 2 == 0) ? (byte >> 4) : (byte & 0x0F);
                         r = g = b = a = nibble * 255 / 15;
+                    }
                 } else if (siz == 1) { // I8
-                    uint32_t addr = offset + i;
+                    uint32_t addr = row_addr + x;
+                    if (addr < 4096) {
                         r = g = b = a = mem[addr];
+                    }
                 }
                 break;
 
@@ -126,15 +146,15 @@ std::vector<uint8_t> decode_tex(uint32_t offset, uint8_t fmt, uint8_t siz, uint8
                 break;
             }
 
-            rgba[i * 4 + 0] = r;
-            rgba[i * 4 + 1] = g;
-            rgba[i * 4 + 2] = b;
-            rgba[i * 4 + 3] = a;
+            rgba[pixel_index * 4 + 0] = r;
+            rgba[pixel_index * 4 + 1] = g;
+            rgba[pixel_index * 4 + 2] = b;
+            rgba[pixel_index * 4 + 3] = a;
         }
+    }
 
-        return rgba;
+    return rgba;
 }
-
 
 GFX::GFX()
 {
@@ -163,8 +183,6 @@ GFX::GFX()
         glViewport(0, 0, width, height);
     });
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -297,6 +315,7 @@ GLuint GFX::create_new_texture(uint8_t tile)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     std::vector<uint8_t> tex_data = decode_tex(tiles[tile].tmem * 8,
+        tiles[tile].line,
         tiles[tile].fmt,
         tiles[tile].siz,
         tiles[tile].palette,
@@ -327,6 +346,29 @@ void GFX::drawTriangle(const DrawCall& dc)
 
     glUniform1i(glGetUniformLocation(shaderProgram, "uIs2Cycle"), dc.is2Cycle);
 
+    if(dc.cull_back && dc.cull_front){
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK | GL_FRONT);
+    }
+    else if(dc.cull_front){
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_FRONT);
+    }else if(dc.cull_back){
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+    }else{
+        glDisable(GL_CULL_FACE);
+    }
+
+    if (dc.zmode == 3){
+        glDepthMask(GL_FALSE);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-2.f, -2.f);
+    }else{
+        glDepthMask(GL_TRUE);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    }
+
     if(dc.blender.use_cvg_as_a && ! dc.blender.cvg_x_a){
         glDisable(GL_BLEND);
     }else {
@@ -337,30 +379,25 @@ void GFX::drawTriangle(const DrawCall& dc)
     int framebuffer_width, framebuffer_height;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
 
-    // 1. Calculate native N64 viewport dimensions in 320x240 base space
     float n64_vp_width  = 2.0f * (dc.view_port_state.scale[0]);
     float n64_vp_height = 2.0f * (dc.view_port_state.scale[1]);
 
     float n64_vp_x = (dc.view_port_state.trans[0]) - (n64_vp_width / 2.0f);
     float n64_vp_y = (dc.view_port_state.trans[1]) - (n64_vp_height / 2.0f);
 
-    // 2. Compute scaling factors based on standard 320x240 native canvas
     constexpr float N64_BASE_WIDTH  = 320.0f;
     constexpr float N64_BASE_HEIGHT = 240.0f;
 
     float scale_x = static_cast<float>(framebuffer_width)  / N64_BASE_WIDTH;
     float scale_y = static_cast<float>(framebuffer_height) / N64_BASE_HEIGHT;
 
-    // 3. Scale dimensions and coordinates to match window framebuffer
     float scaled_width  = n64_vp_width  * scale_x;
     float scaled_height = n64_vp_height * scale_y;
 
     float scaled_x = n64_vp_x * scale_x;
 
-    // Flip Y coordinate for OpenGL bottom-left origin across the full window height
     float scaled_y = static_cast<float>(framebuffer_height) - ((n64_vp_y + n64_vp_height) * scale_y);
 
-    // 4. Pass scaled dimensions to OpenGL
     glViewport(static_cast<GLint>(scaled_x), 
             static_cast<GLint>(scaled_y), 
             static_cast<GLsizei>(scaled_width), 
@@ -453,10 +490,14 @@ DrawCall::DrawCall(Vertex v0,
     Eigen::Vector4f blend_colr,
     Tile tile0,
     Tile tile1,
-    ViewPort view_port
+    ViewPort view_port,
+    uint32_t geometry_mode
 ): v0(v0), v1(v1), v2(v2), texture0(texture0), texture1(texture1), combiner(combiner)
 {
     is2Cycle = ((othermode >> 52) & 0x3) == 1;
+    zmode = ((othermode >> 10) & 0x3);
+    cull_back = ((geometry_mode >> 10) & 0x1);
+    cull_front = ((geometry_mode >> 9) & 0x1);
 
     blender.p0 = (othermode >> 30) & 0x3;
     blender.a0 = (othermode >> 26) & 0x3;

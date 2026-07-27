@@ -247,7 +247,7 @@ void main() {
     }
 
     if (uAlphaCompare == 1) {
-        if (combined.a <= uBlendColor.a || combined.a < 0.01) {
+        if (combined.a <= uBlendColor.a ) {
             discard;
         }
     } else if (uAlphaCompare == 3) {
@@ -255,6 +255,7 @@ void main() {
             discard;
         }
     }
+    if(combined.a < 0.03)discard;
 
     FragColor = clamp(combined, 0.0, 1.0);
 }

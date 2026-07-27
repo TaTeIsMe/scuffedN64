@@ -76,7 +76,7 @@ struct ViewPort{
 };
 
 struct DrawCall {
-    DrawCall(Vertex v0, Vertex v1, Vertex v2, GLuint texture0, GLuint texture1, CombinerState combiner, uint64_t othermode, Eigen::Vector4f blend_colr, Tile tile0, Tile tile1, ViewPort view_port);
+    DrawCall(Vertex v0, Vertex v1, Vertex v2, GLuint texture0, GLuint texture1, CombinerState combiner, uint64_t othermode, Eigen::Vector4f blend_colr, Tile tile0, Tile tile1, ViewPort view_port, uint32_t geometry_mode);
     Vertex v0, v1, v2;
     GLuint texture0;
     GLuint texture1;
@@ -85,7 +85,10 @@ struct DrawCall {
     TileState tile_state0;
     TileState tile_state1;
     ViewPort view_port_state;
+    bool cull_front;
+    bool cull_back;
     bool is2Cycle;
+    uint8_t zmode;
 };
 
 class GFX
@@ -109,6 +112,7 @@ public:
     uint64_t othermode = 0;
     Eigen::Vector4f blend_colr;
     ViewPort view_port;
+    uint32_t geometry_mode = 0;
 
     uint8_t tmem[4096];
     uint16_t tlut_buffer[256]{};

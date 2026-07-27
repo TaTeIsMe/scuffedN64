@@ -620,8 +620,6 @@ void RSP::process_gfx_task(OSTask task){
     uint8_t tex_load_fmt = 0;
     uint8_t tex_load_siz = 0;
     uint16_t tex_load_width = 0;
-
-    uint32_t geometry_mode = 0;
     
     auto translate_address = [&](uint32_t address){
         if(address >> 24 == 0x80)return address & 0xFFFFFF;
@@ -657,7 +655,7 @@ void RSP::process_gfx_task(OSTask task){
                 vertex_buffer[buf_id + i].u = (float)s * gfx.s / 32.;
                 vertex_buffer[buf_id + i].v = (float)t * gfx.t / 32.;
 
-                if((geometry_mode & G_LIGHTING)){
+                if((gfx.geometry_mode & G_LIGHTING)){
 
                     // Read signed 8-bit normal values from the vertex data scuffed lighting
                     int8_t nx = (int8_t)rcp.rdram.read_size(vaddr + 12, 1);
@@ -700,7 +698,7 @@ void RSP::process_gfx_task(OSTask task){
                     vertex_buffer[buf_id + i].a  = a;
                 }
 
-                if (!(geometry_mode & G_SHADE))
+                if (!(gfx.geometry_mode & G_SHADE))
                 {
                     vertex_buffer[buf_id + i].r = vertex_buffer[buf_id + i].g = vertex_buffer[buf_id + i].b = 1.0f;
                 }
@@ -723,19 +721,19 @@ void RSP::process_gfx_task(OSTask task){
             uint8_t v2 = ((instr >> 32) & 0xFF) / 2;
             //gfx.vertices.insert(gfx.vertices.end(),{vertex_buffer[v0], vertex_buffer[v1], vertex_buffer[v2]});
 
-           //displayTextureInWindow(
-           //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
-           //        gfx.tiles[gfx.active_tile].fmt,
-           //        gfx.tiles[gfx.active_tile].siz,
-           //        gfx.tiles[gfx.active_tile].palette,
-           //        gfx.tiles[gfx.active_tile].width,
-           //        gfx.tiles[gfx.active_tile].height,
-           //        gfx.tmem,
-           //        gfx.tlut_buffer),
-           //    gfx.tiles[gfx.active_tile].width,
-           //    gfx.tiles[gfx.active_tile].height,
-           //    4
-           //);
+            //displayTextureInWindow(
+            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+            //        gfx.tiles[gfx.active_tile].fmt,
+            //        gfx.tiles[gfx.active_tile].siz,
+            //        gfx.tiles[gfx.active_tile].palette,
+            //        gfx.tiles[gfx.active_tile].width,
+            //        gfx.tiles[gfx.active_tile].height,
+            //        gfx.tmem,
+            //        gfx.tlut_buffer),
+            //    gfx.tiles[gfx.active_tile].width,
+            //    gfx.tiles[gfx.active_tile].height,
+            //    4
+            //);
             GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
             GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
@@ -750,7 +748,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile + 1],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
             
             break;
@@ -763,19 +762,23 @@ void RSP::process_gfx_task(OSTask task){
             GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
             GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
-            //displayTextureInWindow(
-            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
-            //        gfx.tiles[gfx.active_tile].fmt,
-            //        gfx.tiles[gfx.active_tile].siz,
-            //        gfx.tiles[gfx.active_tile].palette,
-            //        gfx.tiles[gfx.active_tile].width,
-            //        gfx.tiles[gfx.active_tile].height,
-            //        gfx.tmem,
-            //        gfx.tlut_buffer),
-            //    gfx.tiles[gfx.active_tile].width,
-            //    gfx.tiles[gfx.active_tile].height,
-            //    4
-            //);
+
+            static bool show_tex = false;
+            if(show_tex){
+                displayTextureInWindow(
+                    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+                        gfx.tiles[gfx.active_tile].fmt,
+                        gfx.tiles[gfx.active_tile].siz,
+                        gfx.tiles[gfx.active_tile].palette,
+                        gfx.tiles[gfx.active_tile].width,
+                        gfx.tiles[gfx.active_tile].height,
+                        gfx.tmem,
+                        gfx.tlut_buffer),
+                    gfx.tiles[gfx.active_tile].width,
+                    gfx.tiles[gfx.active_tile].height,
+                    4
+                );
+            }
 
             gfx.draw_calls.push_back(
                 DrawCall(vertex_buffer[v00], 
@@ -788,7 +791,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile + 1],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
 
             uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
@@ -805,7 +809,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile + 1],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
             break;
         }
@@ -817,19 +822,23 @@ void RSP::process_gfx_task(OSTask task){
             GLuint tex0 = gfx.create_new_texture(gfx.active_tile);
             GLuint tex1 = gfx.create_new_texture(gfx.active_tile + 1);
 
-            //displayTextureInWindow(
-            //    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
-            //        gfx.tiles[gfx.active_tile].fmt,
-            //        gfx.tiles[gfx.active_tile].siz,
-            //        gfx.tiles[gfx.active_tile].palette,
-            //        gfx.tiles[gfx.active_tile].width,
-            //        gfx.tiles[gfx.active_tile].height,
-            //        gfx.tmem,
-            //        gfx.tlut_buffer),
-            //    gfx.tiles[gfx.active_tile].width,
-            //    gfx.tiles[gfx.active_tile].height,
-            //    4
-            //);
+            static bool show_tex = false;
+            if(show_tex){
+                displayTextureInWindow(
+                    decode_tex_temp(gfx.tiles[gfx.active_tile].tmem,
+                        gfx.tiles[gfx.active_tile].fmt,
+                        gfx.tiles[gfx.active_tile].siz,
+                        gfx.tiles[gfx.active_tile].palette,
+                        gfx.tiles[gfx.active_tile].width,
+                        gfx.tiles[gfx.active_tile].height,
+                        gfx.tmem,
+                        gfx.tlut_buffer),
+                    gfx.tiles[gfx.active_tile].width,
+                    gfx.tiles[gfx.active_tile].height,
+                    4
+                );
+
+            }
 
             gfx.draw_calls.push_back(
                 DrawCall(vertex_buffer[v00], 
@@ -842,7 +851,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile + 1],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
 
             uint8_t v10 = ((instr >> 16) & 0xFF) / 2;
@@ -859,7 +869,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile + 1],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
             break;
         }
@@ -894,7 +905,7 @@ void RSP::process_gfx_task(OSTask task){
         {
             uint32_t clear_bits = (instr >> 32) & 0x00FFFFFF;
             uint32_t set_bits = instr & 0xFFFFFFFF;
-            geometry_mode = (geometry_mode & ~clear_bits) | set_bits;
+            gfx.geometry_mode = (gfx.geometry_mode & ~clear_bits) | set_bits;
             break;
         }
         case G_MTX: // G_MTX
@@ -1072,6 +1083,24 @@ void RSP::process_gfx_task(OSTask task){
 
             GLuint tex0 = gfx.create_new_texture(tile);
 
+            static bool show_tex = false;
+            if(show_tex){
+                displayTextureInWindow(
+                    decode_tex_temp(gfx.tiles[tile].tmem,
+                        gfx.tiles[tile].fmt,
+                        gfx.tiles[tile].siz,
+                        gfx.tiles[tile].palette,
+                        gfx.tiles[tile].width,
+                        gfx.tiles[tile].height,
+                        gfx.tmem,
+                        gfx.tlut_buffer),
+                    gfx.tiles[tile].width,
+                    gfx.tiles[tile].height,
+                    4
+                );
+
+            }
+
             gfx.draw_calls.push_back(
                 DrawCall(llvertex, 
                     urvertex, 
@@ -1083,7 +1112,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[tile],
                     gfx.tiles[tile],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
 
             gfx.draw_calls.push_back(
@@ -1097,14 +1127,14 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[tile],
                     gfx.tiles[tile],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
 
             break;
         }
         case 0xE5: // G_TEXRECTFLIP
-                {
-            //ts fucked up
+            {
             uint64_t word1 = instr;
             instr_ptr += 8;
             uint64_t word2 = rcp.rdram.read_size(instr_ptr, 8);
@@ -1178,7 +1208,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
 
             gfx.draw_calls.push_back(
@@ -1192,7 +1223,8 @@ void RSP::process_gfx_task(OSTask task){
                     gfx.blend_colr,
                     gfx.tiles[gfx.active_tile],
                     gfx.tiles[gfx.active_tile],
-                    gfx.view_port)
+                    gfx.view_port,
+                    gfx.geometry_mode)
             );
 
             break;
