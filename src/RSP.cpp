@@ -1351,7 +1351,6 @@ void RSP::process_gfx_task(OSTask task){
 
             break;
         }
-
         case G_LOADTILE:
         {
             uint8_t tile = (instr >> 24) & 0x7;
@@ -1359,11 +1358,8 @@ void RSP::process_gfx_task(OSTask task){
 
             uint32_t src = translate_address(tex_load_ptr);
 
-            uint32_t width =
-                (((instr >> 12) & 0xFFF) - ((instr >> 44) & 0xFFF)) / 4 + 1;
-
-            uint32_t height =
-                ((instr & 0xFFF) - ((instr >> 32) & 0xFFF)) / 4 + 1;
+            uint32_t width  = (((instr >> 12) & 0xFFF) - ((instr >> 44) & 0xFFF)) / 4 + 1;
+            uint32_t height = ((instr & 0xFFF) - ((instr >> 32) & 0xFFF)) / 4 + 1;
 
             const uint32_t dstBase   = t.tmem * 8;
             const uint32_t dstStride = t.line * 8;
@@ -1373,30 +1369,14 @@ void RSP::process_gfx_task(OSTask task){
                 if (tex_load_siz == 3) // 32-bit RGBA
                 {
                     const uint32_t srcRow = src + y * (width * 4);
-                    std::vector<uint8_t> rgRow(width * 2);
-                    std::vector<uint8_t> baRow(width * 2);
-
                     for (uint32_t x = 0; x < width; ++x)
                     {
-                        rgRow[x * 2 + 0] = rcp.rdram.mem[srcRow + x * 4 + 0]; // R
-                        rgRow[x * 2 + 1] = rcp.rdram.mem[srcRow + x * 4 + 1]; // G
-                        baRow[x * 2 + 0] = rcp.rdram.mem[srcRow + x * 4 + 2]; // B
-                        baRow[x * 2 + 1] = rcp.rdram.mem[srcRow + x * 4 + 3]; // A
+                        // R & G into low half, B & A into high half
+                        gfx.tmem[dstBase + y * dstStride + x * 2 + 0] = rcp.rdram.mem[srcRow + x * 4 + 0];
+                        gfx.tmem[dstBase + y * dstStride + x * 2 + 1] = rcp.rdram.mem[srcRow + x * 4 + 1];
+                        gfx.tmem[dstBase + 0x800 + y * dstStride + x * 2 + 0] = rcp.rdram.mem[srcRow + x * 4 + 2];
+                        gfx.tmem[dstBase + 0x800 + y * dstStride + x * 2 + 1] = rcp.rdram.mem[srcRow + x * 4 + 3];
                     }
-
-                    copy_tmem_row_swizzled(
-                        &gfx.tmem[dstBase + y * dstStride],
-                        rgRow.data(),
-                        width * 2,
-                        2, 
-                        (y & 1) != 0);
-
-                    copy_tmem_row_swizzled(
-                        &gfx.tmem[dstBase + 0x800 + y * dstStride],
-                        baRow.data(),
-                        width * 2,
-                        2,
-                        (y & 1) != 0);
                 }
                 else
                 {
@@ -1405,15 +1385,14 @@ void RSP::process_gfx_task(OSTask task){
                         ? ((width + 1) / 2)
                         : (width * bytesPerPixel);
 
-                    copy_tmem_row_swizzled(
+                    // Plain linear copy for each row
+                    std::memcpy(
                         &gfx.tmem[dstBase + y * dstStride],
                         &rcp.rdram.mem[src + y * rowBytes],
-                        rowBytes,
-                        tex_load_siz,
-                        (y & 1) != 0);
+                        rowBytes
+                    );
                 }
             }
-
             break;
         }
         case G_SETTILE: // G_SETTILE
