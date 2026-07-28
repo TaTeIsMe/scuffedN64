@@ -2762,7 +2762,7 @@ void ADDS(VR4300Interpreter &cpu, uint32_t op_code)
 
     invalid = std::isnan(operand1) && ((fpr1_val >> 22) & 1) ||
               std::isnan(operand2) && ((fpr2_val >> 22) & 1) ||
-              std::isinf(operand1) || std::isinf(operand2);
+              std::isinf(operand1) && std::isinf(operand2);
     if (invalid)
     {
         inexact = 0;
@@ -2833,7 +2833,7 @@ void ADDD(VR4300Interpreter &cpu, uint32_t op_code)
 
     invalid = std::isnan(operand1) && ((fpr1_val >> 51) & 1) ||
               std::isnan(operand2) && ((fpr2_val >> 51) & 1) ||
-              std::isinf(operand1) || std::isinf(operand2);
+              std::isinf(operand1) && std::isinf(operand2);
     if (invalid)
     {
         inexact = 0;
@@ -2924,7 +2924,7 @@ void SUBS(VR4300Interpreter &cpu, uint32_t op_code)
 
     invalid = std::isnan(operand1) && ((fpr1_val >> 22) & 1) ||
               std::isnan(operand2) && ((fpr2_val >> 22) & 1) ||
-              std::isinf(operand1) || std::isinf(operand2);
+              std::isinf(operand1) && std::isinf(operand2);
     if (invalid)
     {
         inexact = 0;
@@ -2995,7 +2995,7 @@ void SUBD(VR4300Interpreter &cpu, uint32_t op_code)
 
     invalid = std::isnan(operand1) && ((fpr1_val >> 51) & 1) ||
               std::isnan(operand2) && ((fpr2_val >> 51) & 1) ||
-              std::isinf(operand1) || std::isinf(operand2);
+              std::isinf(operand1) && std::isinf(operand2);
     if (invalid)
     {
         inexact = 0;

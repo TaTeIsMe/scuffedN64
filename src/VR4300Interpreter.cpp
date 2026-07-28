@@ -263,9 +263,8 @@ bool VR4300Interpreter::check_fpu_exception(uint64_t op_PC){
     //wooo magic numbers
     fpu.FCR31 |= (Cause & 0x1F & ~Enables) << 2;
     if( ((Enables | 0x20) & Cause) != 0){
-        //TODO fix fpu exceptions
-        //cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28); // idk if this should be set only during fpu exceptions or all of them?
-        //handle_general_exception(op_PC,FPE);
+        cp0.cause = cp0.set_bits(cp0.cause,0x3 << 28,0 << 28);
+        handle_general_exception(op_PC,FPE);
         return true;
     }
     return false;
