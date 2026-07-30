@@ -1421,7 +1421,7 @@ void BCzT(VR4300Interpreter &cpu, uint32_t op_code)
         return;
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
-    if (cpu.fpu.COC)
+    if ((cpu.fpu.FCR31 & (1<<23)))
         cpu.next_PC = target;
     else
         cpu.next_PC = cpu.PC + 8;
@@ -1436,7 +1436,7 @@ void BCzF(VR4300Interpreter &cpu, uint32_t op_code)
         return;
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
-    if (!cpu.fpu.COC)
+    if (!(cpu.fpu.FCR31 & (1<<23)))
         cpu.next_PC = target;
     else
         cpu.next_PC = cpu.PC + 8;
@@ -1521,7 +1521,7 @@ void BCzTL(VR4300Interpreter &cpu, uint32_t op_code)
         return;
     
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
-    if (cpu.fpu.COC){
+    if ((cpu.fpu.FCR31 & (1<<23))){
         cpu.next_PC = target;
         cpu.do_bd();
     }
@@ -1535,7 +1535,7 @@ void BCzFL(VR4300Interpreter &cpu, uint32_t op_code)
         return;
     
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
-    if (!cpu.fpu.COC){
+    if (!(cpu.fpu.FCR31 & (1<<23))){
         cpu.next_PC = target;
         cpu.do_bd();
     }
@@ -3739,7 +3739,6 @@ void CcondS(VR4300Interpreter &cpu, uint32_t op_code)
 
     if (!cpu.check_fpu_exception(cpu.PC)){
         cpu.fpu.FCR31 = (cpu.fpu.FCR31 & ~(1<<23)) | (condition << 23);
-        cpu.fpu.COC = condition;
     }
 }
 
@@ -3789,7 +3788,6 @@ void CcondD(VR4300Interpreter &cpu, uint32_t op_code)
 
     if (!cpu.check_fpu_exception(cpu.PC)){
         cpu.fpu.FCR31 = (cpu.fpu.FCR31 & ~(1<<23)) | (condition << 23);
-        cpu.fpu.COC = condition;
     }
 }
 

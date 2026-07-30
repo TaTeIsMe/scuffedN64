@@ -3,16 +3,16 @@
 #include "OperationsInterpreter.h"
 #include <iomanip>
 
-constexpr uint32_t rs(uint32_t op)    { return (op >> 21) & 0x1F; }
-constexpr uint32_t rt(uint32_t op)    { return (op >> 16) & 0x1F; }
-constexpr uint32_t rd(uint32_t op)    { return (op >> 11) & 0x1F; }
-constexpr uint32_t sa(uint32_t op)    { return (op >>  6) & 0x1F; }
-constexpr uint32_t funct(uint32_t op) { return op & 0x3F; }
-constexpr uint32_t imm(uint32_t op)   { return op & 0xFFFF; }
-constexpr uint32_t target(uint32_t op){ return op & 0x03FFFFFF; }
-constexpr uint32_t cz(uint32_t op)    { return (op >> 26) & 0x3; }
+constexpr uint32_t VR4300Interpreter::rs(uint32_t op) const     { return (op >> 21) & 0x1F; }
+constexpr uint32_t VR4300Interpreter::rt(uint32_t op) const     { return (op >> 16) & 0x1F; }
+constexpr uint32_t VR4300Interpreter::rd(uint32_t op) const     { return (op >> 11) & 0x1F; }
+constexpr uint32_t VR4300Interpreter::sa(uint32_t op) const     { return (op >>  6) & 0x1F; }
+constexpr uint32_t VR4300Interpreter::funct(uint32_t op) const  { return op & 0x3F; }
+constexpr uint32_t VR4300Interpreter::imm(uint32_t op) const    { return op & 0xFFFF; }
+constexpr uint32_t VR4300Interpreter::target(uint32_t op) const { return op & 0x03FFFFFF; }
+constexpr uint32_t VR4300Interpreter::cz(uint32_t op) const     { return (op >> 26) & 0x3; }
 
-Instruction decode_op(uint32_t op_code){
+Instruction VR4300Interpreter::decode_op(uint32_t op_code) const{
 
     if((op_code >> 26) == 0)
     return i_special_op_lut[op_code & 0x3F];
@@ -56,7 +56,7 @@ Instruction decode_op(uint32_t op_code){
 
 }
 
-const char* decode_op_name(uint32_t op_code){
+const char* VR4300Interpreter::decode_op_name(uint32_t op_code) const{
 
     if((op_code >> 26) == 0)
     return i_special_op_name_lut[op_code & 0x3F];
@@ -298,9 +298,9 @@ void VR4300Interpreter::dec_random(){
 
 void VR4300Interpreter::inc_count(){
     if(increment){
+        cp0.count = (uint32_t)(cp0.count + 1);
         if(cp0.count == cp0.compare )
             cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
-        cp0.count = (uint32_t)(cp0.count + 1);
         increment = false;
     }else increment = true;
 }

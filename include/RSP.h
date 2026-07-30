@@ -116,7 +116,7 @@ struct OSTask{
     static OSTask parse_from_mem(std::vector<uint8_t> mem, uint32_t addr);
 };
 
-class RSP
+class RSP : public MemoryArea
 {
 public:
 
@@ -193,4 +193,7 @@ public:
     void finish_task();
 
     void process_gfx_task(OSTask task);
+
+    void write_size(uint32_t address, uint64_t value, uint8_t size) override;
+    uint64_t read_size(uint32_t address, uint8_t size) override;
 };

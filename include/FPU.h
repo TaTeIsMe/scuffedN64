@@ -27,8 +27,6 @@ public:
     
     CP0 &cp0;
 
-    bool COC = false;
-
     union {
         struct {
             uint64_t FGR0;

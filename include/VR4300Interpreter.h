@@ -10,6 +10,9 @@
 #define DCACHE_STALL_TIME 10
 #define ICACHE_STALL_TIME 10
 
+class VR4300Interpreter;
+using Instruction = void (*)(VR4300Interpreter&, uint32_t op_code);
+
 enum class OpType : uint32_t {
 #   define X(a) a,
 #   include "op_enum.def"
@@ -117,5 +120,15 @@ public:
 
     std::optional<uint32_t> translate_address(uint64_t v_addr);
 
-};
+    Instruction decode_op(uint32_t op_code) const;
+    const char *decode_op_name(uint32_t op_code) const;
 
+    constexpr uint32_t rs(uint32_t op) const;
+    constexpr uint32_t rt(uint32_t op) const;
+    constexpr uint32_t rd(uint32_t op) const;
+    constexpr uint32_t sa(uint32_t op) const;
+    constexpr uint32_t funct(uint32_t op) const;
+    constexpr uint32_t imm(uint32_t op) const;
+    constexpr uint32_t target(uint32_t op) const;
+    constexpr uint32_t cz(uint32_t op) const;
+};

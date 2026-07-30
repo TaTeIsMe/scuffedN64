@@ -472,7 +472,7 @@ uint64_t RSP::RSPRegs::read_size(uint32_t address, uint8_t size)
 
 void RSP::Imem::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
-    if((address + size - 1) >= mem.size())return;
+    address &= 0xFFF;
     
     for (uint8_t i = 0; i < size; i++)
     {
@@ -482,7 +482,7 @@ void RSP::Imem::write_size(uint32_t address, uint64_t value, uint8_t size)
 
 uint64_t RSP::Imem::read_size(uint32_t address, uint8_t size)
 {
-    if((address + size - 1) >= mem.size()) return 0;
+    address &= 0xFFF;
     uint64_t result = 0;
     for (uint8_t i = 0; i < size; i++)
     {
@@ -496,7 +496,7 @@ RSP::Imem::Imem():mem(0x1000){}
 
 void RSP::Dmem::write_size(uint32_t address, uint64_t value, uint8_t size)
 {
-    if((address + size - 1) >= mem.size())return;
+    address &= 0xFFF;
     
     for (uint8_t i = 0; i < size; i++)
     {
@@ -506,7 +506,7 @@ void RSP::Dmem::write_size(uint32_t address, uint64_t value, uint8_t size)
 
 uint64_t RSP::Dmem::read_size(uint32_t address, uint8_t size)
 {
-    if((address + size - 1) >= mem.size()) return 0;
+    address &= 0xFFF;
     uint64_t result = 0;
     for (uint8_t i = 0; i < size; i++)
     {
@@ -540,9 +540,7 @@ void RSP::continue_dma()
 
 void RSP::finish_dma()
 {
-
     bool mem_bank = regs.SP_DMA_SPADDR & 0x1000;
-    //this might end up copying too much memory
     while(true){
         if(count > 0){
             if(len >= 0){
@@ -569,6 +567,7 @@ void RSP::finish_dma()
         }
         break;
     }
+    regs.SP_DMA_SPADDR = mem_bank?(0x1000 + current_mem_addr):(0 + current_mem_addr) ;
 
     if(regs.SP_DMA_FULL){
         dma_direction = pending_dma_direction;
@@ -592,7 +591,43 @@ void RSP::start_task()
     task_in_progress = true;
     current_task_type = (RSPTaskType)dmem.mem[0xFC3];
     task_timer = 0; //this should break it
-    rcp.eventq.enqueue(rcp.cycles + 2000, EventType::SP_TASK_DONE);
+    uint32_t wait_time = 0;
+    switch (current_task_type)
+    {
+    case RSPTaskType::NULTASK:
+        wait_time = 10;
+        break;
+
+    case RSPTaskType::GFXTASK:
+        wait_time = 250000;
+        break;
+
+    case RSPTaskType::AUDTASK:
+        wait_time = 35000;
+        break;
+
+    case RSPTaskType::VIDTASK:
+        wait_time = 120000;
+        break;
+
+    case RSPTaskType::NJPEGTASK:
+        wait_time = 180000;
+        break;
+
+    case RSPTaskType::HVQTASK:
+        wait_time = 200000;
+        break;
+
+    case RSPTaskType::HVQMTASK:
+        wait_time = 220000;
+        break;
+
+    default:
+        wait_time = 100000;
+        break;
+    }
+
+    rcp.eventq.enqueue(rcp.cycles + wait_time, EventType::SP_TASK_DONE); // this should be longer prolly
 }
 
 void RSP::continue_task()
@@ -1482,6 +1517,23 @@ void RSP::process_gfx_task(OSTask task){
             break;
         }
     instr_ptr += 8;
+    }
+}
+
+void RSP::write_size(uint32_t address, uint64_t value, uint8_t size) {
+    if(address >= 0x40000) regs.write_size(address, value, size);
+    else{
+        if(address & 0x1000) imem.write_size(address, value, size);
+        else dmem.write_size(address, value,size);
+    }
+}
+
+uint64_t RSP::read_size(uint32_t address, uint8_t size)
+{
+    if(address >= 0x40000) return regs.read_size(address, size);
+    else{
+        if(address & 0x1000) return imem.read_size(address, size);
+        else return dmem.read_size(address, size);
     }
 };
 

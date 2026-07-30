@@ -51,13 +51,11 @@ public:
     };
 
     MemoryArea unmapped;
-    MemoryMapping map[26]={
+    MemoryMapping map[24]={
         {0x00000000, 0x03EFFFFF,rdram           ,~0x0U    }, //RDRAM
         {0x03F00000, 0x03F7FFFF,rdram.regs      ,~0x0U    }, //RDRAM regs 
         {0x03F80000, 0x03FFFFFF,rdram.regs      ,~0x0U    }, //RDRAM regs broadcast
-        {0x04000000, 0x04000FFF,rsp.dmem        ,~0x3U    }, //RSP DMEMM
-        {0x04001000, 0x04001FFF,rsp.imem        ,~0x3U    }, //RSP IMEM
-        {0x04040000, 0x040BFFFF,rsp.regs        ,~0x3U    }, //RSP regs
+        {0x04000000, 0x040BFFFF,rsp             ,~0x3U    }, //RSP regs
         {0x040C0000, 0x040FFFFF,unmapped        ,~0x3U    }, //unmapped
         {0x04100000, 0x041FFFFF,rdp.command_regs,~0x3U    }, //RDP command regs
         {0x04200000, 0x042FFFFF,rdp.span_regs   ,~0x3U    }, //RDP span regs

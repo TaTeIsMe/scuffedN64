@@ -16,15 +16,7 @@ VR4300Cycle::VR4300Cycle() : cp0(), rcp(rcp), fpu(cp0){
     RF_in.op = op_storage + 3;
 }
 
-// todo
-// fix asid
-// add exceptions.
-//  overflow exception in dc
-//  interrupts and their exceptions
-//  all exception caused by operations will be added with them
-//  fpu exceptions will be added with it
-//  reset exceptions
-// fpu
+
 void VR4300Cycle::on_pclock()
 {
     static bool increment = false;
@@ -155,7 +147,6 @@ inline bool VR4300Cycle::DC()
 
     if(update_conditional){
         fpu.FCR31 = (fpu.FCR31 & ~(1<<23)) | (in.op->conditional_val << 23);
-        fpu.COC = in.op->conditional_val;
         update_conditional = false;
     }
 

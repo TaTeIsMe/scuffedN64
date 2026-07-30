@@ -780,7 +780,7 @@ void BCzT(VR4300Cycle &cpu)
     VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
-    if (cpu.fpu.COC)
+    if ((cpu.fpu.FCR31 & (1<<23)))
         cpu.PC = target;
 }
 // this only does stuff for fpu so make later with fpu, hopefully
@@ -789,7 +789,7 @@ void BCzF(VR4300Cycle &cpu)
     VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
-    if (!cpu.fpu.COC)
+    if (!(cpu.fpu.FCR31 & (1<<23)))
         cpu.PC = target;
 }
 void DMTCz(VR4300Cycle &cpu)
@@ -819,7 +819,7 @@ void BCzTL(VR4300Cycle &cpu)
     VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
-    if (cpu.fpu.COC)
+    if ((cpu.fpu.FCR31 & (1<<23)))
         cpu.PC = target;
     else
         cpu.discard_bd = true;
@@ -830,7 +830,7 @@ void BCzFL(VR4300Cycle &cpu)
     VR4300Cycle::Operation &op = *cpu.EX_in.op;
     op.result = op.PC + 8;
     uint64_t target = 4 + op.PC + (((int16_t)(op.opcode & 0xFFFF)) << 2);
-    if (!cpu.fpu.COC)
+    if (!(cpu.fpu.FCR31 & (1<<23)))
         cpu.PC = target;
     else
         cpu.discard_bd = true;

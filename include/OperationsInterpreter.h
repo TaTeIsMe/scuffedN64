@@ -1,7 +1,6 @@
 #pragma once
 #include"VR4300Interpreter.h"
 
-using Instruction = void (*)(VR4300Interpreter&, uint32_t op_code);
 
 void NOP(VR4300Interpreter &cpu, uint32_t op_code);
 
