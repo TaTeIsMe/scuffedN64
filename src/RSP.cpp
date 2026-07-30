@@ -528,7 +528,7 @@ void RSP::start_dma()
     current_ram_addr = ram_start;
     current_mem_addr = mem_start;
     //timer = len * count / 8 * 3;
-    rcp.eventq.enqueue(rcp.cycles + len * count / 8 * 3,EventType::SP_DMA_DONE);
+    rcp.eventq.enqueue(rcp.cycles + len * count / 8 * 50,EventType::SP_DMA_DONE);
 }
 
 void RSP::continue_dma()
