@@ -80,7 +80,7 @@ void PeripheralInterface::start_dma()
     //for now this only handles cartridge access
     current_cart_addr = PI_CART_ADDR - 0x10000000;
     //timer = len * 4 / 8;
-    rcp.eventq.enqueue(rcp.cycles + len * 4 / 8 * 50, EventType::PI_DMA_DONE);
+    rcp.eventq.enqueue(rcp.vr4300.cycles + len * 4 / 8 * 20, EventType::PI_DMA_DONE);
 }
 
 void PeripheralInterface::continue_dma()

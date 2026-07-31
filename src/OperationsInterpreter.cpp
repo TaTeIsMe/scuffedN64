@@ -21,6 +21,8 @@ void NOP(VR4300Interpreter &cpu, uint32_t op_code) {};
 // Load/Store
 void LB(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -34,6 +36,8 @@ void LB(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LBU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -47,6 +51,8 @@ void LBU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LH(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -60,6 +66,8 @@ void LH(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LHU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -73,6 +81,8 @@ void LHU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -86,6 +96,8 @@ void LW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 3;
     uint64_t aligned_addr = data_addr & ~3;
@@ -107,6 +119,8 @@ void LWL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LWR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 3;
     uint64_t aligned_addr = data_addr & ~3;
@@ -127,6 +141,8 @@ void LWR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SB(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -141,6 +157,8 @@ void SB(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SH(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -155,6 +173,8 @@ void SH(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -169,6 +189,8 @@ void SW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 3;
     uint64_t aligned_addr = data_addr & ~3;
@@ -190,6 +212,8 @@ void SWL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SWR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 3;
     uint64_t aligned_addr = data_addr & ~3;
@@ -211,6 +235,8 @@ void SWR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -223,6 +249,8 @@ void LD(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void LDL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 7;
     uint64_t aligned_addr = data_addr & ~7;
@@ -247,6 +275,8 @@ void LDL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LDR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 7;
     uint64_t aligned_addr = data_addr & ~7;
@@ -270,6 +300,8 @@ void LDR(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void LL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -283,6 +315,8 @@ void LL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void LLD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -296,6 +330,8 @@ void LLD(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void LWU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     std::optional<uint32_t> p_addr = cpu.translate_address(data_addr);
@@ -308,6 +344,8 @@ void LWU(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void SC(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     if(!cpu.LLBit){
@@ -330,6 +368,8 @@ void SC(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SCD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
 
     if(!cpu.LLBit){
@@ -351,6 +391,8 @@ void SCD(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void SD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint8_t rt_n = rt(op_code);
     uint64_t rt_val = cpu.GPR[rt_n];
 
@@ -368,6 +410,8 @@ void SD(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SDL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 7;
     uint64_t aligned_addr = data_addr & ~7; 
@@ -392,6 +436,8 @@ void SDL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SDR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t data_addr = (int16_t)(imm(op_code)) + cpu.GPR[rs(op_code)];
     uint32_t alignment = data_addr & 7;
     uint64_t aligned_addr = data_addr & ~7;
@@ -417,6 +463,8 @@ void SDR(VR4300Interpreter &cpu, uint32_t op_code)
 // Computational
 void ADDI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     int32_t result = (int16_t)(imm(op_code)) + rs_val;
@@ -426,6 +474,8 @@ void ADDI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ADDIU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     int32_t result = (int16_t)(imm(op_code)) + rs_val;
@@ -435,6 +485,8 @@ void ADDIU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SLTI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t result = (int64_t)(int16_t)(imm(op_code)) > (int64_t)rs_val;
@@ -444,6 +496,8 @@ void SLTI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SLTIU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t result = (uint64_t)(int16_t)(imm(op_code)) > (uint64_t)rs_val;
@@ -453,6 +507,8 @@ void SLTIU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ANDI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t result = ((imm(op_code)) & rs_val);
@@ -462,6 +518,8 @@ void ANDI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ORI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t result = ((imm(op_code)) | rs_val);
@@ -471,6 +529,8 @@ void ORI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void XORI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t result = ((imm(op_code)) ^ rs_val);
@@ -480,6 +540,7 @@ void XORI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LUI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
 
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
@@ -490,6 +551,8 @@ void LUI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DADDI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     int64_t result = (int16_t)(imm(op_code)) + rs_val;
@@ -499,6 +562,8 @@ void DADDI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DADDIU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     int64_t result = (int16_t)(imm(op_code)) + rs_val;
@@ -508,6 +573,8 @@ void DADDIU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ADD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -518,6 +585,8 @@ void ADD(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ADDU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -528,6 +597,8 @@ void ADDU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SUB(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -538,6 +609,8 @@ void SUB(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SUBU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -548,6 +621,8 @@ void SUBU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SLT(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -558,6 +633,8 @@ void SLT(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SLTU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -568,6 +645,8 @@ void SLTU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void AND(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -578,6 +657,8 @@ void AND(VR4300Interpreter &cpu, uint32_t op_code)
 
 void OR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -588,6 +669,8 @@ void OR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void XOR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -597,6 +680,8 @@ void XOR(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void NOR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -607,6 +692,8 @@ void NOR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DADD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -617,6 +704,8 @@ void DADD(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DADDU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -627,6 +716,8 @@ void DADDU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSUB(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -637,6 +728,8 @@ void DSUB(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSUBU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -647,6 +740,8 @@ void DSUBU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     int32_t result =  rt_val << sa(op_code);
@@ -656,6 +751,8 @@ void SLL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SRL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     int32_t result =  (uint32_t)rt_val >> sa(op_code);
@@ -665,6 +762,8 @@ void SRL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SRA(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     int32_t result =  rt_val >> sa(op_code);
@@ -674,6 +773,8 @@ void SRA(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SLLV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -683,6 +784,8 @@ void SLLV(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void SRLV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -693,6 +796,8 @@ void SRLV(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SRAV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -703,6 +808,8 @@ void SRAV(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     uint64_t result =  rt_val << sa(op_code);
@@ -711,6 +818,8 @@ void DSLL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DSRL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     uint64_t result =  rt_val >> sa(op_code);
@@ -720,6 +829,8 @@ void DSRL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSRA(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     uint64_t result =  (int64_t)rt_val >> sa(op_code);
@@ -729,6 +840,8 @@ void DSRA(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSLLV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -739,6 +852,8 @@ void DSLLV(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSRLV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -749,6 +864,8 @@ void DSRLV(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSRAV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -759,6 +876,8 @@ void DSRAV(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSLL32(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     uint64_t result =  rt_val << (32 + sa(op_code));
@@ -767,6 +886,8 @@ void DSLL32(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DSRL32(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     uint64_t result =  rt_val >> (32 + sa(op_code));
@@ -776,6 +897,8 @@ void DSRL32(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DSRA32(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+    
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
     uint64_t result =  (int64_t)rt_val >> (32 + sa(op_code));
@@ -785,6 +908,8 @@ void DSRA32(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MULT(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -796,6 +921,8 @@ void MULT(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MULTU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -807,6 +934,8 @@ void MULTU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DIV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(37);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -832,6 +961,8 @@ void DIV(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DIVU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(37);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -850,26 +981,36 @@ void DIVU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MFHI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.GPR[rd(op_code)] = cpu.HI;
 }
 
 void MFLO(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.GPR[rd(op_code)] = cpu.LO;
 }
 
 void MTHI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+    
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     cpu.HI = rs_val;
 }
 void MTLO(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     cpu.LO = rs_val;
 }
 void DMULT(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(8);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -880,6 +1021,8 @@ void DMULT(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DMULTU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(8);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -890,6 +1033,8 @@ void DMULTU(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DDIV(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(69);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -914,6 +1059,8 @@ void DDIV(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DDIVU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(69);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -933,6 +1080,8 @@ void DDIVU(VR4300Interpreter &cpu, uint32_t op_code)
 // Jump/Branch
 void J(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.next_PC = ((cpu.PC + 4) & (~0xFFFFFFF)) | (target(op_code) << 2);
 
     if(!cpu.validate_PC_align(cpu.next_PC)) return;
@@ -941,6 +1090,8 @@ void J(VR4300Interpreter &cpu, uint32_t op_code)
 
 void JAL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.next_PC = ((cpu.PC + 4) & (~0xFFFFFFF)) | (target(op_code) << 2);
     cpu.GPR[31] = cpu.PC + 8;
 
@@ -950,6 +1101,8 @@ void JAL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void JR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     cpu.next_PC = rs_val;
 
@@ -959,6 +1112,8 @@ void JR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void JALR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     cpu.next_PC = rs_val;
     
@@ -971,6 +1126,8 @@ void JALR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BEQ(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -986,6 +1143,8 @@ void BEQ(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BNE(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -1001,6 +1160,8 @@ void BNE(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BLEZ(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1015,6 +1176,8 @@ void BLEZ(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BGTZ(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1029,6 +1192,8 @@ void BGTZ(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BLTZ(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1043,6 +1208,8 @@ void BLTZ(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BGEZ(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1057,6 +1224,8 @@ void BGEZ(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BLTZAL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1073,6 +1242,8 @@ void BLTZAL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BGEZAL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1089,6 +1260,8 @@ void BGEZAL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BEQL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -1105,6 +1278,8 @@ void BEQL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BNEL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
 
@@ -1120,6 +1295,8 @@ void BNEL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void BLEZL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1134,6 +1311,8 @@ void BLEZL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void BGTZL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1147,6 +1326,8 @@ void BGTZL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void BLTZL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1160,6 +1341,8 @@ void BLTZL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void BGEZL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     uint64_t target = cpu.PC + 4 + ((int16_t)imm(op_code) << 2);
@@ -1174,6 +1357,8 @@ void BGEZL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BLTZALL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
 
     cpu.GPR[31] = cpu.PC + 8;
@@ -1191,6 +1376,8 @@ void BLTZALL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BGEZALL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     
     cpu.GPR[31] = cpu.PC + 8;
@@ -1209,21 +1396,29 @@ void BGEZALL(VR4300Interpreter &cpu, uint32_t op_code)
 // Special
 void SYNC(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     NOP(cpu,op_code); // good thing i checked...
 }
 
 void SYSCALL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.handle_general_exception(cpu.PC, Sys);
 }
 
 void BREAK(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.handle_general_exception(cpu.PC, Bp);
 }
 
 void TGE(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
     if ((int64_t)rs_val >= (int64_t)rt_val)
@@ -1232,6 +1427,8 @@ void TGE(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TGEU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
     if (rs_val >= rt_val)
@@ -1240,6 +1437,8 @@ void TGEU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLT(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
     if ((int64_t)rs_val < (int64_t)rt_val)
@@ -1248,6 +1447,8 @@ void TLT(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLTU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
     if (rs_val < rt_val)
@@ -1256,6 +1457,8 @@ void TLTU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TEQ(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
     if (rs_val == rt_val)
@@ -1264,6 +1467,8 @@ void TEQ(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TNE(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     uint64_t rt_val = cpu.GPR[rt(op_code)];
     if (rs_val != rt_val)
@@ -1272,6 +1477,8 @@ void TNE(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TGEI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     if ((int64_t)rs_val >= (int16_t)(op_code & 0xFFFF))
         cpu.handle_general_exception(cpu.PC, Tr);
@@ -1279,6 +1486,8 @@ void TGEI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TGEIU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     if (rs_val >= (op_code & 0xFFFF))
         cpu.handle_general_exception(cpu.PC, Tr);
@@ -1286,6 +1495,8 @@ void TGEIU(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLTI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     if ((int64_t)rs_val < (int16_t)(op_code & 0xFFFF))
         cpu.handle_general_exception(cpu.PC, Tr);
@@ -1293,6 +1504,8 @@ void TLTI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLTIU(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     if (rs_val < (op_code & 0xFFFF))
         cpu.handle_general_exception(cpu.PC, Tr);
@@ -1301,6 +1514,8 @@ void TLTIU(VR4300Interpreter &cpu, uint32_t op_code)
 // immidiate is sign extended here, it doesn't say in general description, good i checked...
 void TEQI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     if (rs_val == (uint64_t)(int16_t)(op_code & 0xFFFF))
         cpu.handle_general_exception(cpu.PC, Tr);
@@ -1308,6 +1523,8 @@ void TEQI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TNEI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint64_t rs_val = cpu.GPR[rs(op_code)];
     if (rs_val == (uint64_t)(int16_t)(op_code & 0xFFFF))
         cpu.handle_general_exception(cpu.PC, Tr);
@@ -1315,6 +1532,8 @@ void TNEI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LWCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1336,6 +1555,8 @@ void LWCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SWCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1359,6 +1580,8 @@ void SWCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MTCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1372,6 +1595,8 @@ void MTCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MFCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1388,6 +1613,8 @@ void MFCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CTCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1400,6 +1627,8 @@ void CTCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CFCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+    
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1417,6 +1646,8 @@ void COPz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BCzT(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1432,6 +1663,8 @@ void BCzT(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BCzF(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1446,6 +1679,8 @@ void BCzF(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DMTCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1458,6 +1693,8 @@ void DMTCz(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DMFCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1474,6 +1711,8 @@ void DMFCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void LDCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1494,6 +1733,8 @@ void LDCz(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void SDCz(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1517,6 +1758,8 @@ void SDCz(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BCzTL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
     
@@ -1531,6 +1774,8 @@ void BCzTL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void BCzFL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
     
@@ -1545,6 +1790,8 @@ void BCzFL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLBR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint8_t tlb_index = cpu.cp0.index & 0x3F;
     uint64_t G = (cpu.cp0.TLB[tlb_index][1] >> 12) & 1;
     cpu.cp0.pageMask = cpu.cp0.TLB[tlb_index][0];
@@ -1555,6 +1802,8 @@ void TLBR(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLBWI(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint8_t tlb_index = cpu.cp0.index & 0x3F;
     uint64_t G = (cpu.cp0.entryLo0 & 1) && (cpu.cp0.entryLo1 & 1);
     uint64_t pagemask_high_bits = cpu.cp0.pageMask & (0b101010101010ULL << 13);
@@ -1566,6 +1815,8 @@ void TLBWI(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TLBWR(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     uint8_t tlb_index = cpu.cp0.random & 0x3F;
     uint64_t G = (cpu.cp0.entryLo0 & 1) && (cpu.cp0.entryLo1 & 1);
     uint64_t pagemask_high_bits = cpu.cp0.pageMask & (0b101010101010ULL << 13);
@@ -1578,6 +1829,7 @@ void TLBWR(VR4300Interpreter &cpu, uint32_t op_code)
 // thsi will need to write the index reg
 void TLBP(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
 
     for (int i = 0; i < 32; i++)
     {
@@ -1604,6 +1856,8 @@ void TLBP(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ERET(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if (cpu.cp0.status & STATUS_ERL_MASK)
     {
         cpu.next_PC = cpu.cp0.errorEPC;
@@ -1621,10 +1875,13 @@ void ERET(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CACHE(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
 }
 
 void CVTSS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1639,6 +1896,8 @@ void CVTSS(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTSD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(2);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1698,6 +1957,8 @@ finish:
 
 void CVTSW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1724,6 +1985,8 @@ void CVTSW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTSL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1759,6 +2022,8 @@ finish:
 
 void CVTDS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1796,6 +2061,8 @@ finish:
 
 void CVTDD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1806,6 +2073,8 @@ void CVTDD(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTDW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+    
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1829,6 +2098,8 @@ void CVTDW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTDL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1858,6 +2129,8 @@ finish:
 
 void CVTLS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1890,6 +2163,8 @@ finish:
 
 void CVTLD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1922,6 +2197,8 @@ finish:
 
 void CVTLW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1932,6 +2209,8 @@ void CVTLW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1942,6 +2221,8 @@ void CVTLL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTWS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -1977,6 +2258,8 @@ finish:
 
 void CVTWD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2012,6 +2295,8 @@ finish:
 
 void CVTWW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2022,6 +2307,8 @@ void CVTWW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CVTWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2031,6 +2318,8 @@ void CVTWL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void ROUNDLS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2062,6 +2351,8 @@ finish:
 
 void ROUNDLD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2093,6 +2384,8 @@ finish:
 
 void ROUNDLW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2103,6 +2396,8 @@ void ROUNDLW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ROUNDLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2113,6 +2408,8 @@ void ROUNDLL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ROUNDWS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2148,6 +2445,8 @@ finish:
 
 void ROUNDWD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2183,6 +2482,8 @@ finish:
 
 void ROUNDWW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2193,6 +2494,8 @@ void ROUNDWW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ROUNDWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2203,6 +2506,8 @@ void ROUNDWL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TRUNCLS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2234,6 +2539,8 @@ finish:
 
 void TRUNCLD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2265,6 +2572,8 @@ finish:
 
 void TRUNCLW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2275,6 +2584,8 @@ void TRUNCLW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TRUNCLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2284,6 +2595,8 @@ void TRUNCLL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void TRUNCWS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2319,6 +2632,8 @@ finish:
 
 void TRUNCWD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2354,6 +2669,8 @@ finish:
 
 void TRUNCWW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2364,6 +2681,8 @@ void TRUNCWW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void TRUNCWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2373,6 +2692,8 @@ void TRUNCWL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void CEILLS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2404,6 +2725,8 @@ finish:
 
 void CEILLD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2435,6 +2758,8 @@ finish:
 
 void CEILLW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2445,6 +2770,8 @@ void CEILLW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CEILLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2455,6 +2782,8 @@ void CEILLL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CEILWS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2490,6 +2819,8 @@ finish:
 
 void CEILWD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2525,6 +2856,8 @@ finish:
 
 void CEILWW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2535,6 +2868,8 @@ void CEILWW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CEILWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2545,6 +2880,8 @@ void CEILWL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void FLOORLS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2576,6 +2913,8 @@ finish:
 
 void FLOORLD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2607,6 +2946,8 @@ finish:
 
 void FLOORLW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2617,6 +2958,8 @@ void FLOORLW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void FLOORLL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2626,6 +2969,8 @@ void FLOORLL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void FLOORWS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2661,6 +3006,8 @@ finish:
 
 void FLOORWD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2696,6 +3043,8 @@ finish:
 
 void FLOORWW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2706,6 +3055,8 @@ void FLOORWW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void FLOORWL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2717,6 +3068,8 @@ void FLOORWL(VR4300Interpreter &cpu, uint32_t op_code)
 // fpu computational
 void ADDS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(3);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2788,6 +3141,8 @@ finish:
 
 void ADDD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(3);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2859,6 +3214,8 @@ finish:
 
 void ADDW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2869,6 +3226,8 @@ void ADDW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ADDL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2879,6 +3238,8 @@ void ADDL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SUBS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(3);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -2950,6 +3311,8 @@ finish:
 
 void SUBD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(3);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3021,6 +3384,8 @@ finish:
 
 void SUBW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3031,6 +3396,8 @@ void SUBW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SUBL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3040,6 +3407,8 @@ void SUBL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void MULS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(5);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3112,6 +3481,8 @@ finish:
 
 void MULD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(8);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3184,6 +3555,8 @@ finish:
 
 void MULW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3194,6 +3567,8 @@ void MULW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MULL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3203,6 +3578,8 @@ void MULL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void DIVS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(29);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3282,6 +3659,8 @@ finish:
 
 void DIVD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(58);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3361,6 +3740,8 @@ finish:
 
 void DIVW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3371,6 +3752,8 @@ void DIVW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void DIVL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3380,6 +3763,8 @@ void DIVL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void ABSS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3413,6 +3798,8 @@ finish:
 
 void ABSD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3446,6 +3833,8 @@ finish:
 
 void ABSW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3456,6 +3845,8 @@ void ABSW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void ABSL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3465,6 +3856,8 @@ void ABSL(VR4300Interpreter &cpu, uint32_t op_code)
 }
 void MOVS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3474,6 +3867,8 @@ void MOVS(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MOVD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3483,6 +3878,8 @@ void MOVD(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MOVW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3493,6 +3890,8 @@ void MOVW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void MOVL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3503,6 +3902,8 @@ void MOVL(VR4300Interpreter &cpu, uint32_t op_code)
 
 void NEGS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3536,6 +3937,8 @@ finish:
 
 void NEGD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
         
@@ -3569,6 +3972,8 @@ finish:
 
 void NEGW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3579,12 +3984,16 @@ void NEGW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void NEGL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     cpu.fpu.clear_cause();
     cpu.fpu.set_cause(0, 0, 0, 0, 0, 1);
     cpu.check_fpu_exception(cpu.PC);
 }
 void SQRTS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(29);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3630,6 +4039,8 @@ finish:
 
 void SQRTD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(58);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
     
@@ -3675,6 +4086,8 @@ finish:
 
 void SQRTW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
     
@@ -3685,6 +4098,8 @@ void SQRTW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void SQRTL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
         
@@ -3695,6 +4110,8 @@ void SQRTL(VR4300Interpreter &cpu, uint32_t op_code)
 // fpu compare
 void CcondS(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3744,6 +4161,8 @@ void CcondS(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CcondD(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3793,6 +4212,8 @@ void CcondD(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CcondW(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 
@@ -3803,6 +4224,8 @@ void CcondW(VR4300Interpreter &cpu, uint32_t op_code)
 
 void CcondL(VR4300Interpreter &cpu, uint32_t op_code)
 {
+    cpu.inc_cycles(1);
+
     if(!cpu.cp_usable(cz(op_code)))
         return;
 

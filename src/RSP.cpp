@@ -528,7 +528,7 @@ void RSP::start_dma()
     current_ram_addr = ram_start;
     current_mem_addr = mem_start;
     //timer = len * count / 8 * 3;
-    rcp.eventq.enqueue(rcp.cycles + len * count / 8 * 50,EventType::SP_DMA_DONE);
+    rcp.eventq.enqueue(rcp.vr4300.cycles + len * count / 8 * 20,EventType::SP_DMA_DONE);
 }
 
 void RSP::continue_dma()
@@ -595,7 +595,7 @@ void RSP::start_task()
     switch (current_task_type)
     {
     case RSPTaskType::NULTASK:
-        wait_time = 10;
+        wait_time = 1000;
         break;
 
     case RSPTaskType::GFXTASK:
@@ -627,7 +627,7 @@ void RSP::start_task()
         break;
     }
 
-    rcp.eventq.enqueue(rcp.cycles + wait_time, EventType::SP_TASK_DONE); // this should be longer prolly
+    rcp.eventq.enqueue(rcp.vr4300.cycles + wait_time, EventType::SP_TASK_DONE); // this should be longer prolly
 }
 
 void RSP::continue_task()

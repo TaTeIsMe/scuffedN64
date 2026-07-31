@@ -19,7 +19,7 @@ void EventQ::enqueue(uint64_t time, EventType type)
 void EventQ::process_queue()
 {
     constexpr size_t num_events = static_cast<size_t>(EventType::COUNT);
-    while (curr_min <= rcp->cycles)
+    while (curr_min <= rcp->vr4300.cycles)
     {
         uint64_t* min_ptr = std::min_element(event_times, event_times + 5);
         size_t min_idx = std::distance(event_times, min_ptr);
@@ -29,7 +29,7 @@ void EventQ::process_queue()
         {
             case EventType::VI_DONE:
             rcp->mi.route_interrupt(InterruptSource::VI);
-            enqueue(rcp->cycles + 1'500'000, EventType::VI_DONE); // this value shoudl be 1.5 mil for corect ratio
+            enqueue(rcp->vr4300.cycles + 1'500'000, EventType::VI_DONE); // this value shoudl be 1.5 mil for corect ratio
             break;
             
             case EventType::PI_DMA_DONE:

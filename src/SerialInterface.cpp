@@ -50,7 +50,7 @@ void SerialInterface::start_dma()
 
     int latency = dma_direction?64*3:1500;
 
-    rcp.eventq.enqueue(rcp.cycles + latency, EventType::SI_DMA_DONE);
+    rcp.eventq.enqueue(rcp.vr4300.cycles + latency, EventType::SI_DMA_DONE);
 }
 
 void SerialInterface::continue_dma()

@@ -28,7 +28,7 @@ int main(){
     VR4300Interpreter vr4300;
     EventQ eventq;
     RCP rcp(vr4300, rdram, cartridge, pif, gfx, eventq);
-    eventq.enqueue(rcp.cycles + 1500000,EventType::VI_DONE);
+    eventq.enqueue(rcp.vr4300.cycles + 1500000,EventType::VI_DONE);
     eventq.rcp = &rcp;
     vr4300.rcp = &rcp;
     pif.rcp = &rcp;
@@ -70,7 +70,6 @@ int main(){
     while(true){
         vr4300.on_pclock();
 
-        rcp.cycles++;
         eventq.process_queue();
 
     }

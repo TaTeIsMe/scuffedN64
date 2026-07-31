@@ -2,15 +2,7 @@
 #include "RCP.h"
 #include "OperationsInterpreter.h"
 #include <iomanip>
-
-constexpr uint32_t VR4300Interpreter::rs(uint32_t op) const     { return (op >> 21) & 0x1F; }
-constexpr uint32_t VR4300Interpreter::rt(uint32_t op) const     { return (op >> 16) & 0x1F; }
-constexpr uint32_t VR4300Interpreter::rd(uint32_t op) const     { return (op >> 11) & 0x1F; }
-constexpr uint32_t VR4300Interpreter::sa(uint32_t op) const     { return (op >>  6) & 0x1F; }
-constexpr uint32_t VR4300Interpreter::funct(uint32_t op) const  { return op & 0x3F; }
-constexpr uint32_t VR4300Interpreter::imm(uint32_t op) const    { return op & 0xFFFF; }
-constexpr uint32_t VR4300Interpreter::target(uint32_t op) const { return op & 0x03FFFFFF; }
-constexpr uint32_t VR4300Interpreter::cz(uint32_t op) const     { return (op >> 26) & 0x3; }
+#include "DebugClasses.h"
 
 Instruction VR4300Interpreter::decode_op(uint32_t op_code) const{
 
@@ -90,17 +82,11 @@ const char* VR4300Interpreter::decode_op_name(uint32_t op_code) const{
 }
 
 void VR4300Interpreter::on_pclock(){
-
-    //TODO replace with actual timings
-    static uint64_t i = 0;
-    i++;
-    if(i%2 == 0){
-        next_PC = PC + 4;
-        
-        do_instruction();
-        
-        PC = next_PC;
-    }
+    next_PC = PC + 4;
+    
+    do_instruction();
+    
+    PC = next_PC;
 }
 
 void VR4300Interpreter::print_instruction(uint32_t op_code)
@@ -145,8 +131,6 @@ void VR4300Interpreter::do_instruction(){
 
     dec_random();
 
-    inc_count();
-
     uint8_t IP = cp0.get_bits(cp0.cause,CAUSE_IP_MASK,CAUSE_IP_SHIFT);
     if((IP & cp0.IM) && cp0.IE && !cp0.EXL && !cp0.ERL){
         handle_general_exception(PC,Int);
@@ -159,6 +143,7 @@ void VR4300Interpreter::do_instruction(){
         return;
 
     uint32_t op_code = 0;
+
     //TODO more graceful memory access
     if((*PC_p >> 24) < 4)
         op_code = rcp->rdram.read_size(*PC_p,4);
@@ -213,8 +198,10 @@ std::optional<uint32_t> VR4300Interpreter::translate_address(uint64_t v_addr){
 
 VR4300Interpreter::VR4300Interpreter():fpu(cp0){}
 
-void VR4300Interpreter::handle_tlb_miss_exception(uint64_t op_PC, uint64_t addr, ExceptionCode cause)
-{
+void VR4300Interpreter::handle_tlb_miss_exception(uint64_t op_PC, uint64_t addr, ExceptionCode cause){
+    
+    inc_cycles(3);
+
     //this is literally just the flow chart from page 203 copied
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     set_tlb_context(addr);
@@ -240,6 +227,9 @@ void VR4300Interpreter::handle_tlb_miss_exception(uint64_t op_PC, uint64_t addr,
 }
 
 void VR4300Interpreter::handle_general_exception(uint64_t op_PC, ExceptionCode cause){
+
+    inc_cycles(3);
+
     cp0.cause = cp0.set_bits(cp0.cause,CAUSE_EXCCODE_MASK,cause<<CAUSE_EXCCODE_SHIFT);
     
     if(!cp0.EXL){
@@ -296,11 +286,17 @@ void VR4300Interpreter::dec_random(){
     }
 }
 
-void VR4300Interpreter::inc_count(){
-    if(increment){
-        cp0.count = (uint32_t)(cp0.count + 1);
-        if(cp0.count == cp0.compare )
-            cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
-        increment = false;
-    }else increment = true;
+void VR4300Interpreter::inc_cycles(uint8_t inc){
+
+    cycles += inc;
+
+    for(int i = 0; i < inc; ++i){
+        if(increment){
+            cp0.count = (uint32_t)(cp0.count + 1);
+            if((uint32_t)cp0.count == (uint32_t)cp0.compare )
+                cp0.cause = cp0.set_bits(cp0.cause, CAUSE_IP_TIMER_MASK, 1 << CAUSE_IP_TIMER_SHIFT);
+            increment = false;
+        }else increment = true;
+    }
+
 }

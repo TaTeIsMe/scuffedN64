@@ -69,7 +69,7 @@ struct InstructionTraceEntry
 class InstructionTraceBuffer
 {
 public:
-    static constexpr size_t MAX_HISTORY = 50000;
+    static constexpr size_t MAX_HISTORY = 5000000;
 
     void record(uint32_t pc,
                 uint32_t opcode,

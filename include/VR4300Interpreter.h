@@ -102,7 +102,7 @@ public:
 
     void dec_random();
 
-    void inc_count();
+    void inc_cycles(uint8_t inc);
 
     void set_tlb_context(uint64_t addr);
 
@@ -123,12 +123,13 @@ public:
     Instruction decode_op(uint32_t op_code) const;
     const char *decode_op_name(uint32_t op_code) const;
 
-    constexpr uint32_t rs(uint32_t op) const;
-    constexpr uint32_t rt(uint32_t op) const;
-    constexpr uint32_t rd(uint32_t op) const;
-    constexpr uint32_t sa(uint32_t op) const;
-    constexpr uint32_t funct(uint32_t op) const;
-    constexpr uint32_t imm(uint32_t op) const;
-    constexpr uint32_t target(uint32_t op) const;
-    constexpr uint32_t cz(uint32_t op) const;
+    constexpr uint32_t rs(uint32_t op) const     { return (op >> 21) & 0x1F; };
+    constexpr uint32_t rt(uint32_t op) const     { return (op >> 16) & 0x1F; };
+    constexpr uint32_t rd(uint32_t op) const     { return (op >> 11) & 0x1F; };
+    constexpr uint32_t sa(uint32_t op) const     { return (op >>  6) & 0x1F; };
+    constexpr uint32_t funct(uint32_t op) const  { return op & 0x3F; };
+    constexpr uint32_t imm(uint32_t op) const    { return op & 0xFFFF; };
+    constexpr uint32_t target(uint32_t op) const { return op & 0x03FFFFFF; };
+    constexpr uint32_t cz(uint32_t op) const     { return (op >> 26) & 0x3; };
+
 };

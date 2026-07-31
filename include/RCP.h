@@ -34,8 +34,6 @@ public:
     EventQ& eventq;
     
     RCP(VR4300& vr4300,Rdram& rdram, Cartridge& cartridge, Pif& pif, GFX& gfx, EventQ& eventq);
-
-    uint64_t cycles = 0;
     
     //for all reads i am not sure if unalligned acces is allowed
     uint64_t read_size(uint64_t address, uint8_t size);
