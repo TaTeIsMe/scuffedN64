@@ -12,10 +12,15 @@
 #include <iostream>
 #include"EventQ.h"
 
-int main(){
+int main(int argc, char *argv[]){
     
-    std::ifstream rom_file("./ROMS/ZELOOTD.z64", std::ios::binary);
-    //std::ifstream rom_file("./ROMS/n64-systemtest.z64", std::ios::binary);
+    std::ifstream rom_file(argv[1], std::ios::binary);
+
+    if(rom_file.fail()){
+        std::cerr << "File failed to open \n";
+        return 0;
+    }
+
     std::vector<uint8_t> rom(
         (std::istreambuf_iterator<char>(rom_file)),
         std::istreambuf_iterator<char>()
